@@ -4,8 +4,8 @@ A message definition and protocol where messages are relational and verifiable b
 
 A key motivation for msgr is to replace email keeping the good parts (like the ability to send an unsolicited message directly to an address); cutting out the bad (like inefficiency and inconsistency of clients concatenating email chains in different ways); and, designing for a modern Internet where messages may be between machines or people, or combination thereof. The high level objectives of msgr are:
 
-* Ownership and control – messages are direct instead of via a 3rd party
-* Verifiable – peers can verify messages are "as written"
+* Ownership and control – messages are direct at the host level.
+* Verifiable – peers can verify messages are "as written", and on reciept verify sender sent the message.
 * Usability – user experiences can utilise the structured hierarchy of messages
 * Extensibility – hosts can advertise complementary features avaliable
 
@@ -14,7 +14,7 @@ Overall; msgr aims to be an efficient, secure and extensible messaging system wi
 
 ## Definition
 
-In programmer friendly JSON a message would looke like:
+In programmer friendly JSON a message looks like:
 
 ```JSON
 {
@@ -27,13 +27,60 @@ In programmer friendly JSON a message would looke like:
     "time": 1579706539,
     "topic": "Hello msgr!",
     "type": "text/html",
-    "msg": "&lt;!DOCTYPE html&gt;\n&lt;html&gt;\n\n&lt;head&gt;\n    &lt;style&gt;\n        /* CSS inline as clients SHOULD not download content to display */\n        body {\n            background-color: black;\n            color: gainsboro;\n        }\n    &lt;/style&gt;\n&lt;/head&gt;\n\n&lt;body&gt;\n    &lt;h1&gt;msgr&lt;/h1&gt;\n    &lt;p&gt;A message definition and protocol where messages are relational and verifiable by all peers. Messages are sent\n        via a msgr yada yada\n    &lt;/p&gt;\n    &lt;ul&gt;\n        &lt;li&gt;Ownership and control â€“ messages are direct instead of via a 3rd party&lt;/li&gt;\n        &lt;li&gt;Verifiable â€“ peers can verify messages are &quot;as written&quot;&lt;/li&gt;\n        &lt;li&gt;Usability â€“ user experiences can utilise the structured hierarchy of messages&lt;/li&gt;\n        &lt;li&gt;Extensibility â€“ hosts can advertise complementary features avaliable&lt;/li&gt;\n    &lt;/ul&gt;\n\n&lt;/body&gt;\n\n&lt;/html&gt;"
+    "msg": "The quick brown fox jumps over the lazy dog."
 }
 ```
 
+On the wire messages are encoded thus:
 
-### Address
+| name        | type                            | comment                                                                                                      |
+| ----------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| flags       | byte                            | See msgr flags for each bit's meaning.                                                                       |
+| pid         | SHA-256                         | SHA-256 hash of message this message is a reply to. Only present if flags has pid bit set.                   |
+| from        | msgr address                    | See msgr address deifnition.                                                                                 |
+| to          | list of msgr address            | See msgr address definition. Prefixed by uint8 count of addresses of which there must be at least 1.         |
+| timestamp   | POSIX epoch                     | float64, time message was sent.                                                                              |
+| topic       | string                          | UTF-8 prefixed by unit8 size making max length 255 characters.                                               |
+| type        | mime type                       | US-ASCII encoded MIME type: RFC 6838, of msg.                                                                |
+| msg         | byte array                      | Sequence of octets prefixed by uint32 size making the max theoretical size but hosts can/should accept less. |
+| attachments | list of msgr attachment headers | See msgr attachment header definition. Prefixed by uint8 count of attachments of which there may be 0.       |
+
+### msgr flags
+
+|bit index|name|description|
+|----:|:----|:----|
+|0|has pid|This message is in reply to another so has pid field|
+|1|important|Sender indicates this message is IMPORTANT|
+|2|no reply|Sender indicates any reply will be discarded.|
+|3|no verify|Sender asks verfication skipped, hosts should be cautious accepting this, especially on the wild Internet. May be useful on trusted networks to save network and compute resources verifying many machine to machine messages.|
+|4| | |
+|5| | |
+|6| | |
+|7|written under duress|Sender indicates this message was written under duress.|
+
+### msgr attachment
+
+|name|type|comment|
+|:----|:----|:----|
+|filename|string|UTF-8 prefixed by unit8 size making max length of this field 255 characters.|
+|type|mime type|US-ASCII encoded MIME type: RFC 6838 or msg -  which hopefully the recepient(s) can decode.|
+|size|unit32|Size of attachment making the max theoretical size, but hosts can/should accept less.|
+| | | |
+|data|byte array|Sequence of octets|
+
+
+### msgr address
 
 
 
 ## Protocol
+
+
+
+
+
+
+
+
+
+
