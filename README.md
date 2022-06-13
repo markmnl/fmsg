@@ -4,10 +4,11 @@ A message definition and protocol where messages are relational and verifiable b
 
 A key motivation for msgr is to replace email keeping the good parts (like the ability to send messages directly to an address); cutting out the bad (like inefficiency and inconsistency of clients concatenating email chains in different ways); and, designing for a modern Internet – where users are highly connected and messages may be frequent – between machines, people, or combination thereof. The high level objectives of msgr are:
 
-* Ownership and control – messages are direct at the host level.
-* Verifiable – peers verify messages are: "as written", sent by sender, and in case of replies sender has original.
-* Usability – user experiences can utilise the structured hierarchy of messages
-* Extensibility – hosts can advertise complementary features avaliable
+* Verifiable – peers cryptographically verify messages are "as written", sent by sender, and sender has parent (in case of replies).
+* Ownership and control – messages are direct at the host level without routing via a third party.
+* Efficency – verifibility avoids duplication of messages. Size of messages is as small as practically possible.
+* Usability – user interfaces can utilise the structured hierarchy of messages.
+* Extensibility – hosts can advertise complementary features avaliable.
 
 Overall; msgr aims to be an joyful, efficient, secure and extensible messaging system with ownership and control at the host level.
 
@@ -47,7 +48,7 @@ On the wire messages are encoded thus:
 |attachments headers| uint8 + list of msgr attachment headers | See msgr attachment header definition. Prefixed by uint8 count of attachments of which there may be 0.|
 |attachments data| bytes | Sequential binary blobs defined in attachment headers, if any.|
 
-### msgr flags
+### Flags
 
 |bit index|name|description|
 |----:|:----|:----|
@@ -60,23 +61,32 @@ On the wire messages are encoded thus:
 |6| | |
 |7|under duress|Sender indicates this message was written under duress.|
 
-### msgr attachment
+### Attachment
 
 |name|type|comment|
 |:----|:----|:----|
 |filename|string|UTF-8 prefixed by unit8 size making max length of this field 255 characters.|
 |size|unit32|Size of attachment making the max theoretical size, but hosts can/should accept less.|
 | | | |
-|data|byte array|Sequence of octets|
+|data|byte array|Sequence of octets located after all other attachment headers and respective to other attachments.|
 
 
-### msgr address
-
+### Address
+### Challenge
+### Challenge Response
+### Reject/Accept
 
 
 ## Protocol
 
-A message is sent from the sender's host to each recepiant's host. Sending a message either wholly succeeds or fails. During the sending from one host to another several steps are performed described in the below flowchart. A connection-orientated, reliable, in-order and duplex transport is required to perform the full flow. Transmission Control Protocol (TCP) is an obvious choice, on top of which Transport Layer Security (TLS) could meet your encryption needs.
+A message is sent from the sender's host to each recepiant's host. Sending a message either wholly succeeds or fails. During the sending from one host to another several steps are performed described in the below flow diagram. A connection-orientated, reliable, in-order and duplex transport is required to perform the full flow. Transmission Control Protocol (TCP) is an obvious choice, on top of which Transport Layer Security (TLS) may meet your encryption needs.
 
 ![msgr flow diagram](flow.png) 
+*Protocol flow diagram*
+
+### Note
+
+* Each of the WORDS IN CAPS on a connection line in the above flow diagram is for a defined message per message definitions above.
+* A host reaching the TERMINATE step should tear down connection(s) without regard for the other end because they must be either malicious or not following the protocol! 
+* Closing a connection only starts after message is sent/recieved, i.e. not concurrently.
 
