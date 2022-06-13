@@ -2,10 +2,10 @@
 
 A message definition and protocol where messages are relational and verifiable by all peers. Messages are sent via a msgr host to one or more recipients. Each message is linked to the previous using a cryptographic hash forming a hierarchical blockchain.
 
-A key motivation for msgr is to replace email keeping the good parts (like the ability to send an unsolicited message directly to an address); cutting out the bad (like inefficiency and inconsistency of clients concatenating email chains in different ways); and, designing for a modern Internet where users are highly connected and messages may be frequent – between machines, people or combination thereof. The high level objectives of msgr are:
+A key motivation for msgr is to replace email keeping the good parts (like the ability to send messages directly to an address); cutting out the bad (like inefficiency and inconsistency of clients concatenating email chains in different ways); and, designing for a modern Internet – where users are highly connected and messages may be frequent – between machines, people, or combination thereof. The high level objectives of msgr are:
 
 * Ownership and control – messages are direct at the host level.
-* Verifiable – peers verify messages are "as written", and sent by host 
+* Verifiable – peers verify messages are: "as written", sent by sender, and in case of replies sender has original.
 * Usability – user experiences can utilise the structured hierarchy of messages
 * Extensibility – hosts can advertise complementary features avaliable
 
@@ -76,7 +76,7 @@ On the wire messages are encoded thus:
 
 ## Protocol
 
-A message is sent from the sender's host to each recepiant's host. Sending a message either wholly succeeds or fails. During the sending from one host to another several steps are performed described below. An asynchronous, full duplex, reliable, in-order and connection-orientated transport is required to perform the full flow. Transmission Control Protocol (TCP) is an obvious choice, on top of which Transport Layer Security (TLS) could meet your encryption needs.
+A message is sent from the sender's host to each recepiant's host. Sending a message either wholly succeeds or fails. During the sending from one host to another several steps are performed described in the below flowchart. A connection-orientated, reliable, in-order and duplex transport is required to perform the full flow. Transmission Control Protocol (TCP) is an obvious choice, on top of which Transport Layer Security (TLS) could meet your encryption needs.
 
 ![msgr flow diagram](flow.png) 
 
