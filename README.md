@@ -6,7 +6,7 @@ A key motivation for msgr is to replace email keeping the good parts (like the a
 
 * Verifiable – peers cryptographically verify messages are "as written", sent by sender, and sender has parent (in case of replies).
 * Ownership and control – messages are direct at the host level without routing via a third party.
-* Efficency – verifibility avoids duplication of messages. Size of messages is as small as practically possible.
+* Efficency – verifibility avoids duplication of messages and mitigates spam. Size of messages is as small as practically possible.
 * Usability – user interfaces can utilise the structured hierarchy of messages.
 * Extensibility – hosts can advertise complementary features avaliable.
 
@@ -40,7 +40,7 @@ On the wire messages are encoded thus:
 |flags| byte | See msgr flags for each bit's meaning.|
 |pid| bytes | SHA-256 hash of message this message is a reply to. Only present if flags has pid bit set.|
 |from| msgr address | See msgr address deifnition.|
-|to| uint8 + list of msgr address | See msgr address definition. Prefixed by uint8 count of addresses of which there must be at least 1.|
+|to| uint8 + list of msgr address | See msgr address definition. Prefixed by uint8 count, addresses must be distinct of which there must be at least 1.|
 |timestamp| float64 | POSIX epoch time message was sent from client.|
 |topic| uint8 + UTF-8 string | UTF-8 prefixed by unit8 size making max length 255 characters.|
 |type| uint8 + UTF-8 string | US-ASCII encoded MIME type: RFC 6838, of msg.|
@@ -70,23 +70,55 @@ On the wire messages are encoded thus:
 | | | |
 |data|byte array|Sequence of octets located after all other attachment headers and respective to other attachments.|
 
-
 ### Address
+
+
 ### Challenge
+
+|name|type|comment|
+|:----|:----|:----|
+|header hash|32 bytes|SHA-256 hash of message header being sent/recieved up to and including type field.|
+
 ### Challenge Response
-### Reject/Accept
+
+|name|type|comment|
+|:----|:----|:----|
+| timestamp | float64 | POSIX epoch time message was sent from client. |
+| msg hash | 32 bytes | SHA-256 hash of entire message being sent/recieved. |
+
+### Reject or Accept Response
+
+|name|type|comment|
+|:----|:----|:----|
+| count | byte | the number of recepients and hence codes for in message for this host |
+| codes | bytes | a code, see below, for each recepient in message for this host in order |
+
+#### Reject or Accept Response Codes
+
+|code | name                  | description                                                             |
+|----:|-----------------------|-------------------------------------------------------------------------|
+| 1   | undisclosed           | no reason is given                                                      |
+| 2   | too big               | message size exceeds host's maximum tolerance                           |
+| 3   | insufficent resources | such as disk space to store the message or network quota                |
+| 4   | parent unavaliable    | the parent is unavaliable at this time to verify pid supplied           |
+| 5   | past time             | timestamp in the message is too far in the past for this host to accept |
+| 6   | future time           | timestamp in message is too far in the future for this host to accept   |
+| 7   | user unknown          | the user is unknown by this host                                        |
+|     |                       |                                                                         |
+| 255 | accept                | message recieved     
 
 
 ## Protocol
 
-A message is sent from the sender's host to each recepiant's host. Sending a message either wholly succeeds or fails. During the sending from one host to another several steps are performed described in the below flow diagram. A connection-orientated, reliable, in-order and duplex transport is required to perform the full flow. Transmission Control Protocol (TCP) is an obvious choice, on top of which Transport Layer Security (TLS) may meet your encryption needs.
+A message is sent from the sender's host to each unique recepient host. Sending a message either wholly succeeds or fails to each recepient. During the sending from one host to another several steps are performed described in the below flow diagram. A connection-orientated, reliable, in-order and duplex transport is required to perform the full flow. Transmission Control Protocol (TCP) is an obvious choice, on top of which Transport Layer Security (TLS) may meet your encryption needs.
 
-![msgr flow diagram](flow.png) 
+![msgr flow diagram](flow.png)
+
 *Protocol flow diagram*
 
 ### Note
 
-* Each of the WORDS IN CAPS on a connection line in the above flow diagram is for a defined message per message definitions above.
+* Each of the WORDS IN CAPS on a connection line in the above flow diagram is for a defined message per definitions above.
 * A host reaching the TERMINATE step should tear down connection(s) without regard for the other end because they must be either malicious or not following the protocol! 
-* Closing a connection only starts after message is sent/recieved, i.e. not concurrently.
+* Where a message is being sent and connection closed, closing only starts after message is sent/recieved, i.e. not concurrently.
 
