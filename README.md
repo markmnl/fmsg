@@ -72,6 +72,23 @@ On the wire messages are encoded thus:
 
 ### Address
 
+![msgr address](address.png)
+
+Domain part is the domain name RFC-1035 msgr host is located. Recepient part identifies the recepient known to the host message is from or to. A leading @ character is prepended to differentiate from email addresses. The secondary @ seperates recepient and domain name as per norm.
+
+Recepient part is a string of characters which must be:
+
+* UTF-8
+* case insensitive comparison
+* any letter, any language or any numeric characters
+* the hyphen "-" or underscore "_" characters non-consecutively
+* less than 255 characters
+
+A whole address is encoded UTF-8 prepended with size:
+
+|name|type|comment|
+|:----|:----|:----|
+|address|uint16 + string|UTF-8 encoded string prefixed with uint16 size|
 
 ### Challenge
 
@@ -110,7 +127,7 @@ On the wire messages are encoded thus:
 
 ## Protocol
 
-A message is sent from the sender's host to each unique recepient host. Sending a message either wholly succeeds or fails to each recepient. During the sending from one host to another several steps are performed described in the below flow diagram. A connection-orientated, reliable, in-order and duplex transport is required to perform the full flow. Transmission Control Protocol (TCP) is an obvious choice, on top of which Transport Layer Security (TLS) may meet your encryption needs.
+A message is sent from the sender's host to each unique recepient host (i.e. each domain). Sending a message either wholly succeeds or fails to each recepient. During the sending from one host to another several steps are performed described in the below flow diagram. A connection-orientated, reliable, in-order and duplex transport is required to perform the full flow. Transmission Control Protocol (TCP) is an obvious choice, on top of which Transport Layer Security (TLS) may meet your encryption needs.
 
 ![msgr flow diagram](flow.png)
 
