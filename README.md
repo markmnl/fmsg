@@ -82,7 +82,7 @@ Recepient part is a string of characters which must be:
 * case insensitive comparison
 * any letter, any language or any numeric characters
 * the hyphen "-" or underscore "_" characters non-consecutively
-* less than 255 characters
+* less than 256 characters
 
 A whole address is encoded UTF-8 prepended with size:
 
