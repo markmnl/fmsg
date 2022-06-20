@@ -19,6 +19,7 @@ In programmer friendly JSON a message looks like:
 
 ```JSON
 {
+    "version": 1,
     "flags": 0,
     "pid": null,
     "from": "@markmnl@msgr.org",
@@ -37,6 +38,7 @@ On the wire messages are encoded thus:
 
 |name|type|description|
 |----|----|----|
+|version| byte | Version number message is in (currently only 1) |
 |flags| byte | See msgr flags for each bit's meaning.|
 |pid| bytes | SHA-256 hash of message this message is a reply to. Only present if flags has pid bit set.|
 |from| msgr address | See msgr address deifnition.|
@@ -80,7 +82,7 @@ Recepient part is a string of characters which must be:
 
 * UTF-8
 * case insensitive comparison
-* any letter, any language or any numeric characters
+* any letter in any language, or any numeric characters
 * the hyphen "-" or underscore "_" characters non-consecutively
 * less than 256 characters
 
@@ -136,7 +138,9 @@ A message is sent from the sender's host to each unique recepient host (i.e. eac
 ### Note
 
 * Each of the WORDS IN CAPS on a connection line in the above flow diagram is for a defined message per definitions above.
-* A new connection is opened from the recieving host to the purported sender's domain so the receiving host can verify sending host indeed exists _and_ can prove they are sending the message (in the CHALLENGE, CHALLENGE RESP exchange). 
+* A new connection is opened from the recieving host to the purported sender's domain so the receiving host can verify sending host indeed exists _and_ can prove they are sending this message (in the CHALLENGE, CHALLENGE RESP exchange). 
 * A host reaching the TERMINATE step should tear down connection(s) without regard for the other end because they must be either malicious or not following the protocol! 
 * Where a message is being sent and connection closed, closing only starts after message is sent/recieved, i.e. not concurrently.
+
+
 
