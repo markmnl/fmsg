@@ -4,7 +4,7 @@ A message definition and protocol where messages are relational and verifiable b
 
 A key motivation for msgr is to replace email keeping the good parts (like the ability to send messages directly to an address); cutting out the bad (like inefficiency and inconsistency of clients concatenating email chains in different ways); and, designing for a modern Internet – where users are highly connected and messages may be frequent – between machines, people, or combination thereof. The high level objectives of msgr are:
 
-* Verifiable – peers cryptographically verify messages are "as written", sent by sender, and sender has parent (in case of replies).
+* Verifiable – peers cryptographically verify messages are "as written", sent by sender, and in the case of replies: sender has original.
 * Ownership and control – messages are direct at the host level without routing via a third party.
 * Efficency – verifibility avoids duplication of messages and mitigates spam. Size of messages is as small as practically possible.
 * Usability – user interfaces can utilise the structured hierarchy of messages.
@@ -74,7 +74,7 @@ On the wire messages are encoded thus:
 
 ![msgr address](address.png)
 
-Domain part is the domain name RFC-1035 msgr host is located. Recepient part identifies the recepient known to the host message is from or to. A leading @ character is prepended to differentiate from email addresses. The secondary @ seperates recepient and domain name as per norm.
+Domain part is the domain name RFC-1035 msgr host is located. Recepient part identifies the recepient known to the host message is from or to. A leading @ character is prepended to distinguish from email addresses. The secondary @ seperates recepient and domain name as per norm.
 
 Recepient part is a string of characters which must be:
 
@@ -127,7 +127,7 @@ A whole address is encoded UTF-8 prepended with size:
 
 ## Protocol
 
-A message is sent from the sender's host to each unique recepient host (i.e. each domain). Sending a message either wholly succeeds or fails to each recepient. During the sending from one host to another several steps are performed described in the below flow diagram. A connection-orientated, reliable, in-order and duplex transport is required to perform the full flow. Transmission Control Protocol (TCP) is an obvious choice, on top of which Transport Layer Security (TLS) may meet your encryption needs.
+A message is sent from the sender's host to each unique recepient host (i.e. each unqiue domain). Sending a message either wholly succeeds or fails to each recepient. During the sending from one host to another several steps are performed depicted in the below flow diagram. A connection-orientated, reliable, in-order and duplex transport is required to perform the full flow. Transmission Control Protocol (TCP) is an obvious choice, on top of which Transport Layer Security (TLS) may meet your encryption needs.
 
 ![msgr flow diagram](flow.png)
 
@@ -136,6 +136,7 @@ A message is sent from the sender's host to each unique recepient host (i.e. eac
 ### Note
 
 * Each of the WORDS IN CAPS on a connection line in the above flow diagram is for a defined message per definitions above.
+* A new connection is opened from the recieving host to the purported sender's domain so the receiving host can verify sending host indeed exists _and_ can prove they are sending the message (in the CHALLENGE, CHALLENGE RESP exchange). 
 * A host reaching the TERMINATE step should tear down connection(s) without regard for the other end because they must be either malicious or not following the protocol! 
 * Where a message is being sent and connection closed, closing only starts after message is sent/recieved, i.e. not concurrently.
 
