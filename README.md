@@ -38,17 +38,17 @@ On the wire messages are encoded thus:
 
 |name|type|description|
 |----|----|----|
-|version| byte | Version number message is in (currently only 1) |
-|flags| byte | See fmsg flags for each bit's meaning.|
-|pid| bytes | SHA-256 hash of message this message is a reply to. Only present if flags has pid bit set.|
+|version| uint8 | Version number message is in (currently only 1) |
+|flags| uint8 | See fmsg flags for each bit's meaning.|
+|pid| byte array | SHA-256 hash of message this message is a reply to. Only present if flags has pid bit set.|
 |from| fmsg address | See fmsg address deifnition.|
 |to| uint8 + list of fmsg address | See fmsg address definition. Prefixed by uint8 count, addresses must be distinct of which there must be at least 1.|
 |timestamp| float64 | POSIX epoch time message was sent from client.|
 |topic| uint8 + UTF-8 string | UTF-8 prefixed by unit8 size making max length 255 characters.|
 |type| uint8 + UTF-8 string | US-ASCII encoded MIME type: RFC 6838, of msg.|
-|msg| unint32 + bytes | Sequence of octets prefixed by uint32 size making the max theoretical size but hosts can/should accept less.|
+|msg| unint32 + byte array | Sequence of octets prefixed by uint32 size making the max theoretical size but hosts can/should accept less.|
 |attachments headers| uint8 + list of fmsg attachment headers | See fmsg attachment header definition. Prefixed by uint8 count of attachments of which there may be 0.|
-|attachments data| bytes | Sequential binary blobs defined in attachment headers, if any.|
+|attachments data| byte array | Sequential binary blobs defined in attachment headers, if any.|
 
 ### Flags
 
@@ -103,14 +103,14 @@ A whole address is encoded UTF-8 prepended with size:
 |name|type|comment|
 |:----|:----|:----|
 | timestamp | float64 | POSIX epoch time message was sent from client. |
-| msg hash | 32 bytes | SHA-256 hash of entire message being sent/recieved. |
+| msg hash | 32 byte array | SHA-256 hash of entire message being sent/recieved. |
 
 ### Reject or Accept Response
 
 |name|type|comment|
 |:----|:----|:----|
 | count | byte | the number of recepients and hence codes for in message for this host |
-| codes | bytes | a code, see below, for each recepient in message for this host in order |
+| codes | byte array | a code, see below, for each recepient in message for this host in order |
 
 #### Reject or Accept Response Codes
 
