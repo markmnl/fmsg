@@ -2,15 +2,14 @@
 
 A message definition and protocol where messages are relational and verifiable by all peers. Messages are sent via a fmsg host to one or more recipients. Each message is linked to the previous using a cryptographic hash forming a hierarchical blockchain.
 
-A key motivation for fmsg is to replace email keeping the good parts (like the ability to send messages directly to an address); cutting out the bad (like inefficiency and inconsistency of clients concatenating email chains in different ways); and, designing for a modern Internet – where users are highly connected and messages may be frequent – between machines, people, or combination thereof. The high level objectives of fmsg are:
+A key motivation for fmsg is to replace email keeping the good parts (like the ability to send messages directly to an address), and cutting out the bad (like inefficiency and inconsistency of clients concatenating email chains in different ways). The high level objectives of fmsg are:
 
-* Verifiable – peers cryptographically verify messages are "as written", sent by sender, and in the case of replies: sender has original.
+* Verifiable – peers cryptographically verify messages are "as written", sent by sender, and in the case of replies sender has original.
 * Ownership and control – messages are direct at the host level without routing via a third party.
-* Efficency – verifibility avoids duplication of messages and mitigates spam. Size of messages is as small as practically possible.
+* Efficency – relational structure avoids duplication of messages and combined with verifiability mitigates spam. Size of messages is as small as practically possible.
 * Usability – user interfaces can utilise the structured hierarchy of messages.
-* Extensibility – hosts can advertise complementary features avaliable.
 
-Overall; fmsg aims to be an joyful, efficient, secure and extensible messaging system with ownership and control at the host level.
+Overall; fmsg aims to be a joyful, efficient and secure messaging system with ownership and control at the host level.
 
 
 ## Definition
@@ -76,21 +75,21 @@ On the wire messages are encoded thus:
 
 ![fmsg address](address.png)
 
-Domain part is the domain name RFC-1035 fmsg host is located. Recepient part identifies the recepient known to the host message is from or to. A leading @ character is prepended to distinguish from email addresses. The secondary @ seperates recepient and domain name as per norm.
+Domain part is the domain name RFC-1035 fmsg host is located. Recipient part identifies the recipient known to host located at domain the message is from or to. A leading @ character is prepended to distinguish from email addresses. The secondary @ seperates recipient and domain name as per norm.
 
-Recepient part is a string of characters which must be:
+Recipient part is a string of characters which must be:
 
 * UTF-8
 * case insensitive comparison
 * any letter in any language, or any numeric characters
 * the hyphen "-" or underscore "_" characters non-consecutively
-* less than 256 characters
+* less than 256 bytes when combined with domain name and @ character
 
 A whole address is encoded UTF-8 prepended with size:
 
 |name|type|comment|
 |:----|:----|:----|
-|address|uint16 + string|UTF-8 encoded string prefixed with uint16 size|
+|address|uint8 + string|UTF-8 encoded string prefixed with uint8 size|
 
 ### Challenge
 
@@ -129,7 +128,7 @@ A whole address is encoded UTF-8 prepended with size:
 
 ## Protocol
 
-A message is sent from the sender's host to each unique recepient host (i.e. each unqiue domain). Sending a message either wholly succeeds or fails to each recepient. During the sending from one host to another several steps are performed depicted in the below flow diagram. A connection-orientated, reliable, in-order and duplex transport is required to perform the full flow. Transmission Control Protocol (TCP) is an obvious choice, on top of which Transport Layer Security (TLS) may meet your encryption needs.
+A message is sent from the sender's host to each unique recipient host (i.e. each unqiue domain). Sending a message either wholly succeeds or fails to each recipient. During the sending from one host to another several steps are performed depicted in the below flow diagram. A connection-orientated, reliable, in-order and duplex transport is required to perform the full flow. Transmission Control Protocol (TCP) is an obvious choice, on top of which Transport Layer Security (TLS) may meet your encryption needs.
 
 ![fmsg flow diagram](flow.png)
 
