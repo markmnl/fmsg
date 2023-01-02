@@ -1,8 +1,8 @@
 # fmsg
 
-A message definition and protocol where messages are relational and verifiable by all peers. Messages are sent via a fmsg host to one or more recipients. Each message in a thread is linked to the previous using a cryptographic hash forming a hierarchical structure – a directed acyclic graph.
+A message definition and protocol where messages are relational and verifiable by all peers. Messages are sent via a fmsg host to one or more recipients. Each message in a thread is linked to the previous using a cryptographic hash forming a hierarchical directed acyclic graph.
 
-A key motivation for fmsg is to supersede electronic mail (email) keeping the good parts (like the ability to send messages directly to an address), with modern re-design to solve real-world defficencies of email today (like spam and the inefficiency and inconsistency of clients concatenating email chains in different ways). Implementations can use modern programming languages and features; whereas administering email servers today requires specialisation – worrisome given email's ubiquity. The high level objectives of fmsg are:
+The lofty ambition of fmsg is to supersede electronic mail (email) keeping the good parts (like the ability to send messages directly to an address), and solving the bad (like spam and the inefficiency and inconsistency of clients concatenating email chains in different ways). The high level objectives of fmsg are:
 
 * Verifiability – hosts cryptographically verify messages are "as written", the sending host can prove they are indeed sending the message, and, in the case of replies the sender has original.
 * Ownership and control – messages are direct at the host level without routing via a third party. Anyone or entity can setup a host at their domain.
@@ -21,10 +21,10 @@ In programmer friendly JSON a message looks like:
     "version": 1,
     "flags": 0,
     "pid": null,
-    "from": "@markmnl@fmsg.org",
+    "from": "@markmnl@fmsg.io",
     "to": [
-        "@tim@example.com",
-        "@chris@example.com"
+        "@世界@example.com",
+        "@chris@fmsg.io"
     ],
     "time": 1654503265.679954,
     "topic": "Hello fmsg!",
@@ -75,15 +75,15 @@ On the wire messages are encoded thus:
 
 ![fmsg address](address.png)
 
-Domain part is the domain name RFC-1035 fmsg host is located. Recipient part identifies the recipient known to host located at domain the message is from or to. A leading @ character is prepended to distinguish from email addresses. The secondary @ seperates recipient and domain name as per norm.
+Domain part is the domain name RFC-1035 fmsg host is located. Recipient part identifies the recipient known to host located at domain. A leading @ character is prepended to distinguish from email addresses. The secondary @ seperates recipient and domain name as per norm.
 
 Recipient part is a string of characters which must be:
 
 * UTF-8
-* unique on host using case insensitive comparison
 * any letter in any language, or any numeric characters
 * the hyphen "-" or underscore "_" characters non-consecutively and not at beginning or end
-* combined with domain name and @ characters less than 256 bytes length
+* unique on host using case insensitive comparison
+* less than 256 bytes length when combined with domain name and @ characters 
 
 A whole address is encoded UTF-8 prepended with size:
 
@@ -100,20 +100,24 @@ A whole address is encoded UTF-8 prepended with size:
 
 ### Challenge Response
 
+A challenge response is the next 32 bytes recieved in reply to challenge request - the existance of which indicates the sender accepted the challenge. This SHA-256 hash should be kept to ensnure the message (and attachments) once downloaded matches.
+
 |name|type|comment|
 |:----|:----|:----|
 | msg hash | 32 byte array | SHA-256 hash of entire message including header being sent/recieved. |
 
 ### Reject or Accept Response
 
+A code less than 100 indicates rejection for all recipients and will be the only value   
+
 |name|type|comment|
 |:----|:----|:----|
-| count | byte | the number of recepients and hence codes for in message for this host |
-| codes | byte array | a code, see below, for each recepient in message for this host in order |
+| codes | byte array | a single or sequence of unit8 codes|
+
 
 #### Reject or Accept Response Codes
 
-Any code other than 255 is a rejection..
+Any code other than 255 is a rejection. Each code is a unit8.
 
 |code | name                  | description                                                             |
 |----:|-----------------------|-------------------------------------------------------------------------|
@@ -123,8 +127,9 @@ Any code other than 255 is a rejection..
 | 4   | parent unavaliable    | the parent is unavaliable at this time to verify pid supplied           |
 | 5   | past time             | timestamp in the message is too far in the past for this host to accept |
 | 6   | future time           | timestamp in message is too far in the future for this host to accept   |
-| 7   | user unknown          | the recipient message is addressed to is unknown by this host                |
-| 8   | user full             | insufficent resources for specific recipient          |
+|     |                       |                                                                         |
+| 100 | user unknown          | the recipient message is addressed to is unknown by this host           |
+| 101 | user full             | insufficent resources for specific recipient                            |
 |     |                       |                                                                         |
 | 255 | accept                | message recieved                                                        |
 
@@ -144,11 +149,3 @@ Two connection-orientated, reliable, in-order and duplex transports are required
 * A new connection is opened from the recieving host to the purported sender's domain so the receiving host can verify sending host indeed exists _and_ can prove they are sending this message (in the CHALLENGE, CHALLENGE RESP exchange). 
 * A host reaching the TERMINATE step should tear down connection(s) without regard for the other end because they must be either malicious or not following the protocol! 
 * Where a message is being sent and connection closed, closing only starts after message is sent/recieved, i.e. not concurrently.
-
-### Verfications
-
-#### Challenge
-
-#### Challenge Response
-
-#### Message Downloaded
