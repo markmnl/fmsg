@@ -1,6 +1,6 @@
 # fmsg
 
-A message definition and protocol where messages are relational and verifiable by all peers. Messages are sent via a fmsg host to one or more recipients. Each message in a thread is linked to the previous using a cryptographic hash forming a hierarchical directed acyclic graph.
+A message definition and protocol where messages are relational and verifiable by all peers. Messages are sent via a fmsg host to one or more recipients. Each message in a thread is linked to the previous using a cryptographic hash forming a hierarchical structure.
 
 The lofty ambition of fmsg is to supersede electronic mail (email) keeping the good parts (like the ability to send messages directly to an address), and solving the bad (like spam and the inefficiency and inconsistency of clients concatenating email chains in different ways). The high level objectives of fmsg are:
 
@@ -87,16 +87,16 @@ Recipient part is a string of characters which must be:
 
 A whole address is encoded UTF-8 prepended with size:
 
-|name|type|comment|
-|:----|:----|:----|
-|address|uint8 + string|UTF-8 encoded string prefixed with uint8 size|
+|name   |type           |comment                                        |
+|:------|:--------------|:----------------------------------------------|
+|address|uint8 + string |UTF-8 encoded string prefixed with uint8 size  |
 
 ### Challenge
 
-|name|type|comment|
-|:----|:----|:----|
-|version|uint8|Must be 255 which indicates this messages is a challenge|
-|header hash|32 bytes|SHA-256 hash of message header being sent/recieved up to and including type field.|
+|name        |type      |comment                                                                            |
+|:-----------|:---------|:----------------------------------------------------------------------------------|
+|version     |uint8     |Must be 255 which indicates this messages is a challenge                           |
+|header hash |32 bytes  |SHA-256 hash of message header being sent/recieved up to and including type field. |
 
 ### Challenge Response
 
@@ -108,16 +108,12 @@ A challenge response is the next 32 bytes recieved in reply to challenge request
 
 ### Reject or Accept Response
 
-A code less than 100 indicates rejection for all recipients and will be the only value   
+A code less than 100 indicates rejection for all recipients and will be the only value. Other codes are per recipient for domain in the same order as the as in the to field of the message, excluding recipients for other domains.
 
-|name|type|comment|
-|:----|:----|:----|
-| codes | byte array | a single or sequence of unit8 codes|
+|name   |type           |comment                                |
+|:------|:--------------|:--------------------------------------|
+| codes | byte array    | a single or sequence of unit8 codes   |
 
-
-#### Reject or Accept Response Codes
-
-Any code other than 255 is a rejection. Each code is a unit8.
 
 |code | name                  | description                                                             |
 |----:|-----------------------|-------------------------------------------------------------------------|
@@ -127,6 +123,7 @@ Any code other than 255 is a rejection. Each code is a unit8.
 | 4   | parent unavaliable    | the parent is unavaliable at this time to verify pid supplied           |
 | 5   | past time             | timestamp in the message is too far in the past for this host to accept |
 | 6   | future time           | timestamp in message is too far in the future for this host to accept   |
+| 7   | time travel           | timestamp in message is before parent timestamp                         |
 |     |                       |                                                                         |
 | 100 | user unknown          | the recipient message is addressed to is unknown by this host           |
 | 101 | user full             | insufficent resources for specific recipient                            |
