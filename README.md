@@ -1,10 +1,6 @@
 # fmsg
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="icon-dark.png">
-  <source media="(prefers-color-scheme: light)" srcset="icon-light.png">
-  <img alt="Icon" src="icon.png">
-</picture>
+![icon](icon.png) 
 A message definition and protocol where messages are relational and verifiable by all peers. Messages are sent via a fmsg host to one or more recipients. Each message in a thread is linked to the previous using a cryptographic hash forming a hierarchical structure.
 
 The lofty ambition of fmsg is to supersede electronic mail (email) keeping the good parts (like the ability to send messages directly to an address), and solving the bad (like spam and the inefficiency and inconsistency of clients concatenating email chains in different ways). The high level objectives of fmsg are:
@@ -121,7 +117,7 @@ A challenge response is the next 32 bytes recieved in reply to challenge request
 
 | name     | type          | comment                                                              |
 |-:--------|-:-------------|-:--------------------------------------------------------------------|
-| msg hash | 32 byte array | SHA-256 hash of entire message including header being sent/recieved. |
+| msg hash | 32 byte array | SHA-256 hash of entire message body and attachments.                 |
 
 
 ### Reject or Accept Response
@@ -164,4 +160,4 @@ Two connection-orientated, reliable, in-order and duplex transports are required
 * Each of the WORDS IN CAPS on a connection line in the above flow diagram is for a defined message per definitions above.
 * A new connection is opened from the recieving host to the purported sender's domain so the receiving host can verify sending host indeed exists _and_ can prove they are sending this message (in the CHALLENGE, CHALLENGE RESP exchange). 
 * A host reaching the TERMINATE step should tear down connection(s) without regard for the other end because they must be either malicious or not following the protocol! 
-* Where a message is being sent and connection closed, closing only starts after message is sent/recieved, i.e. not concurrently.
+* Where a message is being sent and connection closed in the diagram, closing only starts after message is sent/recieved, i.e. not concurrently.
