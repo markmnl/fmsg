@@ -48,15 +48,15 @@ On the wire messages are encoded thus:
 | name                | type                                    | description                                                                                                         |
 |---------------------|-----------------------------------------|---------------------------------------------------------------------------------------------------------------------|
 | version             | uint8                                   | Version number message is in (currently only 1); or 255 if CHALLENGE - defined below.                               |
-| flags               | uint8                                   | See fmsg flags for each bit's meaning.                                                                              |
+| flags               | uint8                                   | See [flags](#flags) for each bit's meaning.                                                                         |
 | pid                 | byte array                              | SHA-256 hash of message this message is a reply to. Only present if flags has pid bit set.                          |
-| from                | fmsg address                            | See fmsg address deifnition.                                                                                        |
-| to                  | uint8 + list of fmsg address            | See fmsg address definition. Prefixed by uint8 count, addresses must be distinct of which there must be at least 1. |
-| timestamp           | float64                                 | POSIX epoch time message was received by host sending the message.                                                  |
-| topic               | uint8 + UTF-8 string                    | UTF-8 prefixed by unit8 size making max length 255 characters.                                                      |
+| from                | fmsg address                            | See [address](#address) deifnition.                                                                                 |
+| to                  | uint8 + list of fmsg address            | See [address](#address) definition. Prefixed by uint8 count, addresses must be distinct of which there must be at least 1. |
+| time                | float64                                 | POSIX epoch time message was received by host sending the message.                                                  |
+| topic               | uint8 + UTF-8 string                    | UTF-8 free text describing content, prefixed by unit8 size making max length 255 characters, may be 0.              |
 | type                | uint8 + UTF-8 string                    | US-ASCII encoded MIME type: RFC 6838, of msg.                                                                       |
 | msg                 | unint32 + byte array                    | Sequence of octets prefixed by uint32 size making the max theoretical size but hosts can/should accept less.        |
-| attachments headers | uint8 + list of fmsg attachment headers | See fmsg attachment header definition. Prefixed by uint8 count of attachments of which there may be 0.              |
+| attachments headers | uint8 + list of fmsg attachment headers | See [attachment](#attachment) header definition. Prefixed by uint8 count of attachments of which there may be 0.    |
 | attachments data    | byte array                              | Sequential binary blobs defined in attachment headers, if any.                                                      |
 
 
@@ -75,6 +75,14 @@ On the wire messages are encoded thus:
 
 ### Attachment
 
+Attachment headers consist of the two fields and precede sequential data blobs they are for. Filename must be:
+
+* UTF-8
+* any letter in any language, or any numeric characters
+* the hyphen "-" or underscore "_" characters non-consecutively and not at beginning or end
+* unique amongst attachments
+* less than 256 bytes length
+
 | name     | type       | comment                                                                                            |
 |----------|------------|----------------------------------------------------------------------------------------------------|
 | filename | string     | UTF-8 prefixed by unit8 size making max length of this field 255 characters.                       |
@@ -86,7 +94,7 @@ On the wire messages are encoded thus:
 
 ![fmsg address](address.png)
 
-Domain part is the domain name RFC-1035 fmsg host is located. Recipient part identifies the recipient known to host located at domain. A leading @ character is prepended to distinguish from email addresses. The secondary @ seperates recipient and domain name as per norm.
+Domain part is the domain name RFC-1035 fmsg host is located. Recipient part identifies the recipient known to host located at domain. A leading "@" character is prepended to distinguish from email addresses. The secondary "@" seperates recipient and domain name as per norm.
 
 Recipient part is a string of characters which must be:
 
@@ -113,7 +121,7 @@ A whole address is encoded UTF-8 prepended with size:
 
 ### Challenge Response
 
-A challenge response is the next 32 bytes recieved in reply to challenge request - the existance of which indicates the sender accepted the challenge. This SHA-256 hash should be kept to ensnure the message (and attachments) once downloaded matches.
+A challenge response is the next 32 bytes recieved in reply to challenge request - the existance of which indicates the sender accepted the challenge. This SHA-256 hash should be kept to ensure the message (and attachments) once downloaded matches.
 
 | name     | type          | comment                                                              |
 |----------|---------------|----------------------------------------------------------------------|
@@ -148,7 +156,7 @@ A code less than 100 indicates rejection for all recipients and will be the only
 
 ## Protocol
 
-A message is sent from the sender's host to each unique recipient host (i.e. each unqiue domain). Sending a message either wholly succeeds or fails to each recipient. During the sending from one host to another several steps are performed depicted in the below flow diagram. 
+A message is sent from the sender's host to each unique recipient host (i.e. each unqiue domain). Sending a message either wholly succeeds or fails per recipient. During the sending from one host to another several steps are performed depicted in the below flow diagram. 
 Two connection-orientated, reliable, in-order and duplex transports are required to perform the full flow. Transmission Control Protocol (TCP) is an obvious choice, on top of which Transport Layer Security (TLS) may meet your encryption needs.
 
 ![fmsg flow diagram](flow.png)
