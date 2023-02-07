@@ -108,7 +108,7 @@ A challenge response is the next 32 bytes recieved in reply to challenge request
 
 ### Reject or Accept Response
 
-A code less than 100 indicates rejection for all recipients and will be the only value. Other codes are per recipient for domain in the same order as the as in the to field of the message, excluding recipients for other domains.
+A code less than 100 indicates rejection for all recipients and will be the only value. Other codes are per recipient in the same order as the as in the to field of the message excluding recipients for other domains.
 
 |name   |type           |comment                                |
 |:------|:--------------|:--------------------------------------|
@@ -124,7 +124,7 @@ A code less than 100 indicates rejection for all recipients and will be the only
 | 5   | past time             | timestamp in the message is too far in the past for this host to accept |
 | 6   | future time           | timestamp in message is too far in the future for this host to accept   |
 | 7   | time travel           | timestamp in message is before parent timestamp                         |
-| 8   | already received      | message has already been received                                       |
+| 8   | duplicate             | message has already been received                                       |
 |     |                       |                                                                         |
 | 100 | user unknown          | the recipient message is addressed to is unknown by this host           |
 | 101 | user full             | insufficent resources for specific recipient                            |
