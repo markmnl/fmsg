@@ -102,9 +102,9 @@ A whole address is encoded UTF-8 prepended with size:
 
 A challenge response is the next 32 bytes recieved in reply to challenge request - the existance of which indicates the sender accepted the challenge. This SHA-256 hash should be kept to ensnure the message (and attachments) once downloaded matches.
 
-|name|type|comment|
-|:----|:----|:----|
-| msg hash | 32 byte array | SHA-256 hash of entire message including header being sent/recieved. |
+|name         |type             |comment                                                               |
+|:------------|:----------------|:---------------------------------------------------------------------|
+| msg hash    | 32 byte array   | SHA-256 hash of entire message including header being sent/recieved. |
 
 ### Reject or Accept Response
 
@@ -120,10 +120,11 @@ A code less than 100 indicates rejection for all recipients and will be the only
 | 1   | undisclosed           | no reason is given                                                      |
 | 2   | too big               | message size exceeds host's maximum permitted size                      |
 | 3   | insufficent resources | such as disk space to store the message or network quota                |
-| 4   | parent unavaliable    | the parent is unavaliable at this time to verify pid supplied           |
+| 4   | parent not found      | parent referenced by pid not found                                      |
 | 5   | past time             | timestamp in the message is too far in the past for this host to accept |
 | 6   | future time           | timestamp in message is too far in the future for this host to accept   |
 | 7   | time travel           | timestamp in message is before parent timestamp                         |
+| 8   | already received      | message has already been received                                       |
 |     |                       |                                                                         |
 | 100 | user unknown          | the recipient message is addressed to is unknown by this host           |
 | 101 | user full             | insufficent resources for specific recipient                            |
