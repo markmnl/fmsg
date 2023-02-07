@@ -1,6 +1,6 @@
 # fmsg
 
-A message definition and protocol where messages are relational and verifiable by all peers. Messages are sent via a fmsg host to one or more recipients. Each message in a thread is linked to the previous using a cryptographic hash forming a hierarchical structure.
+ ![Icon](icon.png) A message definition and protocol where messages are relational and verifiable by all peers. Messages are sent via a fmsg host to one or more recipients. Each message in a thread is linked to the previous using a cryptographic hash forming a hierarchical structure.
 
 The lofty ambition of fmsg is to supersede electronic mail (email) keeping the good parts (like the ability to send messages directly to an address), and solving the bad (like spam and the inefficiency and inconsistency of clients concatenating email chains in different ways). The high level objectives of fmsg are:
 
@@ -11,7 +11,6 @@ The lofty ambition of fmsg is to supersede electronic mail (email) keeping the g
 
 Overall; fmsg aims to be a joyful, efficient and secure messaging system with ownership and control at the host level.
 
-## Table of Contents
 - [Definition](#definition)
     - [Flags](#flags)
     - [Attachment](#attachment)
