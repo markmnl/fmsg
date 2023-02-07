@@ -11,6 +11,16 @@ The lofty ambition of fmsg is to supersede electronic mail (email) keeping the g
 
 Overall; fmsg aims to be a joyful, efficient and secure messaging system with ownership and control at the host level.
 
+## Table of Contents
+- [Definition](#definition)
+    - [Flags](#flags)
+    - [Attachment](#attachment)
+    - [Address](#address)
+    - [Challenge](#challenge)
+    - [Challenge Response](#challenge-response)
+    - [Reject or Accept Response](#reject-or-accept-response)
+- [Protocol](#protocol)
+    - [Flow diagram](#protocol)
 
 ## Definition
 
