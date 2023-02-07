@@ -63,7 +63,7 @@ On the wire messages are encoded thus:
 ### Flags
 
 | bit index | name         | description                                                                                                                                                                                                                 |
-|--:--------|-:------------|-:---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+|----------:|--------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | 0         | has pid      | Set if this message is in reply to another and pid field is present.                                                                                                                                                        |
 | 1         | important    | Sender indicates this message is IMPORTANT!                                                                                                                                                                                 |
 | 2         | no reply     | Sender indicates any reply will be discarded.                                                                                                                                                                               |
@@ -76,7 +76,7 @@ On the wire messages are encoded thus:
 ### Attachment
 
 | name     | type       | comment                                                                                            |
-|-:--------|-:----------|-:--------------------------------------------------------------------------------------------------|
+|----------|------------|----------------------------------------------------------------------------------------------------|
 | filename | string     | UTF-8 prefixed by unit8 size making max length of this field 255 characters.                       |
 | size     | unit32     | Size of attachment making the max theoretical size, but hosts can/should accept less.              |
 |          |            |                                                                                                    |
@@ -99,14 +99,14 @@ Recipient part is a string of characters which must be:
 A whole address is encoded UTF-8 prepended with size:
 
 | name    | type           | comment                                       |
-|-:-------|-:--------------|-:---------------------------------------------|
+|---------|----------------|-----------------------------------------------|
 | address | uint8 + string | UTF-8 encoded string prefixed with uint8 size |
 
 
 ### Challenge
 
 | name        | type     | comment                                                                            |
-|-:-----------|-:--------|-:----------------------------------------------------------------------------------|
+|-------------|----------|------------------------------------------------------------------------------------|
 | version     | uint8    | Must be 255 which indicates this messages is a challenge                           |
 | header hash | 32 bytes | SHA-256 hash of message header being sent/recieved up to and including type field. |
 
@@ -116,7 +116,7 @@ A whole address is encoded UTF-8 prepended with size:
 A challenge response is the next 32 bytes recieved in reply to challenge request - the existance of which indicates the sender accepted the challenge. This SHA-256 hash should be kept to ensnure the message (and attachments) once downloaded matches.
 
 | name     | type          | comment                                                              |
-|-:--------|-:-------------|-:--------------------------------------------------------------------|
+|----------|---------------|----------------------------------------------------------------------|
 | msg hash | 32 byte array | SHA-256 hash of entire message body and attachments.                 |
 
 
@@ -125,12 +125,12 @@ A challenge response is the next 32 bytes recieved in reply to challenge request
 A code less than 100 indicates rejection for all recipients and will be the only value. Other codes are per recipient in the same order as the as in the to field of the message excluding recipients for other domains.
 
 | name  | type       | comment                             |
-|-:-----|-:----------|-:-----------------------------------|
+|-------|------------|-------------------------------------|
 | codes | byte array | a single or sequence of unit8 codes |
 
 
 | code | name                  | description                                                             |
-|--:---|-----------------------|-------------------------------------------------------------------------|
+|-----:|-----------------------|-------------------------------------------------------------------------|
 | 1    | undisclosed           | no reason is given                                                      |
 | 2    | too big               | message size exceeds host's maximum permitted size                      |
 | 3    | insufficent resources | such as disk space to store the message or network quota                |
