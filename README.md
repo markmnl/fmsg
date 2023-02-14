@@ -17,7 +17,7 @@ Overall; fmsg aims to be a joyful, efficient and secure messaging system with ow
 
 | Name                                      | Description        |
 |-------------------------------------------|--------------------|
-| [SPECIFICATION.md](STANDARDS.md)          | Core fmsg specification describing message communication between fmsg hosts. |
+| [SPECIFICATION.md](SPECIFICATION.md)          | Core fmsg specification describing message communication between fmsg hosts. |
 | [STANDARDS.md](STANDARDS.md)              | General standards like port numbers and list of standards such as API contracts allowing different implementations to interoperate. |
 | [IMPLEMENTATIONS.md](IMPLEMENTATIONS.md)  | List of fmsg implementations including ancillary services, APIs and apps. |
 
