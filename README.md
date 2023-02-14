@@ -3,11 +3,11 @@
 ![icon](icon.png) 
 A message definition and protocol where messages are relational and verifiable by all peers. Messages are sent via a fmsg host to one or more recipients. Each message in a thread is linked to the previous using a cryptographic hash forming a hierarchical structure.
 
-This README.md is the offical specification of fmsg, in addition this repository serves as a host and index for fmsg related documents:
+This README.md is the official specification of fmsg, in addition this repository serves as a host and index for fmsg related documents:
 
 | Name                                      | Description        |
 |-------------------------------------------|--------------------|
-| [STANDARDS.md](STANDARDS.md)              | List of fmsg standards such as API contracts allowing different implementations to interoperate. |
+| [STANDARDS.md](STANDARDS.md)              | General standards like port numbers and list of fmsg standards such as API contracts allowing different implementations to interoperate. |
 | [IMPLEMENTATIONS.md](IMPLEMENTATIONS.md)  | List of fmsg implementations including ancillary services, APIs and apps. |
 
 The lofty ambition of fmsg is to supersede electronic mail (email) keeping the good parts (like the ability to send messages directly to an address), and solving the bad (like spam and the inefficiency and inconsistency of clients concatenating email chains in different ways). The high level objectives of fmsg are:
