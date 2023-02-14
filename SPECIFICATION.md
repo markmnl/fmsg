@@ -1,6 +1,6 @@
 # fmsg
 
-![icon](icon.png)
+![icon](pics/icon.png)
 
 - [Definition](#definition)
     - [Flags](#flags)
@@ -82,7 +82,7 @@ Attachment headers consist of the two fields and precede sequential data blobs t
 
 ### Address
 
-![fmsg address](address.png)
+![fmsg address](pics/address.png)
 
 Domain part is the domain name RFC-1035 fmsg host is located. Recipient part identifies the recipient known to host located at domain. A leading "@" character is prepended to distinguish from email addresses. The secondary "@" seperates recipient and domain name as per norm.
 
@@ -149,7 +149,7 @@ A code less than 100 indicates rejection for all recipients and will be the only
 A message is sent from the sender's host to each unique recipient host (i.e. each unqiue domain). Sending a message either wholly succeeds or fails per recipient. During the sending from one host to another several steps are performed depicted in the below flow diagram. 
 Two connection-orientated, reliable, in-order and duplex transports are required to perform the full flow. Transmission Control Protocol (TCP) is an obvious choice, on top of which Transport Layer Security (TLS) may meet your encryption needs.
 
-![fmsg flow diagram](flow.png)
+![fmsg flow diagram](pics/flow.png)
 
 *Protocol flow diagram*
 
