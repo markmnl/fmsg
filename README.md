@@ -15,7 +15,6 @@ Overall; fmsg aims to be a joyful, efficient and secure messaging system with ow
 
 ## Index
 
-|                                           |                   |
 |-------------------------------------------|-------------------|
 | [IMPLEMENTATIONS.md](IMPLEMENTATIONS.md)  | List of fmsg implementations including ancillary services, APIs and apps. |
 | [SPECIFICATION.md](SPECIFICATION.md)      | Core fmsg specification describing message communication between fmsg hosts. |
