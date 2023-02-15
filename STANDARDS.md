@@ -5,9 +5,9 @@ fmsg itself only describes host-to-host communication – leaving other function
 This page documents some common standards surrounding fmsg allowing [implementations](IMPLEMENTATIONS.md) to interoperate.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://github.com/markmnl/fmsg/pics/setup-example-dark-transparent.png">
-  <source media="(prefers-color-scheme: light)" srcset="https://github.com/markmnl/fmsg/pics/setup-example-light.png">
-  <img alt="example fmsg setup" src="https://github.com/markmnl/fmsg/pics/setup-example-dark-transparent.png">
+  <source media="(prefers-color-scheme: dark)" srcset="pics/setup-example-dark-transparent.png">
+  <source media="(prefers-color-scheme: light)" srcset="pics/setup-example-light.png">
+  <img alt="example fmsg setup" src="pics/setup-example-dark-transparent.png">
 </picture>
 
 
