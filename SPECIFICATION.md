@@ -38,7 +38,7 @@ On the wire messages are encoded thus:
 | version             | uint8                                   | Version number message is in (currently only 1); or 255 if CHALLENGE - defined below.                               |
 | flags               | uint8                                   | See [flags](#flags) for each bit's meaning.                                                                         |
 | pid                 | byte array                              | SHA-256 hash of message this message is a reply to. Only present if flags has pid bit set.                          |
-| from                | fmsg address                            | See [address](#address) deifnition.                                                                                 |
+| from                | fmsg address                            | See [address](#address) definition.                                                                                 |
 | to                  | uint8 + list of fmsg address            | See [address](#address) definition. Prefixed by uint8 count, addresses must be distinct of which there must be at least 1. |
 | time                | float64                                 | POSIX epoch time message was received by host sending the message.                                                  |
 | topic               | uint8 + UTF-8 string                    | UTF-8 free text describing content, prefixed by unit8 size making max length 255 characters, may be 0.              |
