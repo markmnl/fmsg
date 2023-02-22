@@ -5,8 +5,6 @@
 This repository serves as a host and index for fmsg related documents listed below, including the specification, white paper and standards.
 
 
-## Index
-
 | Document                                  | Short Description |
 |-------------------------------------------|-------------------|
 | [IMPLEMENTATIONS.md](IMPLEMENTATIONS.md)  | List of fmsg implementations including ancillary services, APIs and apps. |
