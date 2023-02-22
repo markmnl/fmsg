@@ -1,6 +1,4 @@
-# fmsg
-
-![icon](pics/icon.png)
+# fmsg Specification
 
 - [Definition](#definition)
     - [Flags](#flags)
