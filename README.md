@@ -9,6 +9,6 @@ This repository serves as a host and index for fmsg related documents listed bel
 |-------------------------------------------|-------------------|
 | [IMPLEMENTATIONS.md](IMPLEMENTATIONS.md)  | List of fmsg implementations including ancillary services, APIs and apps. |
 | [SPECIFICATION.md](SPECIFICATION.md)      | Core fmsg specification describing message communication between fmsg hosts. |
-| [STANDARDS.md](STANDARDS.md)              | Common standards such as API contracts allowing different implementations to interoperate. |
+| [STANDARDS.md](STANDARDS.md)              | Common standards surrounding fmsg such as API contracts. |
 
 
