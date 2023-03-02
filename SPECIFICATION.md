@@ -43,7 +43,7 @@ On the wire messages are encoded thus:
 | time                | float64                                 | POSIX epoch time message was received by host sending the message.                                                  |
 | topic               | uint8 + UTF-8 string                    | UTF-8 free text describing content, prefixed by unit8 size making max length 255 characters, may be 0.              |
 | type                | uint8 + UTF-8 string                    | US-ASCII encoded MIME type: RFC 6838, of msg.                                                                       |
-| msg                 | unint32 + byte array                    | Sequence of octets prefixed by uint32 size greater than 0 making the max theoretical size but hosts can/should accept less.        |
+| msg                 | unint32 + byte array                    | Sequence of octets prefixed by uint32 size greater than 0.                                                          |
 | attachments headers | uint8 + list of fmsg attachment headers | See [attachment](#attachment) header definition. Prefixed by uint8 count of attachments of which there may be 0.    |
 | attachments data    | byte array                              | Sequential binary blobs defined in attachment headers, if any.                                                      |
 
