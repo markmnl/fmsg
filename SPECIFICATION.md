@@ -43,7 +43,7 @@ On the wire messages are encoded thus:
 | time                | float64                                 | POSIX epoch time message was received by host sending the message.                                                  |
 | topic               | uint8 + UTF-8 string                    | UTF-8 free text describing content, prefixed by unit8 size making max length 255 characters, may be 0.              |
 | type                | uint8 + UTF-8 string                    | US-ASCII encoded MIME type: RFC 6838, of msg.                                                                       |
-| msg                 | unint32 + byte array                    | Sequence of octets prefixed by uint32 size making the max theoretical size but hosts can/should accept less.        |
+| msg                 | unint32 + byte array                    | Sequence of octets prefixed by uint32 size greater than 0 making the max theoretical size but hosts can/should accept less.        |
 | attachments headers | uint8 + list of fmsg attachment headers | See [attachment](#attachment) header definition. Prefixed by uint8 count of attachments of which there may be 0.    |
 | attachments data    | byte array                              | Sequential binary blobs defined in attachment headers, if any.                                                      |
 
@@ -129,7 +129,7 @@ A code less than 100 indicates rejection for all recipients and will be the only
 |-----:|-----------------------|-------------------------------------------------------------------------|
 | 1    | undisclosed           | no reason is given                                                      |
 | 2    | too big               | message size exceeds host's maximum permitted size                      |
-| 3    | insufficent resources | such as disk space to store the message or network quota                |
+| 3    | insufficent resources | such as disk space to store the message                                 |
 | 4    | parent not found      | parent referenced by pid not found                                      |
 | 5    | past time             | timestamp in the message is too far in the past for this host to accept |
 | 6    | future time           | timestamp in message is too far in the future for this host to accept   |
@@ -139,7 +139,7 @@ A code less than 100 indicates rejection for all recipients and will be the only
 | 100  | user unknown          | the recipient message is addressed to is unknown by this host           |
 | 101  | user full             | insufficent resources for specific recipient                            |
 |      |                       |                                                                         |
-| 255  | accept                | message recieved                                                        |
+| 255  | accept                | message received                                                        |
 
 
 ## Protocol
