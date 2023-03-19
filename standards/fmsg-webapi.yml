@@ -1,0 +1,100 @@
+openapi: 3.0.0
+info:
+  version: "1.0.0"
+  title: fmsg-webapi
+  description: HTTP API standard for fmsg host
+paths:
+  /msgs:
+    get:
+      description: returns a range of messages matching query critera for a user ordered chronologically ascending
+      operationId: fetch
+      parameters:
+        - in: query
+          name: since
+          description: Unix timestamp to get messages since (inclusive)
+          schema:
+            type: integer
+            format: float64
+        - in: query
+          name: until
+          description: Unix timestamp to get messages until (exclusive)
+          schema:
+            type: integer
+            format: float64
+        - in: query
+          name: skip
+          description: number of records to skip
+          schema:
+            type: integer
+            format: int32
+        - in: query
+          name: limit
+          description: max number of records to return
+          schema:
+            type: integer
+            format: int32
+      responses:
+        '200':
+          description: Matching messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: $ref: '#/components/schemas/msg'
+                  example: '{
+    "version": 1,
+    "flags": 0,
+    "pid": null,
+    "from": "@markmnl@fmsg.io",
+    "to": [
+        "@世界@example.com",
+        "@chris@fmsg.io"
+    ],
+    "time": 1654503265.679954,
+    "topic": "Hello fmsg!",
+    "type": "text/plain;charset=UTF-8",
+    "msg": "The quick brown fox jumps over the lazy dog."
+}'
+      summary: fetch messages
+    post:
+      operationId: send
+      responses:
+        '200':
+          description: successfully enqueud message for sending
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/msg'
+      summary: send message
+      description: enqueues a fmsg on host for sending to recipients
+  '/lighting/dimmers/{deviceId}/{value}':
+components:
+  schemas:
+    msg:
+      type: object
+      properties:
+        version:
+          type: integer
+        flags:
+          type: integer
+        pid:
+          type: string
+        from:
+          type: string
+        to:
+          type: array
+          items:
+            type: string
+          minItems: 1
+          maxItems: 255
+        time:
+          type: integer
+        topic:
+          type: string
+        type:
+          type: string
+        msg:
+          type: string
+          format: binary
