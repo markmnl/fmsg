@@ -27,7 +27,13 @@ In programmer friendly JSON a message looks like:
     "time": 1654503265.679954,
     "topic": "Hello fmsg!",
     "type": "text/plain;charset=UTF-8",
-    "msg": "The quick brown fox jumps over the lazy dog."
+    "msg": "The quick brown fox jumps over the lazy dog.",
+    "attachments": [
+        {
+            "filename": "doc.pdf",
+            "size": 1024
+        }
+    ]
 }
 ```
 
