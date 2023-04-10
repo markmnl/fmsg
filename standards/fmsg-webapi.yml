@@ -6,7 +6,7 @@ info:
 paths:
   /msgs:
     get:
-      description: returns a range of messages matching query critera for a user ordered chronologically ascending
+      description: Returns a range of message headers matching query critera for a user ordered chronologically
       operationId: fetch
       parameters:
         - in: query
@@ -35,13 +35,13 @@ paths:
             format: int32
       responses:
         '200':
-          description: Matching messages
+          description: Matching messages if any
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  type: $ref: '#/components/schemas/msg'
+                  type: object
                   example: '{
     "version": 1,
     "flags": 0,
@@ -51,10 +51,17 @@ paths:
         "@世界@example.com",
         "@chris@fmsg.io"
     ],
-    "time": 1654503265.679954,
+    "time_sent": 1654503265.679954,
+    "time_recieved": 1654503267.679954,
     "topic": "Hello fmsg!",
     "type": "text/plain;charset=UTF-8",
-    "msg": "The quick brown fox jumps over the lazy dog."
+    "size": 1024
+    "attachments": [
+      {
+        "filename": "doc.pdf",
+        "size": 1024
+      }
+    ]
 }'
       summary: fetch messages
     post:
@@ -69,7 +76,6 @@ paths:
               $ref: '#/components/schemas/msg'
       summary: send message
       description: enqueues a fmsg on host for sending to recipients
-  '/lighting/dimmers/{deviceId}/{value}':
 components:
   schemas:
     msg:
@@ -95,6 +101,9 @@ components:
           type: string
         type:
           type: string
-        msg:
-          type: string
-          format: binary
+        attachments:
+          type: array
+          items:
+            type: object
+          minItems: 0
+          maxItems: 255
