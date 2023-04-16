@@ -12,7 +12,7 @@
 
 ## Definition
 
-In programmer friendly JSON a message looks like:
+In programmer friendly JSON a message may look like:
 
 ```JSON
 {
