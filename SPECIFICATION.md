@@ -12,7 +12,7 @@
 
 ## Definition
 
-In programmer friendly JSON a message may look like:
+In programmer friendly JSON a message could look like:
 
 ```JSON
 {
@@ -48,8 +48,8 @@ On the wire messages are encoded thus:
 | to                  | uint8 + list of fmsg address            | See [address](#address) definition. Prefixed by uint8 count, addresses must be distinct of which there must be at least 1. |
 | time                | float64                                 | POSIX epoch time message was received by host sending the message.                                                  |
 | topic               | uint8 + UTF-8 string                    | UTF-8 free text describing content, prefixed by unit8 size making max length 255 characters, may be 0.              |
-| type                | uint8 + UTF-8 string                    | US-ASCII encoded MIME type: RFC 6838, of msg.                                                                       |
-| msg                 | unint32 + byte array                    | Sequence of octets prefixed by uint32 size greater than 0.                                                          |
+| type                | uint8 + ASCII string                    | US-ASCII encoded MIME type: RFC 6838, of msg.                                                                       |
+| msg                 | unint32 + byte array                    | Sequence of octets prefixed by uint32 size which must be greater than 0.                                            |
 | attachments headers | uint8 + list of fmsg attachment headers | See [attachment](#attachment) header definition. Prefixed by uint8 count of attachments of which there may be 0.    |
 | attachments data    | byte array                              | Sequential binary blobs defined in attachment headers, if any.                                                      |
 

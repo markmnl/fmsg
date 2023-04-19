@@ -1,6 +1,6 @@
 # fmsg Id Standard
 
-fmsg Id standard describes an API for a fmsg host to lookup the identity of a recipient to:
+fmsg Id standard describes an HTTP API for a fmsg host to lookup the identity of a recipient to:
 
 1. Verify the user indeed exists
 2. Check user is accepting messages
@@ -8,7 +8,7 @@ fmsg Id standard describes an API for a fmsg host to lookup the identity of a re
 4. Get user meta data such as display name and any host specific tags
 
 
-GET /user/{address}
+GET /addr/{address}
 
 ```
 {
@@ -39,12 +39,13 @@ GET /user/{address}
 }
 ```
 
-POST /user/recv/{address}
-POST /user/sent/{address}
+POST /addr/recv
+POST /addr/sent
 
 ```
 {
-    "timestamp": 123,
+    "address": "@mark@example.com",
+    "timestamp": 123.456,
     "size": 456
 }
 ```
