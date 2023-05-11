@@ -9,6 +9,7 @@
     - [Reject or Accept Response](#reject-or-accept-response)
 - [Protocol](#protocol)
     - [Flow diagram](#protocol)
+- [Domain Name Resolution](#domain-name-resolution)
 
 ## Definition
 
@@ -163,3 +164,15 @@ Two connection-orientated, reliable, in-order and duplex transports are required
 * A new connection is opened from the recieving host to the purported sender's domain so the receiving host can verify sending host indeed exists _and_ can prove they are sending this message (in the CHALLENGE, CHALLENGE RESP exchange). 
 * A host reaching the TERMINATE step should tear down connection(s) without regard for the other end because they must be either malicious or not following the protocol! 
 * Where a message is being sent and connection closed in the diagram, closing only starts after message is sent/recieved, i.e. not concurrently.
+
+
+## Domain Name Resolution
+
+fmsg hosts for a domain are listed in a TXT record for that domain where the first value is: "fmsg", followed by one or more domain names. The domain names should be tried in the order they are, i.e. should the first one fail, then try the next. If no such TXT is found direct connection to the domain should be tried instead.
+
+An example TXT record listing fmsg hosts for example.com:
+```
+example.com.   IN   TXT   "fmsg" "fmsg1.example.com" "fmsg2.example.com" "fmsg3.example.com"
+```
+
+On a personal note; use of TXT is made with a heavy heart - a better approach would have been using MX which was designed for listing mail servers agnostic of protocol, combined with a Well Known Service (WKS) record, but deviants from this original intent have won, WKS is obsoleted and MX is now assumed for SMTP.
