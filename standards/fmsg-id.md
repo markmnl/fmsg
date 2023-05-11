@@ -8,9 +8,11 @@ fmsg Id standard describes an HTTP API for a fmsg host to lookup the identity of
 4. Get user meta data such as display name and any host specific tags
 
 
-GET /addr/{address}
+TODO move address from query string to body
 
-```
+GET `/addr/{address}`
+
+```json
 {
     "name": "jsmith",
     "address": "@jsmith@example.com",
@@ -42,7 +44,7 @@ GET /addr/{address}
 POST /addr/recv
 POST /addr/sent
 
-```
+```json
 {
     "address": "@mark@example.com",
     "timestamp": 123.456,
