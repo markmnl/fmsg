@@ -151,7 +151,7 @@ A code less than 100 indicates rejection for all recipients and will be the only
 
 ## Protocol
 
-A message is sent from the sender's host to each unique recipient host (i.e. each unqiue domain). Sending a message either wholly succeeds or fails per recipient. During the sending from one host to another several steps are performed depicted in the below flow diagram. 
+A message is sent from the sender's host to each unique recipient host (i.e. only each domain once). Sending a message either wholly succeeds or fails per recipient. During the sending from one host to another several steps are performed depicted in the below flow diagram. 
 Two connection-orientated, reliable, in-order and duplex transports are required to perform the full flow. Transmission Control Protocol (TCP) is an obvious choice, on top of which Transport Layer Security (TLS) may meet your encryption needs.
 
 ![fmsg flow diagram](pics/flow.png)
@@ -168,11 +168,17 @@ Two connection-orientated, reliable, in-order and duplex transports are required
 
 ## Domain Name Resolution
 
-fmsg hosts for a domain are listed in a TXT record for that domain where the first value is: "fmsg", followed by one or more domain names. The domain names should be tried in the order they are, i.e. should the first one fail, then try the next. If no such TXT is found direct connection to the domain should be tried instead.
+fmsg hosts for a domain are listed in a `TXT` record on the subdomain `fmsghosts` for the recipient's domain name, e.g.: `fmsghosts.example.com` for `@user@example.com`. The `TXT` record is formatted thus:
 
-An example TXT record listing fmsg hosts for example.com:
+* ASCII encoded
+* First value is: "fmsg"
+* Followed by one or more values: A, AAAA record types or IP addresses
+
+If the `fmsghosts` subdomain does not exist the recipients domain name should be tried directly instead; otherwise the domain names listed should be tried in the order they appear.
+
+An example TXT record listing fmsg hosts for `fmsghosts.example.com`:
 ```
-example.com.   IN   TXT   "fmsg" "fmsg1.example.com" "fmsg2.example.com" "fmsg3.example.com"
+fmsghosts.example.com.   IN   TXT   "fmsg" "fmsg1.example.com" "fmsg2.example.com" "fmsg3.example.com"
 ```
 
-On a personal note; use of TXT is made with a heavy heart - a better approach would have been using MX which was designed for listing mail servers agnostic of protocol, combined with a Well Known Service (WKS) record, but deviants from this original intent have won, WKS is obsoleted and MX is now assumed for SMTP.
+Aside, using a `MX` record type which was designed for listing mail servers agnostic of protocol, combined with a Well Known Service `WKS` record, would have been favourable. Unfortunatly use of `WKS` is deprecated and `MX` is assumed for SMTP.
