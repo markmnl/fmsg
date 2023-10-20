@@ -172,7 +172,7 @@ fmsg hosts for a domain are listed in a `TXT` record on the subdomain `fmsghosts
 
 * ASCII encoded
 * First value is: "fmsg"
-* Followed by one or more values: A, AAAA record types or IP addresses
+* Followed by one or more values each of which must be either an A, AAAA record type or IP address
 
 If the `fmsghosts` subdomain does not exist the recipients domain name should be tried directly instead; otherwise the domain names listed should be tried in the order they appear.
 
