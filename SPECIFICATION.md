@@ -1,6 +1,7 @@
 # fmsg Specification
 
 - [Definition](#definition)
+    - [Message](#message)
     - [Flags](#flags)
     - [Attachment](#attachment)
     - [Address](#address)
@@ -13,17 +14,20 @@
 
 ## Definition
 
+### Message
+
 In programmer friendly JSON a message could look like:
 
 ```JSON
 {
     "version": 1,
-    "flags": 0,
+    "origin": "host1.fmsg.org",
+    "flags": 0
     "pid": null,
-    "from": "@markmnl@fmsg.io",
+    "from": "@markmnl@fmsg.org",
     "to": [
         "@世界@example.com",
-        "@chris@fmsg.io"
+        "@chris@fmsg.org"
     ],
     "time": 1654503265.679954,
     "topic": "Hello fmsg!",
@@ -43,6 +47,7 @@ On the wire messages are encoded thus:
 | name                | type                                    | description                                                                                                         |
 |---------------------|-----------------------------------------|---------------------------------------------------------------------------------------------------------------------|
 | version             | uint8                                   | Version number message is in (currently only 1); or 255 if CHALLENGE - defined below.                               |
+| origin              | uint8 + ASCII string                    | Domain name of the actual host sending the message, prefixed by unit8 size.                                         |
 | flags               | uint8                                   | See [flags](#flags) for each bit's meaning.                                                                         |
 | pid                 | byte array                              | SHA-256 hash of message this message is a reply to. Only present if flags has pid bit set.                          |
 | from                | fmsg address                            | See [address](#address) definition.                                                                                 |
@@ -89,7 +94,7 @@ Attachment headers consist of the two fields and precede sequential data blobs t
 
 ![fmsg address](pics/address.png)
 
-Domain part is the domain name RFC-1035 fmsg host is located. Recipient part identifies the recipient known to host located at domain. A leading "@" character is prepended to distinguish from email addresses. The secondary "@" seperates recipient and domain name as per norm.
+Domain part is the domain name RFC-1035 owning the address. Recipient part identifies the recipient known to hosts for the domain. A leading "@" character is prepended to distinguish from email addresses. The secondary "@" seperates recipient and domain name as per norm.
 
 Recipient part is a string of characters which must be:
 
@@ -116,7 +121,7 @@ A whole address is encoded UTF-8 prepended with size:
 
 ### Challenge Response
 
-A challenge response is the next 32 bytes recieved in reply to challenge request - the existance of which indicates the sender accepted the challenge. This SHA-256 hash should be kept to ensure the message (and attachments) once downloaded matches.
+A challenge response is the next 32 bytes recieved in reply to challenge request - the existance of which indicates the sender accepted the challenge. This SHA-256 hash should be kept to ensure the complete message (including attachments) once downloaded matches.
 
 | name     | type          | comment                                                              |
 |----------|---------------|----------------------------------------------------------------------|
@@ -168,11 +173,11 @@ Two connection-orientated, reliable, in-order and duplex transports are required
 
 ## Domain Name Resolution
 
-fmsg hosts for a domain are listed in a `TXT` record on the subdomain `fmsghosts` for the recipient's domain name, e.g.: `fmsghosts.example.com` for `@user@example.com`. The `TXT` record is formatted thus:
+fmsg hosts for a domain are listed in a `TXT` record on the subdomain: `fmsghosts`, of the recipient's domain. For example: `@user@example.com`'s domain `example.com` will have the subdomain `fmsghosts.example.com`. The `TXT` record is formatted thus:
 
 * ASCII encoded
 * First value is: "fmsg"
-* Followed by one or more values each of which must be either an A, AAAA record type or IP address
+* Followed by one up to five values each of which must be either an A, AAAA record type or IP address
 
 If the `fmsghosts` subdomain does not exist the recipients domain name should be tried directly instead; otherwise the domain names listed should be tried in the order they appear.
 
@@ -181,4 +186,4 @@ An example TXT record listing fmsg hosts for `fmsghosts.example.com`:
 fmsghosts.example.com.   IN   TXT   "fmsg" "fmsg1.example.com" "fmsg2.example.com" "fmsg3.example.com"
 ```
 
-Aside, using a `MX` record type which was designed for listing mail servers agnostic of protocol, combined with a Well Known Service `WKS` record, would have been favourable. Unfortunatly use of `WKS` is deprecated and `MX` is assumed for SMTP.
+Aside, using `MX` records which was designed for listing mail servers agnostic of protocol, combined with a Well Known Service `WKS` record, would have been favourable. Unfortunatly use of `WKS` is deprecated and `MX` is assumed for SMTP.
