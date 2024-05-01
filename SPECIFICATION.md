@@ -147,6 +147,7 @@ A code less than 100 indicates rejection for all recipients and will be the only
 | 6    | future time           | timestamp in message is too far in the future for this host to accept   |
 | 7    | time travel           | timestamp in message is before parent timestamp                         |
 | 8    | duplicate             | message has already been received                                       |
+| 9    | must challenge        | no challenge was requested but is required                              |
 |      |                       |                                                                         |
 | 100  | user unknown          | the recipient message is addressed to is unknown by this host           |
 | 101  | user full             | insufficent resources for specific recipient                            |
@@ -156,7 +157,7 @@ A code less than 100 indicates rejection for all recipients and will be the only
 
 ## Protocol
 
-A message is sent from the sender's host to each unique recipient host (i.e. only each domain once). Sending a message either wholly succeeds or fails per recipient. During the sending from one host to another several steps are performed depicted in the below flow diagram. 
+A message is sent from the sender's host to each unique recipient host (i.e. each domain only once even if multiple recipients with the same domain). Sending a message either wholly succeeds or fails per recipient. During the sending from one host to another several steps are performed depicted in the below flow diagram. 
 Two connection-orientated, reliable, in-order and duplex transports are required to perform the full flow. Transmission Control Protocol (TCP) is an obvious choice, on top of which Transport Layer Security (TLS) may meet your encryption needs.
 
 ![fmsg flow diagram](pics/flow.png)
@@ -173,17 +174,28 @@ Two connection-orientated, reliable, in-order and duplex transports are required
 
 ## Domain Name Resolution
 
-fmsg hosts for a domain are listed in a `TXT` record on the subdomain: `fmsghosts`, of the recipient's domain. For example: `@user@example.com`'s domain `example.com` will have the subdomain `fmsghosts.example.com`. The `TXT` record is formatted thus:
+fmsg hosts for a domain are listed in a `TXT` record on the subdomain: `_fmsg`, of the recipient's domain. For example: `@user@example.com`'s domain `example.com` would have the subdomain `_fmsg.example.com`. The `TXT` record is formatted thus:
 
 * ASCII encoded
-* First value is: "fmsg"
-* Followed by one up to five values each of which must be either an A, AAAA record type or IP address
+* Followed by one or more values each of which must be a:
+    * A
+    * AAAA
+    * IPv4 address
+    * IPv6 address
 
-If the `fmsghosts` subdomain does not exist the recipients domain name should be tried directly instead; otherwise the domain names listed should be tried in the order they appear.
+If the `_fmsg` subdomain does not exist the recipients domain should be tried directly instead. 
+
+fmsg hosts listed should be tried in the order they appear.
 
 An example TXT record listing fmsg hosts for `fmsghosts.example.com`:
 ```
-fmsghosts.example.com.   IN   TXT   "fmsg" "fmsg1.example.com" "fmsg2.example.com" "fmsg3.example.com"
+fmsghosts.example.com.   IN   TXT   "fmsg1.example.com" "fmsg2.example.com" "fmsg3.example.com"
 ```
 
-Aside, using `MX` records which was designed for listing mail servers agnostic of protocol, combined with a Well Known Service `WKS` record, would have been favourable. Unfortunatly use of `WKS` is deprecated and `MX` is assumed for SMTP.
+### Considerations
+
+Various alternatives for listing a domain's fmsg hosts were considered before arriving at the above method. Such alternatives are listed here for academic purposes only.
+
+    * Only having fmsg hosts located on the recipient's domain itself - this approch would require 
+    * Using `MX` records which was designed for listing mail servers agnostic of protocol, combined with a Well Known Service `WKS` record, would have been favourable. Unfortunatly use of `WKS` is deprecated and `MX` is assumed for SMTP as of writing.
+    * Using `TXT` record on recipient's domain instead of the `_fmsg` subdomain. All TXT records are retrieved on DNS query of a domain which will could well contain other `TXT` records, in which case using the `_fmsg` subdomain reduces the data returned.
