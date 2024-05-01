@@ -1,7 +1,9 @@
 # fmsg Specification
 
+- [Data Types](#data-types)
 - [Definition](#definition)
     - [Message](#message)
+        - [Common MIME Types](#common-mime-types)
     - [Flags](#flags)
     - [Attachment](#attachment)
     - [Address](#address)
@@ -19,16 +21,19 @@
 ## Data Types
 
 Throughout this document the following data types are used. All types are encoded little-endian.
-         
-uint8       8 bit wide unsigned integer with a value in the set 0 to 255
-uint16      16 bit wide unsigned integer with a value in the set 0 to 65535
-uint32      32 bit wide unsigned integer with a value in the set 0 to 4294967295
-bit         a single bit 0 or 1 within a uint8, the 0 based index of which is defined alongside in this document 
-float64     a 64 bit wide number in the set of all IEEE-754 64-bit floating-point numbers
-byte        alias to uint8
-byte array  sequence of uint8 values the length of which is defined alongside in this document
-bytes       alias to byte array
-string      sequence of characters the encoding (e.g. ASCII or UTF-8) and length are defined alongside in this document
+
+| name       | description                                                                                                 |
+|------------|-------------------------------------------------------------------------------------------------------------|
+| uint8      | 8 bit wide unsigned integer with a value in the set 0 to 255                                                |
+| uint16     | 16 bit wide unsigned integer with a value in the set 0 to 65535                                             |
+| uint32     | 32 bit wide unsigned integer with a value in the set 0 to 4294967295                                        |
+| bit        | a single bit 0 or 1 within a uint8, the 0 based index of which is defined alongside in this document        |
+| float64    | a 64 bit wide number in the set of all IEEE-754 64-bit floating-point numbers                               |
+| byte       | alias to uint8                                                                                              |
+| byte array | sequence of uint8 values the length of which is defined alongside in this document                          |
+| bytes      | alias to byte array                                                                                         |
+| string     | sequence of characters the encoding (e.g. ASCII or UTF-8) and length are defined alongside in this document |
+
 
 ## Definition
 
