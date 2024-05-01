@@ -20,9 +20,9 @@
 
 Throughout this document the following data types are used. All types are encoded little-endian.
          
-uint8       8 bit wide integer with a value in the set of all unsigned 8-bit integers (0 to 255)
-uint16      16 bit wide integer with a value in the set of all unsigned 16-bit integers (0 to 65535)
-uint32      32 bit wide integer with a value in the set of all unsigned 32-bit integers (0 to 4294967295)
+uint8       8 bit wide unsigned integer with a value in the set 0 to 255
+uint16      16 bit wide unsigned integer with a value in the set 0 to 65535
+uint32      32 bit wide unsigned integer with a value in the set 0 to 4294967295
 bit         a single bit 0 or 1 within a uint8, the 0 based index of which is defined alongside in this document 
 float64     a 64 bit wide number in the set of all IEEE-754 64-bit floating-point numbers
 byte        alias to uint8
@@ -73,7 +73,7 @@ On the wire messages are encoded thus:
 | to                  | uint8 + list of fmsg address            | See [address](#address) definition. Prefixed by uint8 count, addresses must be distinct (case-insensitive) of which there must be at least 1. |
 | time                | float64                                 | POSIX epoch time message was received by host sending the message.                                                  |
 | [topic]             | uint8 + UTF-8 string                    | UTF-8 free text title of the message thread, prefixed by unit8 size which may be 0. Only present on first message intiating a thread i.e. when there is no pid. |
-| type                | uint8 + [ASCII string]                  | Either a common type, see [Common MIME Types](#common-mime-types), or a US-ASCII encoded MIME type: RFC 6838, of msg.                                                                       |
+| type                | uint8 + [ASCII string]                  | Either a common type, see [Common MIME Types](#common-mime-types), or a US-ASCII encoded MIME type: RFC 6838, of msg. |
 | size                | uint32                                  | Size of msg data in bytes must be at least 1                                                                        |
 | attachments headers | uint8 + [list of attachment headers]    | See [attachment](#attachment) header definition. Prefixed by uint8 count of attachments of which there may be 0.    |
 | msg data            | byte array                              | Sequence of octets.                                                                                                 |
@@ -86,27 +86,27 @@ If the common type flag bit is set in the flags field, then the uint8 value in t
 | value | MIME type |
 |-------|-----------|
 | 1     | text/plain;charset=UTF-8 |
-| 1     | text/html |
-| 1     | text/calendar |
+| 2     | text/html |
+| 3     | text/calendar |
 
-| 1     | image/apng |
-| 1     | image/avif |
-| 1     | image/gif |
-| 1     | image/jpeg |
-| 1     | image/png |
-| 1     | image/svg+xml |
-| 1     | image/webp |
+| 10     | image/apng |
+| 11     | image/avif |
+| 12     | image/gif |
+| 13     | image/jpeg |
+| 14     | image/png |
+| 15     | image/svg+xml |
+| 16     | image/webp |
 
-| 1     | audio/mpeg |
-| 1     | audio/mpeg |
-| 1     | audio/mpeg |
-| 1     | audio/mpeg |
-| 1     | audio/mpeg |
+| 20     | audio/mpeg |
+| 21     | audio/mpeg |
+| 22     | audio/mpeg |
+| 23     | audio/mpeg |
+| 24     | audio/mpeg |
 
-| 1     | video/mp4 |
-| 1     | video/mpeg |
-| 1     | video/mp4 |
-| 1     | video/mp4 |
+| 30     | video/mp4 |
+| 31     | video/mpeg |
+| 32     | video/mp4 |
+| 33     | video/mp4 |
 
 | 255   | application/octet-stream |
 
