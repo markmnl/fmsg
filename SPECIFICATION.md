@@ -1,6 +1,9 @@
 # fmsg Specification
 
-- [Data Types](#data-types)
+- [Terminology](#terminology)
+    - [Terms](#terms)
+    - [Message Types](#message-types)
+    - [Data Types](#data-types)
 - [Definition](#definition)
     - [Message](#message)
         - [Common MIME Types](#common-mime-types)
@@ -13,33 +16,59 @@
 - [Protocol](#protocol)
     - [Flow diagram](#protocol)
 - [Host Resolution](#host-resolution)
+    - [Host Resolution Considerations](#host-resolution)
+- [Security Considerations](#security-considerations)
 
-## TODO
 
+TODO
 * REJECT response for incompatible version
 
-## Data Types
+## Terminology
 
-Throughout this document the following data types are used. All types are encoded little-endian.
+_"fmsg"_ is the name given to the protocol and message data definitions described in this document. The capitalisation of fmsg is always lowercase and is used obstinately, even at the start of a sentence. The name "fmsg" is neither an abbreviation nor acronym, however is thought of as "f-message". Where did the name come from? The "f" owes its inspiration from functions in programming languages such as C's `printf` where the "f" stands for "formatted". "Fast" and "falcon" were also in the author’s mind at the time. The "msg" part is a common shortening of "message" conveying the meaning while keeping the whole name succinct, "fmsg".
+
+
+### Terms
+
+_"message"_ refers to an entire message described in [Message Defintion](#message).
+
+_"message header"_ refers to the fields up to and including the size field in a _message_.
+
+_"DNS"_ is for Domain Name System 
+
+_"UTF-8"_ is for the unicode standard: Unicode Transformation Format – 8-bit.
+
+
+### Message Types
+
+fmsg defines four message types: MESSAGE, CHALLENGE, CHALLENGE RESPONSE and "REJECT or ACCEPT RESPONSE", often written all capitals to emphasise reference to their defintions. These structures are aggregates of [Data Types](#data-types) and are described in the [Definition](#definition) section.
+
+### Data Types
+
+Throughout this document the following data types are used. All types are encoded little-endian, making the types compatible with data types in modern programming languages, facilitating decoding and encoding.
 
 | name       | description                                                                                                 |
 |------------|-------------------------------------------------------------------------------------------------------------|
 | uint8      | 8 bit wide unsigned integer with a value in the set 0 to 255                                                |
 | uint16     | 16 bit wide unsigned integer with a value in the set 0 to 65535                                             |
 | uint32     | 32 bit wide unsigned integer with a value in the set 0 to 4294967295                                        |
-| bit        | a single bit 0 or 1 within a uint8, the 0 based index of which is defined alongside in this document        |
-| float64    | a 64 bit wide number in the set of all IEEE-754 64-bit floating-point numbers                               |
-| byte       | alias to uint8                                                                                              |
+| bit        | single bit 0 or 1 within one of the uint types, the 0 based index of which is defined alongside in this document        |
+| float64    | 64 bit wide number in the set of all IEEE-754 64-bit floating-point numbers                               |
+| byte       | a uint8                                                                                              |
 | byte array | sequence of uint8 values the length of which is defined alongside in this document                          |
-| bytes      | alias to byte array                                                                                         |
-| string     | sequence of characters the encoding (e.g. ASCII or UTF-8) and length are defined alongside in this document |
+| bytes      | a byte array                                                                                         |
+| string     | sequence of characters the encoding (e.g. ASCII, UTF-8...) and length of which is defined alongside in this document |
+
+### Notes on Data Types
+
+* string lengths are always explicitly defined and null terminating characters are not used. This is a design decision becuase it prevents a class of buffer over-run bugs (search "Heartbleed bug"), simplifies message size calculation, and, inherently limits the length of strings while adding no extra data than a null terminating character would since all strings lengths here are defined by one uint8.
 
 
 ## Definition
 
 ### Message
 
-In programmer friendly JSON a message could look like:
+In programmer friendly JSON a message could look like (once decoded from the binary format defined below):
 
 ```JSON
 {
@@ -84,9 +113,26 @@ On the wire messages are encoded thus:
 | msg data            | byte array                              | Sequence of octets.                                                                                                 |
 | [attachments data]  | byte array(s)                           | Sequential sequence of octets boundries of which are defined by attachment headers size(s), if any.                |
 
+### Notes on Message Definition
+
+* Square brackets "[ ]" indicate fields or part thereof may not exist on all messages. Where the brackets surround the name, e.g. pid, the whole field my not be present (which in the case of pid is only valid if the message is not a reply). Where they surround part of the type, that part may not be present, e.g. list attachment headers will not be present if unit8 prefix is 0.
+
+### Flags
+
+| bit index | name         | description                                                                                                                                                                                                                 |
+|----------:|--------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| 0         | has pid      | Set if this message is in reply to another and pid field is present.                                                                                                                                                        |
+| 1         | common type  | Indicates the type field is just a uint8 value and MIME type can be looked up per [Common MIME Types](#common-mime-types)                                                                                                   |
+| 2         | important    | Sender indicates this message is IMPORTANT!                                                                                                                                                                                 |
+| 3         | no reply     | Sender indicates any reply will be discarded.                                                                                                                                                                               |
+| 4         | no challenge | Sender asks challenge skipped, hosts should be cautious accepting this, especially on the wild Internet. May be useful on trusted networks to save network and compute resources verifying many machine generated messages. |
+| 5         |              |                                                                                                                                                                                                                             |
+| 6         |              |                                                                                                                                                                                                                             |
+| 7         | under duress | Sender indicates this message was written under duress.    
+
 #### Common MIME Types
 
-If the common type flag bit is set in the flags field, then the uint8 value in the type field maps to the MIME type in the table below. A value not in the table is invalid and the entire message should be rejected with "invalid" REJECT response. 
+If the common type flag bit is set in the flags field, then type field consists of one uint8 value which maps to the MIME type in the table below. A value not in the table is invalid and the entire message should be rejected with "invalid" REJECT response. If the common type bit is not set the first uint8 is the length of the subsequent bytes US-ASCII encoded MIME type per RFC 6838.
 
 | value | MIME type |
 |-------|-----------|
@@ -116,22 +162,9 @@ If the common type flag bit is set in the flags field, then the uint8 value in t
 | 255   | application/octet-stream |
 
 
-### Flags
-
-| bit index | name         | description                                                                                                                                                                                                                 |
-|----------:|--------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| 0         | has pid      | Set if this message is in reply to another and pid field is present.                                                                                                                                                        |
-| 1         | common type  | Indicates the type field is just a uint8 value and MIME type can be looked up per [Common MIME Types](#common-mime-types)                                                                                                   |
-| 2         | important    | Sender indicates this message is IMPORTANT!                                                                                                                                                                                 |
-| 3         | no reply     | Sender indicates any reply will be discarded.                                                                                                                                                                               |
-| 4         | no challenge | Sender asks challenge skipped, hosts should be cautious accepting this, especially on the wild Internet. May be useful on trusted networks to save network and compute resources verifying many machine generated messages. |
-| 5         |              |                                                                                                                                                                                                                             |
-| 6         |              |                                                                                                                                                                                                                             |
-| 7         | under duress | Sender indicates this message was written under duress.    
-
 ### Attachment
 
-Attachment headers consist of the two fields size and filename:
+Attachment headers consist of the two fields, filename and size:
 
 | name     | type       | comment                                                                                            |
 |----------|------------|----------------------------------------------------------------------------------------------------|
@@ -141,13 +174,14 @@ Attachment headers consist of the two fields size and filename:
 * UTF-8
 * any letter in any language, or any numeric characters
 * the hyphen "-" or underscore "_" characters non-consecutively and not at beginning or end
-* unique amongst attachments
+* unique amongst attachments, case-sensitive
 * less than 256 bytes length
 
 Attachment data
+
 | name     | type       | comment                                                                                            |
 |----------|------------|----------------------------------------------------------------------------------------------------|
-| data     | byte array | Sequence of octets located after all other attachment headers and respective to other attachments. |
+| data     | byte array | Sequence of octets located after all attachment headers, boundaries of each attachment are defined by corresponding size in attachment header(s) |
 
 ### Address
 
@@ -160,7 +194,7 @@ Recipient part is a string of characters which must be:
 * UTF-8
 * any letter in any language, or any numeric characters
 * the hyphen "-" or underscore "_" characters non-consecutively and not at beginning or end
-* unique on host using case insensitive comparison
+* unique on host using case-insensitive comparison
 * less than 256 bytes length when combined with domain name and @ characters 
 
 A whole address is encoded UTF-8 prepended with size:
@@ -199,9 +233,9 @@ A code less than 100 indicates rejection for all recipients and will be the only
 | code | name                  | description                                                             |
 |-----:|-----------------------|-------------------------------------------------------------------------|
 | 1    | invalid               | the message is malformed, i.e. not in spec, and cannot be decoded       |
-| 2    | unsupported version   | the message version is not supported by the receiving host              |
+| 2    | unsupported version   | the version is not supported by the receiving host              |
 | 3    | undisclosed           | no reason is given                                                      |
-| 4    | too big               | total size exceeds host's maximum permitted size                        |
+| 4    | too big               | total size exceeds host's maximum permitted size of messages            |
 | 5    | insufficent resources | such as disk space to store the message                                 |
 | 6    | parent not found      | parent referenced by pid not found                                      |
 | 7    | past time             | timestamp in the message is too far in the past for this host to accept |
@@ -216,6 +250,12 @@ A code less than 100 indicates rejection for all recipients and will be the only
 | 255  | accept                | message received                                                        |
 
 
+#### Notes on Time
+
+fmsg includes some time checking and controls, rejecting messages too far in future or past compared to current time of the reciever, and, checking replies don't claim to be sent before their parent. 
+
+
+
 ## Protocol
 
 A message is sent from the sender's host to each unique recipient host (i.e. each domain only once even if multiple recipients with the same domain). Sending a message either wholly succeeds or fails per recipient. During the sending from one host to another several steps are performed depicted in the below flow diagram. 
@@ -225,10 +265,10 @@ Two connection-orientated, reliable, in-order and duplex transports are required
 
 *Protocol flow diagram*
 
-### Note
+### Notes
 
 * Each of the WORDS IN CAPS on a connection line in the above flow diagram is for a defined message per definitions above.
-* A new connection is opened from the recieving host to the purported sender's domain so the receiving host can verify sending host indeed exists _and_ can prove they are sending this message (in the CHALLENGE, CHALLENGE RESP exchange). 
+* A new connection is opened from the recieving host to the purported sender so the receiving host can verify sending host indeed exists _and_ can prove they are sending this message (in the CHALLENGE, CHALLENGE RESP exchange). 
 * A host reaching the TERMINATE step should tear down connection(s) without regard for the other end because they must be either malicious or not following the protocol! 
 * Where a message is being sent and connection closed in the diagram, closing only starts after message is sent/recieved, i.e. not concurrently.
 
@@ -255,9 +295,12 @@ When multiple fmsg hosts are returned in the `TXT` then connection to the host f
 If the `_fmsg` subdomain does not exist the recipients domain should be tried directly instead. 
 
 
-### Considerations
+### Host Resolution Considerations
 
 Various alternatives for listing a domain's fmsg hosts were considered before arriving at the above method. Such alternatives that were considered are listed here for academic purposes only.
 
 * Using `MX` records which was orginally meant for listing mail servers agnostic of protocol, combined with a Well Known Service `WKS` record, would have been favourable. Unfortunatly use of `WKS` is deprecated and `MX` is assumed for SMTP as of writing.
 * Only using `TXT` record on recipient's domain instead of the `_fmsg` subdomain. All TXT records are retrieved on DNS query of a domain which will could well contain other `TXT` records which would be superflouous.
+
+
+## Security Considerations
