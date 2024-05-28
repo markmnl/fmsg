@@ -23,7 +23,7 @@
 
 ## Terminology
 
-_"fmsg"_ is the name given to the protocol and message definitions described in this document. The capitalisation of fmsg is obstinately always lowercase, even at the start of a sentence. The name "fmsg" is neither an abbreviation nor acronym, however is thought of as "f-message". Where did the name come from? The "f" owes its inspiration from functions in programming languages such as C's `printf` where the "f" stands for "formatted". "Fast" and "falcon" were also in the author’s mind at the time. The "msg" part is a common shortening of "message" conveying the meaning while keeping the whole name succinct; "fmsg".
+_"fmsg"_ is the name given to the protocol and message definitions described in this document. The capitalisation of fmsg is obstinately lowercase, even at the start of a sentence. The name "fmsg" is neither an abbreviation nor acronym, although is thought of as "f-message". Where did the name come from? The "f" owes inspiration from functions in programming languages such as C's `printf()` where the "f" stands for "formatted", "fast" and "falcon" were also in the author’s mind at the time. The "msg" part is a common shortening of "message" conveying the meaning while keeping the whole name succinct; "fmsg".
 
 
 ### Terms
@@ -41,12 +41,12 @@ _"UTF-8"_ is for the unicode standard: Unicode Transformation Format – 8-bit.
 
 ### Message Types
 
-fmsg defines four message types: MESSAGE, CHALLENGE, CHALLENGE RESPONSE and "REJECT or ACCEPT RESPONSE", often written here all capitals to emphasise reference to their defintions. These structures are aggregates of [Data Types](#data-types) and are described in the [Definition](#definition) section.
+fmsg defines four message types: MESSAGE, CHALLENGE, CHALLENGE RESPONSE and "REJECT or ACCEPT RESPONSE", often written here all capitals. These structures are aggregates of [Data Types](#data-types) and are described in the [Definition](#definition) section.
 
 
 ### Data Types
 
-Throughout this document the following data types are used. All types are encoded little-endian, making the types compatible with data types in modern programming languages.
+Throughout this document the following data types are used. All types are encoded little-endian.
 
 | name       | description                                                                                                          |
 |------------|----------------------------------------------------------------------------------------------------------------------|
@@ -63,7 +63,7 @@ Throughout this document the following data types are used. All types are encode
 
 ### Notes on Data Types
 
-* string lengths are always explicitly defined and null terminating characters are not used. This is a design decision becuase it prevents a class of buffer over-run bugs (search "Heartbleed bug"), simplifies message size calculation, and, inherently limits the length of strings while adding no extra data than a null terminating character would since all strings lengths here are defined by one uint8.
+* Lengths of strings are always explicitly defined and null terminating characters are not used. This is a design decision becuase it prevents a class of buffer over-run bugs (search "Heartbleed bug"), simplifies message size calculation, and, inherently limits the length of strings while adding no extra data than a null terminating character would since all strings lengths here are defined by one uint8.
 
 
 ## Definition
@@ -125,7 +125,7 @@ On the wire messages are encoded thus:
 
 Only one time field is present on a message and this time is stamped by the sending host when it acquired the message. Implementations could associate any additional data they want with messages, in the case of timestamps this could be time message sent on to remote host, but only the one time field is transmitted in a message which must be time received by sending host.
 
-fmsg includes some time checking and controls, rejecting messages too far in future or past compared to current time of the receiver, and, checking replies cannot claim to be sent before their parent (See [Reject or Accept Response](#reject-or-accept-response)). Of course this all relies on accuracy of clocks being used so some leniancy is granted determined by the receiving host. Futhermore a host may not be reachable for some time so greater leniancy should be given to messages from the past. Since the time field is stamped by the sending host - they need only concern themselves that their clock is accurate.
+Some time checking and controls are in the protocol, rejecting messages too far in future or past compared to current time of the receiver, and, checking replies cannot claim to be sent before their parent (See [Reject or Accept Response](#reject-or-accept-response)). Of course this all relies on accuracy of clocks being used so some leniancy is granted determined by the receiving host. Futhermore a host may not be reachable for some time so greater leniancy should be given to messages from the past. Since the time field is stamped by the sending host - they need only concern themselves that their clock is accurate.
 
 
 ### Flags
@@ -146,8 +146,10 @@ fmsg includes some time checking and controls, rejecting messages too far in fut
 
 If the common type flag bit is set in the flags field, then type field consists of one uint8 value which maps to the MIME type in the table below. A value not in the table is invalid and the entire message should be rejected with "invalid" REJECT response. If the common type bit is not set the first uint8 is the length of the subsequent bytes US-ASCII encoded MIME type per RFC 6838. 
 
-The current IANA list of Media Types is located [here](https://www.iana.org/assignments/media-types/media-types.xhtml).
+For reference the current IANA list of Media Types is located [here](https://www.iana.org/assignments/media-types/media-types.xhtml).
 
+<details>
+<summary>Media Types to number table</summary>
 | number | MIME Type                                       |
 |--------|-------------------------------------------------|
 | 1      | application/epub+zip                            |
@@ -209,7 +211,7 @@ The current IANA list of Media Types is located [here](https://www.iana.org/assi
 | 57     | video/VP8                                       |
 | 58     | video/VP9                                       |
 | 59     | video/webm                                      |
-
+</details>
 
 
 ### Attachment
