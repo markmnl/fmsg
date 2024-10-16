@@ -23,7 +23,7 @@
 
 ## Terminology
 
-_"fmsg"_ is the name given to the protocol and message definitions described in this document. The capitalisation of fmsg is obstinately always lowercase, even at the start of a sentence. The name "fmsg" is neither an abbreviation nor an acronym, however is thought of as "f-message". Where did the name come from? The "f" owes its inspiration from functions in programming languages such as C's `printf` where the "f" stands for "formatted". "Fast" and "falcon" were also in the author’s mind at the time. The "msg" part is a common shortening of "message" conveying the meaning while keeping the whole name succinct; "fmsg".
+_"fmsg"_ is the name given to the protocol and message definitions described in this document. The name "fmsg" is neither an abbreviation nor acronym, however is thought of as "f-message". The "f" owes its inspiration from functions in programming languages such as C's `printf` where the "f" stands for "formatted", and "msg" part is a common shortening of "message" conveying the meaning while keeping the whole name succinct; "fmsg".
 
 
 ### Terms
@@ -43,7 +43,7 @@ _"UTF-8"_ is for the unicode standard: Unicode Transformation Format – 8-bit.
 
 ### Message Types
 
-fmsg defines four message types: MESSAGE, CHALLENGE, CHALLENGE RESPONSE and "REJECT or ACCEPT RESPONSE", often written here all capitals to emphasise reference to their defintions. These structures are aggregates of [Data Types](#data-types) and are described in the [Definition](#definition) section.
+fmsg defines four message types: MESSAGE, CHALLENGE, CHALLENGE RESPONSE and "REJECT or ACCEPT RESPONSE", often written here all capitals. These structures are aggregates of [Data Types](#data-types) and are described in the [Definition](#definition) section.
 
 
 ### Data Types
@@ -72,7 +72,7 @@ Throughout this document the following data types are used. All types are encode
 
 ### Message
 
-In programmer friendly JSON a message could look like (once decoded from the binary format defined below):
+In programmer friendly JSON a message COULD look like (once decoded from the binary format defined below):
 
 ```JSON
 {
@@ -108,11 +108,11 @@ On the wire messages are encoded thus:
 | flags               | uint8                                | See [flags](#flags) for each bit's meaning.                                                                                                                     |
 | [pid]               | byte array                           | SHA-256 hash of message this message is a reply to. Only present if flags has pid bit set.                                                                      |
 | from                | fmsg address                         | See [address](#address) definition.                                                                                                                             |
-| to                  | uint8 + list of fmsg address         | See [address](#address) definition. Prefixed by uint8 count, addresses must be distinct (case-insensitive) of which there must be at least 1.                   |
+| to                  | uint8 + list of fmsg address         | See [address](#address) definition. Prefixed by uint8 count, addresses MUST be distinct (case-insensitive) of which there MUST be at least one.                   |
 | time                | float64                              | POSIX epoch time message was received by host sending the message.                                                                                              |
 | [topic]             | uint8 + UTF-8 string                 | UTF-8 free text title of the message thread, prefixed by unit8 size which may be 0. Only present on first message intiating a thread i.e. when there is no pid. |
 | type                | uint8 + [ASCII string]               | Either a common type, see [Common MIME Types](#common-mime-types), or a US-ASCII encoded MIME type: RFC 6838, of msg.                                           |
-| size                | uint32                               | Size of msg data in bytes must be at least 1                                                                                                                    |
+| size                | uint32                               | Size of data in bytes MUST be at least 1                                                                                                                    |
 | attachment headers  | uint8 + [list of attachment headers] | See [attachment](#attachment) header definition. Prefixed by uint8 count of attachments of which there may be 0.                                                |
 | data                | byte array                           | The message body of type defined in type field and size in the size field                                                                                       |
 | [attachments data]  | byte array(s)                        | Sequential sequence of octets boundries of which are defined by attachment headers size(s), if any.                                                             |
@@ -121,14 +121,14 @@ On the wire messages are encoded thus:
 ### Notes on Message Definition
 
 * Square brackets "[ ]" indicate fields or part thereof may not exist on a message. Where the brackets surround the name, e.g. pid, the whole field my not be present (which in the case of pid is only valid if the message is not a reply). Where they surround part of the type, that part may not be present, e.g. list of attachment headers will not be present if unit8 prefix is 0.
-* The topic field is set only on the first message sent in a thread making topic immutable because it cannot be changed by subsequent replies. Presentations of message threads can of course choose whether to use this or something else.
+* The topic field is set only on the first message sent in a thread making topic immutable because it cannot be changed by subsequent replies. (Presentations of message threads can of course choose whether to use this or something else).
 
 
 ### Notes on Time
 
-Only one time field is present on a message and this time is stamped by the sending host when it acquired the message. Implementations could associate any additional data they want with messages, in the case of timestamps this could be time message sent on to remote host, but only the one time field is transmitted in a message which must be time acquired by sending host.
+Only one time field is present on a message and this time is stamped by the sending host when it acquired the message. Implementations COULD associate additional data they want with messages, such as the time message was delivered.
 
-fmsg includes some time checking and controls, rejecting messages too far in future or past compared to current time of the receiver, and, checking replies cannot claim to be sent before their parent (See [Reject or Accept Response](#reject-or-accept-response)). Of course this all relies on accuracy of clocks being used so some leniancy is granted determined by the receiving host. Futhermore, a host may not be reachable for some time so greater leniancy should be given to messages from the past. Since the time field is stamped by the sending host - they need only concern themselves that their clock is accurate.
+fmsg includes some time checking and controls, rejecting messages too far in future or past compared to current time of the receiver, and, checking replies cannot claim to be sent before their parent (See [Reject or Accept Response](#reject-or-accept-response)). Of course this all relies on accuracy of clocks being used, so some leniancy is granted determined by the receiving host. Futhermore, a host may not be reachable for some time so greater leniancy SHOULD be given to messages from the past. Since the time field is stamped by the sending host - one only need concern themselves that their clock is accurate.
 
 
 ### Flags
@@ -136,18 +136,18 @@ fmsg includes some time checking and controls, rejecting messages too far in fut
 | bit index | name         | description                                                                                                                                                                                                                 |
 |----------:|--------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | 0         | has pid      | Set if this message is in reply to another and pid field is present.                                                                                                                                                        |
-| 1         | common type  | Indicates the type field is just a uint8 value and MIME type can be looked up per [Common MIME Types](#common-mime-types)                                                                                                   |
+| 1         | common type  | Indicates the type field is just a uint8 value and Media Type can be looked up per [Common MIME Types](#common-mime-types)                                                                                                  |
 | 2         | important    | Sender indicates this message is IMPORTANT!                                                                                                                                                                                 |
 | 3         | no reply     | Sender indicates any reply will be discarded.                                                                                                                                                                               |
-| 4         | no challenge | Sender asks challenge skipped, hosts should be cautious accepting this, especially on the wild Internet. May be useful on trusted networks to save network and compute resources verifying many machine generated messages. |
+| 4         | no challenge | Sender asks challenge skipped, hosts accepting unsolicited messages SHOULD be cautious accepting this, especially on the wild Internet.                                                                                     |
 | 5         | deflate      | Message data is compressed using the zlib structure (defined in RFC 1950), with the deflate compression algorithm (defined in RFC 1951).                                                                                    |
-| 6         | gzip         | Message data is compressed using the Lempel-Ziv coding (LZ77), with a 32-bit CRC.                                                                                                                                           |
+| 6         | crypto       | Set if pid is a SHA-256 hash; otherwise pid is a 32bit MurmurHash3                                                                                                                                             |
 | 7         | under duress | Sender indicates this message was written under duress.    
 
 
 #### Common Media Types
 
-If the common type flag bit is set in the flags field, then type field consists of one uint8 value which maps to the Media Type in the table below. A value not in the table is invalid and the entire message should be rejected with "invalid" REJECT response. If the common type bit is not set the first uint8 is the length of the subsequent bytes US-ASCII encoded MIME type per RFC 6838. Note even if the common type flag bit is not set (i.e. the Media Type is spelt out in full), the Media Type may be of these "common" types.
+If the common type flag bit is set in the flags field, then type field consists of one uint8 value which maps to the Media Type in the table below. A value not in the table is invalid and the entire message SHOULD be rejected with "invalid" REJECT response. If the common type bit is not set the first uint8 is the length of the subsequent bytes US-ASCII encoded MIME type per RFC 6838. Note even if the common type flag bit is not set (i.e. the Media Type is spelt out in full), the Media Type may be of these "common" types.
 
 For reference the current IANA list of Media Types is located [here](https://www.iana.org/assignments/media-types/media-types.xhtml).
 
@@ -222,7 +222,7 @@ Attachment headers consist of the two fields, filename and size:
 | filename | string     | UTF-8 prefixed by unit8 size.                                                                      |
 | size     | unit32     | Size of attachment data. unit32 is the max theoretical size, but hosts can/should accept less.     |
 
-filename must be:
+filename MUST be:
 
 * UTF-8
 * any letter in any language, or any numeric characters
@@ -243,7 +243,7 @@ Attachment data
 
 Domain part is the domain name RFC-1035 owning the address. Recipient part identifies the recipient known to hosts for the domain. A leading "@" character is prepended to distinguish from email addresses. The secondary "@" seperates recipient and domain name as per norm.
 
-Recipient part is a string of characters which must be:
+Recipient part is a string of characters which MUST be:
 
 * UTF-8
 * any letter in any language, or any numeric characters
@@ -262,13 +262,13 @@ A whole address is encoded UTF-8 prepended with size:
 
 | name        | type     | comment                                                                            |
 |-------------|----------|------------------------------------------------------------------------------------|
-| version     | uint8    | Must be 255 which indicates this messages is a challenge                           |
+| version     | uint8    | MUST be 255 which indicates this messages is a challenge                           |
 | header hash | 32 bytes | SHA-256 hash of message header being sent/received up to and including type field. |
 
 
 ### Challenge Response
 
-A challenge response is the next 32 bytes received in reply to challenge request - the existance of which indicates the sender accepted the challenge. This SHA-256 hash should be kept to ensure the complete message (including attachments) once downloaded matches.
+A challenge response is the next 32 bytes received in reply to challenge request - the existance of which indicates the sender accepted the challenge. This SHA-256 hash SHOULD be kept to ensure the complete message (including attachments) once downloaded matches.
 
 | name     | type          | comment                                                              |
 |----------|---------------|----------------------------------------------------------------------|
@@ -315,18 +315,17 @@ Two connection-orientated, reliable, in-order and duplex transports are required
 
 ### Notes
 
-* A new connection is opened from the receiving host to the purported sender (defined in origin field of the message header) so the receiving host can verify sending host indeed exists _and_ can prove they are sending this message (in the CHALLENGE, CHALLENGE RESP exchange). Before opening the second connection hosts are encouraged to lookup origin does indeed exist at the IP address message is being recieved from. 
-* A host reaching the TERMINATE step should tear down connection(s) without regard for the other end because they must be either malicious or not following the protocol! 
+* A new connection is opened from the receiving host to the purported sender (defined in origin field of the message header) so the receiving host can verify sending host indeed exists _and_ can prove they are sending this message (in the CHALLENGE, CHALLENGE RESP exchange).
+* A host reaching the TERMINATE step SHOULD tear down connection(s) without regard for the other end because they must be either malicious or not following the protocol! 
 * Where a message is being sent and connection closed in the diagram, closing only starts after message is sent/received, i.e. not concurrently.
 
 
 ## Host Resolution
 
-fmsg hosts for a domain are listed in a `TXT` record on the subdomain: `_fmsg`, of the recipient's domain. For example: `@user@example.com`'s domain `example.com` would have the subdomain `_fmsg.example.com`. The `TXT` record is formatted thus:
+fmsg hosts for a domain are listed in a `TXT` record on the subdomain: `_fmsg`, of the recipient's domain. For instance: `@user@example.com`'s domain `example.com` would have the subdomain `_fmsg.example.com`. The `TXT` record is formatted thus:
 
 * ASCII encoded
-* First value is `"fmsg"`
-* Followed by one or more values each of which must be:
+* One or more values each of which MUST be:
     * A DNS record
     * AAAA DNS record 
     * IPv4 unicast address in the dotted decimal format e.g.: `192.168.0.1`
@@ -334,20 +333,10 @@ fmsg hosts for a domain are listed in a `TXT` record on the subdomain: `_fmsg`, 
 
 An example TXT record listing fmsg hosts for `_fmsg.example.com`:
 ```
-_fmsg.example.com.   IN   TXT   "fmsg" "fmsg1.example.com" "fmsg2.example.com" "fmsg3.example.com"
+_fmsg.example.com.   IN   TXT   "fmsg1.example.com" "fmsg2.example.com" "fmsg3.example.com"
 ```
 
-When multiple fmsg hosts are returned in the `TXT` then connection to the host from the sender should be tried in the order they appear.
+When multiple fmsg hosts are returned in the `TXT` then connection to the host from the sender SHOULD be tried in the order they appear.
 
-If the `_fmsg` subdomain does not exist the recipients domain should be tried directly instead. 
+If the `_fmsg` subdomain does not exist the recipients root domain SHOULD be tried directly instead. 
 
-
-### Host Resolution Considerations
-
-Various alternatives for listing a domain's fmsg hosts were considered before arriving at the above method. Such alternatives that were considered are listed here for academic purposes only.
-
-* Using `MX` records which was orginally meant for listing mail servers agnostic of protocol, combined with a Well Known Service `WKS` record, would have been favourable. Unfortunatly use of `WKS` is deprecated and `MX` is assumed for SMTP as of writing.
-* Only using `TXT` record on recipient's domain instead of the `_fmsg` subdomain. All TXT records are retrieved on DNS query of a domain which could well contain other `TXT` records that would be superflouous.
-
-
-## Security Considerations
