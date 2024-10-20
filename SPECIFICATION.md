@@ -23,7 +23,7 @@
 
 ## Terminology
 
-_"fmsg"_ is the name given to the protocol and message definitions described in this document. The name "fmsg" is neither an abbreviation nor acronym, however is thought of as "f-message". The "f" owes its inspiration from functions in programming languages such as C's `printf` where the "f" stands for "formatted", and "msg" part is a common shortening of "message" conveying the meaning while keeping the whole name succinct; "fmsg".
+_"fmsg"_ is the name given to the protocol and message definitions described in this document. The name "fmsg" is neither an abbreviation nor acronym, however is thought of as "f-message". The "f" owes its inspiration from popular programming languages such as C's `printf` where the "f" stands for "formatted", "msg" is a common shortening of "message" conveying the meaning while keeping the whole name succinct; "fmsg".
 
 
 ### Terms
@@ -32,9 +32,9 @@ _"DNS"_ is for the Domain Name System
 
 _"host"_ is an fmsg implementation which can send and receive fmsg messages to and from other hosts.
 
-_"message"_ refers to an entire message described in [Message Defintion](#message).
+_"message"_ refers to an entire message described in [Message](#message) defintion.
 
-_"message header"_ refers to the fields up to and including the size field in a _message_.
+_"message header"_ refers to the fields up to and including the attachment headers field in a _message_.
 
 _"thread"_ is a linked heirarchy of messages where messages relate to previous messages using the pid field
 
@@ -43,7 +43,7 @@ _"UTF-8"_ is for the unicode standard: Unicode Transformation Format – 8-bit.
 
 ### Message Types
 
-fmsg defines four message types: MESSAGE, CHALLENGE, CHALLENGE RESPONSE and "REJECT or ACCEPT RESPONSE", often written here all capitals. These structures are aggregates of [Data Types](#data-types) and are described in the [Definition](#definition) section.
+fmsg defines four message types: MESSAGE, CHALLENGE, CHALLENGE RESPONSE and "REJECT or ACCEPT RESPONSE". These structures are aggregates of [Data Types](#data-types) and are described in the [Definition](#definition) section.
 
 
 ### Data Types
