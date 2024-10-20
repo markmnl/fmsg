@@ -63,21 +63,18 @@ Throughout this document the following data types are used. All types are encode
 | string     | sequence of characters the length and encoding (e.g. ASCII, UTF-8...) of which is defined alongside in this document |
 
 
-### Notes on Data Types
-
-* string lengths are always explicitly defined and null terminating characters are not used. This is a design decision becuase it prevents a class of buffer over-run bugs (search "Heartbleed bug"), simplifies message size calculation, and, inherently limits the length of strings while adding no extra data than a null terminating character would (since all strings lengths here are defined by one uint8).
+String lengths are always explicitly defined and null terminating characters are not used. This is a design decision becuase it prevents a class of buffer over-run bugs (search "Heartbleed bug"), simplifies message size calculation, and, inherently limits the length of strings while adding no extra data than a null terminating character would (since all strings lengths here are defined by one uint8).
 
 
 ## Definition
 
 ### Message
 
-In programmer friendly JSON a message COULD look like (once decoded from the binary format defined below):
+In programmer friendly JSON a message could look like (once decoded from the binary format defined below):
 
 ```JSON
 {
     "version": 1,
-    "origin": "host1.fmsg.org",
     "flags": 0
     "pid": null,
     "from": "@markmnl@fmsg.org",
@@ -104,15 +101,14 @@ On the wire messages are encoded thus:
 | name                | type                                 | description                                                                                                                                                     |
 |---------------------|--------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | version             | uint8                                | Version number message is in (currently only 1); or 255 if CHALLENGE - defined below.                                                                           |
-| origin              | uint8 + ASCII string                 | Domain name or IP address string of the actual host sending the message, prefixed by unit8 size.                                                                |
 | flags               | uint8                                | See [flags](#flags) for each bit's meaning.                                                                                                                     |
 | [pid]               | byte array                           | SHA-256 hash of message this message is a reply to. Only present if flags has pid bit set.                                                                      |
 | from                | fmsg address                         | See [address](#address) definition.                                                                                                                             |
-| to                  | uint8 + list of fmsg address         | See [address](#address) definition. Prefixed by uint8 count, addresses MUST be distinct (case-insensitive) of which there MUST be at least one.                   |
+| to                  | uint8 + list of fmsg address         | See [address](#address) definition. Prefixed by uint8 count, addresses MUST be distinct (case-insensitive) of which there MUST be at least one.                 |
 | time                | float64                              | POSIX epoch time message was received by host sending the message.                                                                                              |
-| [topic]             | uint8 + UTF-8 string                 | UTF-8 free text title of the message thread, prefixed by unit8 size which may be 0. Only present on first message intiating a thread i.e. when there is no pid. |
+| topic               | uint8 + UTF-8 string                 | UTF-8 free text title of the message thread, prefixed by unit8 size which may be 0.                                                                             |
 | type                | uint8 + [ASCII string]               | Either a common type, see [Common MIME Types](#common-mime-types), or a US-ASCII encoded MIME type: RFC 6838, of msg.                                           |
-| size                | uint32                               | Size of data in bytes MUST be at least 1                                                                                                                    |
+| size                | uint32                               | Size of data in bytes MUST be at least 1                                                                                                                        |
 | attachment headers  | uint8 + [list of attachment headers] | See [attachment](#attachment) header definition. Prefixed by uint8 count of attachments of which there may be 0.                                                |
 | data                | byte array                           | The message body of type defined in type field and size in the size field                                                                                       |
 | [attachments data]  | byte array(s)                        | Sequential sequence of octets boundries of which are defined by attachment headers size(s), if any.                                                             |
@@ -141,8 +137,8 @@ fmsg includes some time checking and controls, rejecting messages too far in fut
 | 3         | no reply     | Sender indicates any reply will be discarded.                                                                                                                                                                               |
 | 4         | no challenge | Sender asks challenge skipped, hosts accepting unsolicited messages SHOULD be cautious accepting this, especially on the wild Internet.                                                                                     |
 | 5         | deflate      | Message data is compressed using the zlib structure (defined in RFC 1950), with the deflate compression algorithm (defined in RFC 1951).                                                                                    |
-| 6         | crypto       | Set if pid is a SHA-256 hash; otherwise pid is a 32bit MurmurHash3                                                                                                                                             |
-| 7         | under duress | Sender indicates this message was written under duress.    
+| 6         | keep-alive   | Sender requests connection be kept alive.                                                              |
+| 7         | under duress | Sender indicates this message was written under duress.    |
 
 
 #### Common Media Types
@@ -297,6 +293,7 @@ A code less than 100 indicates rejection for all recipients and will be the only
 | 9    | time travel           | timestamp in message is before parent timestamp                         |
 | 10   | duplicate             | message has already been received                                       |
 | 11   | must challenge        | no challenge was requested but is required                              |
+| 12   | cannot challenge      | challenge was requested by sender by reciever is configured not to      |
 |      |                       |                                                                         |
 | 100  | user unknown          | the recipient message is addressed to is unknown by this host           |
 | 101  | user full             | insufficent resources for specific recipient                            |
@@ -315,7 +312,7 @@ Two connection-orientated, reliable, in-order and duplex transports are required
 
 ### Notes
 
-* A new connection is opened from the receiving host to the purported sender (defined in origin field of the message header) so the receiving host can verify sending host indeed exists _and_ can prove they are sending this message (in the CHALLENGE, CHALLENGE RESP exchange).
+* When challenging, a new connection is opened from the receiving host to the purported sender so the receiving host can verify sending host indeed exists _and_ can prove they are sending this message (in the CHALLENGE, CHALLENGE RESP exchange).
 * A host reaching the TERMINATE step SHOULD tear down connection(s) without regard for the other end because they must be either malicious or not following the protocol! 
 * Where a message is being sent and connection closed in the diagram, closing only starts after message is sent/received, i.e. not concurrently.
 
