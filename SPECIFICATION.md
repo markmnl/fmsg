@@ -15,15 +15,12 @@
     - [Reject or Accept Response](#reject-or-accept-response)
 - [Protocol](#protocol)
     - [Flow diagram](#protocol)
-- [Host Resolution](#host-resolution)
-    - [Host Resolution Considerations](#host-resolution)
-- [Security Considerations](#security-considerations)
 
 
 
 ## Terminology
 
-_"fmsg"_ is the name given to the protocol and message definitions described in this document. The name "fmsg" is neither an abbreviation nor acronym, however is thought of as "f-message". The "f" owes its inspiration from popular programming languages such as C's `printf` where the "f" stands for "formatted", "msg" is a common shortening of "message" conveying the meaning while keeping the whole name succinct; "fmsg".
+_"fmsg"_ is the name given to the protocol and message definitions described in this document. The name "fmsg" is neither an abbreviation nor acronym, however is thought of as "f-message". The "f" is inspired from popular programming languages such as C's `printf` where the "f" stands for "formatted", "msg" is a common shortening of "message" conveying the meaning while keeping the whole name succinct; "fmsg".
 
 
 ### Terms
@@ -293,13 +290,10 @@ A code less than 100 indicates rejection for all recipients and will be the only
 | 9    | time travel           | timestamp in message is before parent timestamp                         |
 | 10   | duplicate             | message has already been received                                       |
 | 11   | must challenge        | no challenge was requested but is required                              |
-| 12   | cannot challenge      | challenge was requested by sender by reciever is configured not to      |
+| 12   | cannot challenge      | challenge was requested by sender but reciever is configured not to     |
 |      |                       |                                                                         |
-| 50   | user unknown          | the recipient message is addressed to is unknown by this host           |
-| 51   | user full             | insufficent resources for specific recipient                            |
-|      |                       |                                                                         |
-| 100  | accept                | message received, no more data                                          |
-| 101  | accept                | message received, no more data                                          |
+| 100  | user unknown          | the recipient message is addressed to is unknown by this host           |
+| 101  | user full             | insufficent resources for specific recipient                            |
 |      |                       |                                                                         |
 | 200  | accept                | message received, no more data                                          |
 | 201  | accept + resp         | message received, response follows                                      |
