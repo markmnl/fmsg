@@ -15,15 +15,12 @@
     - [Reject or Accept Response](#reject-or-accept-response)
 - [Protocol](#protocol)
     - [Flow diagram](#protocol)
-- [Host Resolution](#host-resolution)
-    - [Host Resolution Considerations](#host-resolution)
-- [Security Considerations](#security-considerations)
 
 
 
 ## Terminology
 
-_"fmsg"_ is the name given to the protocol and message definitions described in this document. The name "fmsg" is neither an abbreviation nor acronym, however is thought of as "f-message". The "f" owes its inspiration from popular programming languages such as C's `printf` where the "f" stands for "formatted", "msg" is a common shortening of "message" conveying the meaning while keeping the whole name succinct; "fmsg".
+_"fmsg"_ is the name given to the protocol and message definitions described in this document. The name "fmsg" is neither an abbreviation nor acronym, however is thought of as "f-message". The "f" is inspired from popular programming languages such as C's `printf` where the "f" stands for "formatted", "msg" is a common shortening of "message" conveying the meaning while keeping the whole name succinct; "fmsg".
 
 
 ### Terms
@@ -293,12 +290,13 @@ A code less than 100 indicates rejection for all recipients and will be the only
 | 9    | time travel           | timestamp in message is before parent timestamp                         |
 | 10   | duplicate             | message has already been received                                       |
 | 11   | must challenge        | no challenge was requested but is required                              |
-| 12   | cannot challenge      | challenge was requested by sender by reciever is configured not to      |
+| 12   | cannot challenge      | challenge was requested by sender but reciever is configured not to     |
 |      |                       |                                                                         |
 | 100  | user unknown          | the recipient message is addressed to is unknown by this host           |
 | 101  | user full             | insufficent resources for specific recipient                            |
 |      |                       |                                                                         |
-| 255  | accept                | message received                                                        |
+| 200  | accept                | message received, no more data                                          |
+| 201  | accept + resp         | message received, response follows                                      |
 
 
 ## Protocol
@@ -317,23 +315,4 @@ Two connection-orientated, reliable, in-order and duplex transports are required
 * Where a message is being sent and connection closed in the diagram, closing only starts after message is sent/received, i.e. not concurrently.
 
 
-## Host Resolution
-
-fmsg hosts for a domain are listed in a `TXT` record on the subdomain: `_fmsg`, of the recipient's domain. For instance: `@user@example.com`'s domain `example.com` would have the subdomain `_fmsg.example.com`. The `TXT` record is formatted thus:
-
-* ASCII encoded
-* One or more values each of which MUST be:
-    * A DNS record
-    * AAAA DNS record 
-    * IPv4 unicast address in the dotted decimal format e.g.: `192.168.0.1`
-    * IPv6 unicast address in conventional format per [RFC1884](https://www.rfc-editor.org/rfc/rfc1884#page-4), e.g.: `1080::8:800:200C:417A`
-
-An example TXT record listing fmsg hosts for `_fmsg.example.com`:
-```
-_fmsg.example.com.   IN   TXT   "fmsg1.example.com" "fmsg2.example.com" "fmsg3.example.com"
-```
-
-When multiple fmsg hosts are returned in the `TXT` then connection to the host from the sender SHOULD be tried in the order they appear.
-
-If the `_fmsg` subdomain does not exist the recipients root domain SHOULD be tried directly instead. 
 
