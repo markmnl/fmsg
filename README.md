@@ -1,8 +1,8 @@
 # fmsg
 
-![icon](pics/icon.png) A message definition and protocol where messages are relational and verifiable by all peers. Messages are sent via a fmsg host to one or more recipients. Each message in a thread is linked to the previous using a cryptographic hash forming a hierarchial structure.
+![icon](pics/icon.png) A binary message definition and protocol where messages are relational and verifiable by all peers. Messages are sent via a fmsg host to one or more recipients. Each message in a thread is linked to the previous using a cryptographic hash forming a directed acyclic graph.
 
-This repository serves as a host and index for fmsg related documents listed below, including the specification, white paper and standards.
+This repository serves as a host and index for fmsg related documents listed below, including the white paper, specification and standards.
 
 
 | Document                                  | Short Description |
