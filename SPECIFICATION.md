@@ -20,7 +20,7 @@
 
 ## Terminology
 
-_"fmsg"_ is the name given to the protocol and message definitions described in this document. The name "fmsg" is neither an abbreviation nor acronym, however is thought of as "f-message". The "f" is inspired from popular programming languages such as C's `printf` where the "f" stands for "formatted", "msg" is a common shortening of "message" conveying the meaning while keeping the whole name succinct; "fmsg".
+_"fmsg"_ is the name given to the protocol and message definitions described in this document. The name "fmsg" is neither an abbreviation nor acronym, instead is thought of as "f-message". The "f" is inspired from popular programming languages such as C's `printf` where the "f" stands for "formatted", "msg" is a common shortening of "message" conveying the meaning while keeping the whole name succinct; "fmsg".
 
 
 ### Terms
@@ -29,7 +29,7 @@ _"DNS"_ is for the Domain Name System
 
 _"host"_ is an fmsg implementation which can send and receive fmsg messages to and from other hosts.
 
-_"message"_ refers to an entire message described in [Message](#message) defintion.
+_"message"_ refers to an entire message described in [Message](#message) definition.
 
 _"message header"_ refers to the fields up to and including the attachment headers field in a _message_.
 
@@ -103,9 +103,9 @@ On the wire messages are encoded thus:
 | from                | fmsg address                         | See [address](#address) definition.                                                                                                                             |
 | to                  | uint8 + list of fmsg address         | See [address](#address) definition. Prefixed by uint8 count, addresses MUST be distinct (case-insensitive) of which there MUST be at least one.                 |
 | time                | float64                              | POSIX epoch time message was received by host sending the message.                                                                                              |
-| topic               | uint8 + UTF-8 string                 | UTF-8 free text title of the message thread, prefixed by unit8 size which may be 0.                                                                             |
-| type                | uint8 + [ASCII string]               | Either a common type, see [Common MIME Types](#common-mime-types), or a US-ASCII encoded MIME type: RFC 6838, of msg.                                           |
-| size                | uint32                               | Size of data in bytes MUST be at least 1                                                                                                                        |
+| topic               | uint8 + [UTF-8 string]               | UTF-8 free text title of the message thread, prefixed by unit8 size which may be 0.                                                                             |
+| type                | uint8 + [ASCII string]               | Either a common type, see [Common MIME Types](#common-mime-types), or a US-ASCII encoded Media Type: RFC 6838.                                                  |
+| size                | uint32                               | Size of data in bytes, 0 or greater                                                                                                                             |
 | attachment headers  | uint8 + [list of attachment headers] | See [attachment](#attachment) header definition. Prefixed by uint8 count of attachments of which there may be 0.                                                |
 | data                | byte array                           | The message body of type defined in type field and size in the size field                                                                                       |
 | [attachments data]  | byte array(s)                        | Sequential sequence of octets boundries of which are defined by attachment headers size(s), if any.                                                             |
@@ -114,12 +114,12 @@ On the wire messages are encoded thus:
 ### Notes on Message Definition
 
 * Square brackets "[ ]" indicate fields or part thereof may not exist on a message. Where the brackets surround the name, e.g. pid, the whole field my not be present (which in the case of pid is only valid if the message is not a reply). Where they surround part of the type, that part may not be present, e.g. list of attachment headers will not be present if unit8 prefix is 0.
-* The topic field is set only on the first message sent in a thread making topic immutable because it cannot be changed by subsequent replies. (Presentations of message threads can of course choose whether to use this or something else).
+* Topic is set only on the first message sent in a thread, thereafter topic size is always 0. Making topic immutable because it cannot be changed by subsequent replies. (Presentations of message threads COULD map this to mutable field for display).
 
 
 ### Notes on Time
 
-Only one time field is present on a message and this time is stamped by the sending host when it acquired the message. Implementations COULD associate additional data they want with messages, such as the time message was delivered.
+Only one time field is present on a message and this time is stamped by the sending host when it acquired the message. Implementations COULD associate additional data like timestamps they want with messages, such as the time message was delivered.
 
 fmsg includes some time checking and controls, rejecting messages too far in future or past compared to current time of the receiver, and, checking replies cannot claim to be sent before their parent (See [Reject or Accept Response](#reject-or-accept-response)). Of course this all relies on accuracy of clocks being used, so some leniancy is granted determined by the receiving host. Futhermore, a host may not be reachable for some time so greater leniancy SHOULD be given to messages from the past. Since the time field is stamped by the sending host - one only need concern themselves that their clock is accurate.
 
@@ -134,15 +134,18 @@ fmsg includes some time checking and controls, rejecting messages too far in fut
 | 3         | no reply     | Sender indicates any reply will be discarded.                                                                                                                                                                               |
 | 4         | no challenge | Sender asks challenge skipped, hosts accepting unsolicited messages SHOULD be cautious accepting this, especially on the wild Internet.                                                                                     |
 | 5         | deflate      | Message data is compressed using the zlib structure (defined in RFC 1950), with the deflate compression algorithm (defined in RFC 1951).                                                                                    |
-| 6         | keep-alive   | Sender requests connection be kept alive.                                                              |
+| 6         | keep-alive   | Sender requests connection be kept alive because they expect subsequent messages to follow shortly.                                                              |
 | 7         | under duress | Sender indicates this message was written under duress.    |
 
 
 #### Common Media Types
 
-If the common type flag bit is set in the flags field, then type field consists of one uint8 value which maps to the Media Type in the table below. A value not in the table is invalid and the entire message SHOULD be rejected with "invalid" REJECT response. If the common type bit is not set the first uint8 is the length of the subsequent bytes US-ASCII encoded MIME type per RFC 6838. Note even if the common type flag bit is not set (i.e. the Media Type is spelt out in full), the Media Type may be of these "common" types.
+If the common type flag bit is set in the flags field, then type field consists of one uint8 value which maps to the Media Type including parameters in the table below. A value not in the table is invalid and the entire message SHOULD be rejected with "invalid" REJECT response. If the common type bit is not set the first uint8 is the length of the subsequent bytes US-ASCII encoded Media Type per RFC 6838. Note, even if the common type flag bit is not set (i.e. the Media Type is spelt out in full), the Media Type may be one of these "common" types.
 
 For reference the current IANA list of Media Types is located [here](https://www.iana.org/assignments/media-types/media-types.xhtml).
+
+<details>
+  <summary>Numerical identifier to common Media Types mapping.</summary>
 
 | number | Media Type                                                                |
 |--------|---------------------------------------------------------------------------|
@@ -188,11 +191,13 @@ For reference the current IANA list of Media Types is located [here](https://www
 | 40     | text/calendar                                                             |
 | 41     | text/css                                                                  |
 | 42     | text/csv                                                                  |
+| 42     | text/markdown                                                             |
 | 43     | text/html                                                                 |
 | 44     | text/javascript                                                           |
 | 45     | text/plain;charset=ASCII                                                  |
 | 46     | text/plain;charset=UTF-16                                                 |
 | 47     | text/plain;charset=UTF-8                                                  |
+| 48     | text/vcard                                                                |
 | 48     | video/H264                                                                |
 | 49     | video/H264-RCDO                                                           |
 | 50     | video/H264-SVC                                                            |
@@ -202,8 +207,13 @@ For reference the current IANA list of Media Types is located [here](https://www
 | 54     | video/VP8                                                                 |
 | 55     | video/VP9                                                                 |
 | 56     | video/webm                                                                |
+| 57     | model/3mf                                                                 |
+| 59     | model/gltf-binary                                                         |
+| 60     | model/obj                                                                 |
+| 61     | model/stl                                                                 |
+| 62     | model/step
 
-
+</details>
 
 
 ### Attachment
