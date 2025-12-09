@@ -97,7 +97,7 @@ On the wire messages are encoded thus:
 
 | name                | type                                 | description                                                                                                                                                     |
 |---------------------|--------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| version             | uint8                                | Version number message is in (currently only 1); or 255 if CHALLENGE - defined below.                                                                           |
+| version             | uint8                                | Version number message is in (currently only 1); or 255 if CHALLENGE – defined below.                                                                           |
 | flags               | uint8                                | See [flags](#flags) for each bit's meaning.                                                                                                                     |
 | [pid]               | byte array                           | SHA-256 hash of message this message is a reply to. Only present if flags has pid bit set.                                                                      |
 | from                | fmsg address                         | See [address](#address) definition.                                                                                                                             |
@@ -114,14 +114,14 @@ On the wire messages are encoded thus:
 ### Notes on Message Definition
 
 * Square brackets "[ ]" indicate fields or part thereof may not exist on a message. Where the brackets surround the name, e.g. pid, the whole field my not be present (which in the case of pid is only valid if the message is not a reply). Where they surround part of the type, that part may not be present, e.g. list of attachment headers will not be present if unit8 prefix is 0.
-* Topic is set only on the first message sent in a thread, thereafter topic size is always 0. Making topic immutable because it cannot be changed by subsequent replies. (Presentations of message threads COULD map this to mutable field for display).
+* Topic is set only on the first message sent in a thread, thereafter topic size is always 0. Making topic immutable because it cannot be changed by subsequent replies. (Presentations of message threads COULD use a local mutable field for display).
 
 
 ### Notes on Time
 
-Only one time field is present on a message and this time is stamped by the sending host when it acquired the message. Implementations COULD associate additional data like timestamps they want with messages, such as the time message was delivered.
+Only one time field is present on a message and this time is stamped by the sending host when it acquired the message. (Implementations COULD associate additional timestamps with messages, such as the time message was delivered).
 
-fmsg includes some time checking and controls, rejecting messages too far in future or past compared to current time of the receiver, and, checking replies cannot claim to be sent before their parent (See [Reject or Accept Response](#reject-or-accept-response)). Of course this all relies on accuracy of clocks being used, so some leniancy is granted determined by the receiving host. Futhermore, a host may not be reachable for some time so greater leniancy SHOULD be given to messages from the past. Since the time field is stamped by the sending host - one only need concern themselves that their clock is accurate.
+fmsg includes some time checking and controls, rejecting messages too far in future or past compared to current time of the receiver, and, checking replies cannot claim to be sent before their parent (See [Reject or Accept Response](#reject-or-accept-response)). Of course this all relies on accuracy of clocks being used, so some leniancy is granted determined by the receiving host. Bearing in mind a host may not be reachable for some time so greater leniancy SHOULD be given to messages from the past. Since the time field is stamped by the sending host – one only need concern themselves that their clock is accurate.
 
 
 ### Flags
@@ -271,11 +271,11 @@ A whole address is encoded UTF-8 prepended with size:
 
 ### Challenge Response
 
-A challenge response is the next 32 bytes received in reply to challenge request - the existance of which indicates the sender accepted the challenge. This SHA-256 hash SHOULD be kept to ensure the complete message (including attachments) once downloaded matches.
+A challenge response is the next 32 bytes received in reply to challenge request – the existance of which indicates the sender accepted the challenge. This SHA-256 hash SHOULD be kept to ensure the complete message (including attachments) once downloaded matches.
 
 | name     | type          | comment                                                              |
 |----------|---------------|----------------------------------------------------------------------|
-| msg hash | 32 byte array | SHA-256 hash of entire message body and attachments.                 |
+| msg hash | 32 byte array | SHA-256 hash of entire message.                                      | 
 
 
 ### Reject or Accept Response
@@ -295,24 +295,23 @@ A code less than 100 indicates rejection for all recipients and will be the only
 | 4    | too big               | total size exceeds host's maximum permitted size of messages            |
 | 5    | insufficent resources | such as disk space to store the message                                 |
 | 6    | parent not found      | parent referenced by pid not found                                      |
-| 7    | past time             | timestamp in the message is too far in the past for this host to accept |
-| 8    | future time           | timestamp in message is too far in the future for this host to accept   |
-| 9    | time travel           | timestamp in message is before parent timestamp                         |
+| 7    | past time             | timestamp is too far in the past for this host to accept |
+| 8    | future time           | timestamp is too far in the future for this host to accept   |
+| 9    | time travel           | timestamp is before parent timestamp                         |
 | 10   | duplicate             | message has already been received                                       |
 | 11   | must challenge        | no challenge was requested but is required                              |
-| 12   | cannot challenge      | challenge was requested by sender but reciever is configured not to     |
+| 12   | cannot challenge      | challenge was requested by sender but receiver is configured not to     |
 |      |                       |                                                                         |
 | 100  | user unknown          | the recipient message is addressed to is unknown by this host           |
 | 101  | user full             | insufficent resources for specific recipient                            |
 |      |                       |                                                                         |
 | 200  | accept                | message received, no more data                                          |
-| 201  | accept + resp         | message received, response follows                                      |
 
 
 ## Protocol
 
 A message is sent from the sender's host to each unique recipient host (i.e. each domain only once even if multiple recipients with the same domain). Sending a message either wholly succeeds or fails per recipient. During the sending from one host to another several steps are performed depicted in the below flow diagram. 
-Two connection-orientated, reliable, in-order and duplex transports are required to perform the full flow. Transmission Control Protocol (TCP) is an obvious choice, on top of which Transport Layer Security (TLS) may meet your encryption needs.
+Two connection-orientated, reliable, in-order and duplex transports are required to perform the full flow. Transmission Control Protocol (TCP) is an obvious choice, on top of which Transport Layer Security (TLS) may meet your encryption needs, or even better why not use [QUIC] RFC 9000: "QUIC: A UDP-Based Multiplexed and Secure Transport".
 
 ![fmsg flow diagram](pics/flow.png)
 
