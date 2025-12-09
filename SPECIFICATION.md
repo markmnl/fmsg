@@ -134,7 +134,7 @@ fmsg includes some time checking and controls, rejecting messages too far in fut
 | 3         | no reply     | Sender indicates any reply will be discarded.                                                                                                                                                                               |
 | 4         | no challenge | Sender asks challenge skipped, hosts accepting unsolicited messages SHOULD be cautious accepting this, especially on the wild Internet.                                                                                     |
 | 5         | deflate      | Message data is compressed using the zlib structure (defined in RFC 1950), with the deflate compression algorithm (defined in RFC 1951).                                                                                    |
-| 6         | keep-alive   | Sender requests connection be kept alive because they expect subsequent messages to follow shortly.                                                              |
+| 6         |    | Unused                                                       |
 | 7         | under duress | Sender indicates this message was written under duress.    |
 
 
@@ -228,7 +228,7 @@ Attachment headers consist of the two fields, filename and size:
 filename MUST be:
 
 * UTF-8
-* any letter in any language, or any numeric characters
+* any letter in any language, or any numeric characters (`\p{L}` and `\p{N}` Unicode Standard Annex #44 and #18)
 * the hyphen "-" or underscore "_" characters non-consecutively and not at beginning or end
 * unique amongst attachments, case-sensitive
 * less than 256 bytes length
@@ -249,7 +249,7 @@ Domain part is the domain name RFC-1035 owning the address. Recipient part ident
 Recipient part is a string of characters which MUST be:
 
 * UTF-8
-* any letter in any language, or any numeric characters
+* any letter in any language, or any numeric characters (`\p{L}` and `\p{N}` Unicode Standard Annex #44 and #18)
 * the hyphen "-" or underscore "_" characters non-consecutively and not at beginning or end
 * unique on host using case-insensitive comparison
 * less than 256 bytes length when combined with domain name and @ characters 
