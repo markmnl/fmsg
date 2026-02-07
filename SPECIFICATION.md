@@ -323,5 +323,14 @@ Two connection-orientated, reliable, in-order and duplex transports are required
 * A host reaching the TERMINATE step SHOULD tear down connection(s) without regard for the other end because they must be either malicious or not following the protocol! 
 * Where a message is being sent and connection closed in the diagram, closing only starts after message is sent/received, i.e. not concurrently.
 
+### Domain Resolution
+
+The domain name used to resolve a fmsg host is the subdomain `_fmsg` of the domain name in an fmsg address. Using the example of `@A@example.com` sending a message to `@B@example.edu` the sender's fmsg host IP addresses are at `_fmsg.example.com` and the recipients at `_fmsg.example.edu`. 
+
+IMPORTANTLY _before_ challenging the sender when reciving a message, the recieving host MUST lookup independently the senders list of IP addresses and verify the orginating IP address of the incoming message is in those; otherwise the connection MUST be terminated before challenging. This ensures the fmsg host sending a message is listed by the senders domain and prevents orchastrating a denial-of-service style attack by falsifying an address to trigger many fmsg hosts challenging an unsuspecting host.
+
+#### Notes on Domain Resolution
+
+Various alternatives were considered before arriving at using the `_fmsg` subdomain method. For instance an MX record combined with a WKS record on the domain would align with orginal intent of RFC TODO; however the intent of MX records has, unfortunatly, been superceded by RFC TODO and is now is assumed to be SMTP. Using a TXT record Like SPF does was considered too, but that leads to a growing problem of proliferation of TXT records on high level domain names. So the `_fmsg` was chosen which allows the reciver to verify a message being transmitted is indeed from an origin the owning domain has explicitly listed, and, only requires one domain lookup because the incoming IP address is already known!
 
 
