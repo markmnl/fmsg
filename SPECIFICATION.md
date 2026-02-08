@@ -15,6 +15,9 @@
     - [Reject or Accept Response](#reject-or-accept-response)
 - [Protocol](#protocol)
     - [Flow diagram](#protocol)
+- [Domain Resolution](#domain-resolution)
+    - [Notes on Domain Resolution](#notes-on-domain-resolution)
+    - [Practical Concerns](#practical-concnerns)
 
 
 
@@ -74,10 +77,10 @@ In programmer friendly JSON a message could look like (once decoded from the bin
     "version": 1,
     "flags": 0
     "pid": null,
-    "from": "@markmnl@fmsg.org",
+    "from": "@markmnl@fmsg.io",
     "to": [
         "@世界@example.com",
-        "@chris@fmsg.org"
+        "@chris@fmsg.io"
     ],
     "time": 1654503265.679954,
     "topic": "Hello fmsg!",
@@ -311,7 +314,7 @@ A code less than 100 indicates rejection for all recipients and will be the only
 ## Protocol
 
 A message is sent from the sender's host to each unique recipient host (i.e. each domain only once even if multiple recipients with the same domain). Sending a message either wholly succeeds or fails per recipient. During the sending from one host to another several steps are performed depicted in the below flow diagram. 
-Two connection-orientated, reliable, in-order and duplex transports are required to perform the full flow. Transmission Control Protocol (TCP) is an obvious choice, on top of which Transport Layer Security (TLS) may meet your encryption needs, or even better why not use [QUIC] RFC 9000: "QUIC: A UDP-Based Multiplexed and Secure Transport".
+Two connection-orientated, reliable, in-order and duplex transports are required to perform the full flow. Transmission Control Protocol (TCP) is an obvious choice, on top of which Transport Layer Security (TLS) may meet your encryption needs. Or, perhaps [QUIC] RFC 9000: "QUIC: A UDP-Based Multiplexed and Secure Transport".
 
 ![fmsg flow diagram](pics/flow.png)
 
@@ -323,5 +326,18 @@ Two connection-orientated, reliable, in-order and duplex transports are required
 * A host reaching the TERMINATE step SHOULD tear down connection(s) without regard for the other end because they must be either malicious or not following the protocol! 
 * Where a message is being sent and connection closed in the diagram, closing only starts after message is sent/received, i.e. not concurrently.
 
+## Domain Resolution
 
+Hosts MUST obtain and verify authorised IP addresses by resolving the subdomain _fmsg of the domain name in an fmsg address and evaluating the resulting A and AAAA records (including those obtained via CNAME aliasing). For example if `@alice@example.com` is sending a message to `@bob@example.edu`, Alice's authorised fmsg host IP addresses are obtained by resolving `_fmsg.example.com`, and Bob's from `_fmsg.example.edu`.
 
+Sending and receiving hosts SHOULD perform DNSSEC validation for _fmsg lookups when supported. If DNSSEC validation fails, the the conenction MUST be terminated.
+
+Before opening the second connection to send CHALLENGE, the receiving host MUST independently resolve the senders authorised IP set from the `_fmsg` subdomain and verify the originating IP address of the incoming connection is in that set. If verification fails the connection MUST be terminated without challenging. This ensures the fmsg host sending a message is listed by the senders domain and prevents orchestrating a denial-of-service style attack by falsifying an address to trigger many fmsg hosts challenging an unsuspecting host.
+
+### Notes on Domain Resolution
+
+Various alternatives were considered before arriving at using the `_fmsg` subdomain method. For instance an MX record combined with a WKS record on the domain would align with original intent of RFC 974 allowing message exchange services to be located for a domain along with WKS specifying the protocol. However the intent of MX records has been superceded by RFC 1123 and is now assumed to be SMTP and WKS is obsolote. Using a TXT record as SPF does was considered too, but that leads to a growing problem of proliferation of TXT records. So the `_fmsg` subdomain method was chosen as it allows the receiver to verify that the originating host of a message is explicitly authorized by the owning domain. Also, because the incoming IP address and sender's domain are known to the receiving host, only one domain lookup is needed.
+
+### Practical Concerns
+
+Verifying the sender’s IP address requires the receiving host to observe the true originating IP address of the connection. This implies that fmsg hosts must be directly routable, or that any intervening infrastructure preserves and conveys the originating IP address. Care must therefore be taken when fmsg hosts operate behind network address translators (NAT), layer-4 load balancers, or proxying infrastructure.
