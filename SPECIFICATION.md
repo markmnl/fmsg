@@ -15,9 +15,9 @@
     - [Reject or Accept Response](#reject-or-accept-response)
 - [Protocol](#protocol)
     - [Flow diagram](#protocol)
-- [Domain Resolution](#protocol)
-    - [Flow diagram](#protocol)
-    - [Flow diagram](#protocol)
+- [Domain Resolution](#domain-resolution)
+    - [Notes on Domain Resolution](#notes-on-domain-resolution)
+    - [Practical Concerns](#practical-concnerns)
 
 
 
