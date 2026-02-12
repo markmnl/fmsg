@@ -314,7 +314,7 @@ A code less than 100 indicates rejection for all recipients and will be the only
 ## Protocol
 
 A message is sent from the sender's host to each unique recipient host (i.e. each domain only once even if multiple recipients with the same domain). Sending a message either wholly succeeds or fails per recipient. During the sending from one host to another several steps are performed depicted in the below flow diagram. 
-Two connection-orientated, reliable, in-order and duplex transports are required to perform the full flow. Transmission Control Protocol (TCP) is an obvious choice, on top of which Transport Layer Security (TLS) may meet your encryption needs. Or, perhaps [QUIC] RFC 9000: "QUIC: A UDP-Based Multiplexed and Secure Transport".
+Two connection-orientated, reliable, in-order and duplex transports are required to perform the full flow. Transmission Control Protocol (TCP) is an obvious choice, on top of which Transport Layer Security (TLS) may meet your encryption needs.
 
 ![fmsg flow diagram](pics/flow.png)
 
