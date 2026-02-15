@@ -313,18 +313,46 @@ A code less than 100 indicates rejection for all recipients and will be the only
 
 ## Protocol
 
-A message is sent from the sender's host to each unique recipient host (i.e. each domain only once even if multiple recipients with the same domain). Sending a message either wholly succeeds or fails per recipient. During the sending from one host to another several steps are performed depicted in the below flow diagram. 
+A message is sent from the sender's host to each unique recipient host (i.e. each domain only once even if multiple recipients with the same domain). Sending a message either wholly succeeds or fails per recipient. During the sending from one host to another several steps are performed depicted in the below diagram. 
 Two connection-orientated, reliable, in-order and duplex transports are required to perform the full flow. Transmission Control Protocol (TCP) is an obvious choice, on top of which Transport Layer Security (TLS) may meet your encryption needs.
 
-![fmsg flow diagram](pics/flow.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="pics/seq-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="pics/seq-light.png">
+  <img alt="fmsg protocol sequence diagram" src="pics/seq-dark.png">
+</picture>
 
-*Protocol flow diagram*
+*Protocol sequence diagram*
 
-### Notes
+Following the example of `@A@example.com` is sending a message to `@B@example.edu`
 
-* When challenging, a new connection is opened from the receiving host to the purported sender so the receiving host can verify sending host indeed exists _and_ can prove they are sending this message (in the CHALLENGE, CHALLENGE RESP exchange).
-* A host reaching the TERMINATE step SHOULD tear down connection(s) without regard for the other end because they must be either malicious or not following the protocol! 
-* Where a message is being sent and connection closed in the diagram, closing only starts after message is sent/received, i.e. not concurrently.
+1. Connection Initiation and Header Exchange
+    1. The Sending Host (Host A) initiates a connection (Connection 1) to the Receiving Host (Host B).
+    2. Host A transmits the message header for the MSG being sent.
+    3. Host B downloads the message header and MUST perform a DNS lookup on the _fmsg subdomain of the sender's domain (_fmsg.example.com) to verify that the IP address of the incoming connection is in those authorised by the sending domain. If the incoming IP address is not in the authorised set, Host B MUST terminate the connection.
+
+2. The Automatic Challenge
+    1. Host B MUST initiate a separate connection (Connection 2) back to Host A to the same incoming IP address.
+    2. Host B sends a CHALLENGE to Host A, supplying the hash of the message header received in Connection 1.
+    3. Host A MUST verify the authenticity of the challenge by checking the header hash matches a message currently being sent to Host B. 
+        - If not matched then the connection MUST be terminated.
+    4. If matched, Host A transmits a CHALLENGE RESP containing the SHA256 hash of the entire message.
+
+3. Message Content Transfer
+    1. Host B performs final checks on the CHALLENGE RESP then either rejects the entire message outright; or continues to download the content. A REJECT response at this stage allows the receiving host a chance to respond before downloading the rest of the message.
+        * REJECT MUST apply to all recipients belonging to Host B, i.e. "REJECT or ACCEPT RESPONSE" code must be less than 100.
+        * REJECT MUST be sent on Connection 1.
+        * REJECT if sent MUST be immediately followed by closure of Connection 1 by Host B.
+        * Connection 2 MUST be closed, initiated by Host B.
+    2. Host B completes the download of the full remaining MSG, i.e. remaining bytes totalling size + the sum of any attachment sizes.
+
+4. Integrity Verification and Disposition
+    1. Host B MUST perform a message integrity check by calculating the SHA256 hash of the fully downloaded message including header, data and any attachments. Then compare this calculated hash against the hash provided in the CHALLENGE RESP earlier.
+        - If hashes do not match Host B MUST TERMINATE the connection.
+    2. If the hashes match, Host B transmits an "ACCEPT or REJECT RESPONSE" code to Host A for each individual recipient.
+    3. Host A MUST record the responses per recipient.
+    4. Host A and Host B gracefully close Connection 1, completing the message exchange.
+
 
 ## Domain Resolution
 
@@ -336,8 +364,8 @@ Before opening the second connection to send CHALLENGE, the receiving host MUST 
 
 ### Notes on Domain Resolution
 
-Various alternatives were considered before arriving at using the `_fmsg` subdomain method. For instance an MX record combined with a WKS record on the domain would align with original intent of RFC 974 allowing message exchange services to be located for a domain along with WKS specifying the protocol. However the intent of MX records has been superceded by RFC 1123 and is now assumed to be SMTP and WKS is obsolote. Using a TXT record as SPF does was considered too, but that leads to a growing problem of proliferation of TXT records. So the `_fmsg` subdomain method was chosen as it allows the receiver to verify that the originating host of a message is explicitly authorized by the owning domain. Also, because the incoming IP address and sender's domain are known to the receiving host, only one domain lookup is needed.
+Various alternatives were considered before arriving at using the `_fmsg` subdomain method. For instance an MX record combined with a WKS record on the domain would align with original intent of RFC 974 allowing message exchange services to be located for a domain along with WKS specifying the protocol. However the intent of MX records has been superceded by RFC 1123 and is now assumed to be SMTP and WKS is obsolote. Using a TXT record as SPF does was considered too, but that leads to a growing problem of proliferation of TXT records. So the `_fmsg` subdomain method was chosen as it allows the receiver to verify that the originating host of a message is explicitly authorized by the owning domain. Also, because the incoming IP address and sender's domain will be known to the receiving host, only one domain lookup is needed.
 
 ### Practical Concerns
 
-Verifying the sender’s IP address requires the receiving host to observe the true originating IP address of the connection. This implies that fmsg hosts must be directly routable, or that any intervening infrastructure preserves and conveys the originating IP address. Care must therefore be taken when fmsg hosts operate behind network address translators (NAT), layer-4 load balancers, or proxying infrastructure.
+Verifying the sender's IP address requires the receiving host to observe the true originating IP address of the connection. This implies that fmsg hosts must be directly routable, or that any intervening infrastructure preserves and conveys the originating IP address. Care must therefore be taken when fmsg hosts operate behind network address translators (NAT), layer-4 load balancers, or proxying infrastructure.
