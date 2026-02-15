@@ -6,7 +6,7 @@
     - [Data Types](#data-types)
 - [Definition](#definition)
     - [Message](#message)
-        - [Common MIME Types](#common-mime-types)
+        - [Common Media Types](#common-media-types)
     - [Flags](#flags)
     - [Attachment](#attachment)
     - [Address](#address)
@@ -107,7 +107,7 @@ On the wire messages are encoded thus:
 | to                  | uint8 + list of fmsg address         | See [address](#address) definition. Prefixed by uint8 count, addresses MUST be distinct (case-insensitive) of which there MUST be at least one.                 |
 | time                | float64                              | POSIX epoch time message was received by host sending the message.                                                                                              |
 | topic               | uint8 + [UTF-8 string]               | UTF-8 free text title of the message thread, prefixed by unit8 size which may be 0.                                                                             |
-| type                | uint8 + [ASCII string]               | Either a common type, see [Common MIME Types](#common-mime-types), or a US-ASCII encoded Media Type: RFC 6838.                                                  |
+| type                | uint8 + [ASCII string]               | Either a common type, see [Common Media Types](#common-media-types), or a US-ASCII encoded Media Type: RFC 6838.                                                  |
 | size                | uint32                               | Size of data in bytes, 0 or greater                                                                                                                             |
 | attachment headers  | uint8 + [list of attachment headers] | See [attachment](#attachment) header definition. Prefixed by uint8 count of attachments of which there may be 0.                                                |
 | data                | byte array                           | The message body of type defined in type field and size in the size field                                                                                       |
