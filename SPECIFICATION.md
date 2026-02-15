@@ -317,46 +317,46 @@ A message is sent from the sender's host to each unique recipient host (i.e. eac
 Two connection-orientated, reliable, in-order and duplex transports are required to perform the full flow. Transmission Control Protocol (TCP) is an obvious choice, on top of which Transport Layer Security (TLS) may meet your encryption needs.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="pics/seq-dark.png">
-  <source media="(prefers-color-scheme: light)" srcset="pics/seq-light.png">
-  <img alt="fmsg protocol sequence diagram" src="pics/seq-dark.png">
+  <source media="(prefers-color-scheme: dark)" srcset="pics/flow-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="pics/flow-light.png">
+  <img alt="fmsg protocol flow diagram" src="pics/flow-dark.png">
 </picture>
 
-*Protocol sequence diagram*
+*Protocol flow diagram*
 
 Following the example of `@A@example.com` is sending a message to `@B@example.edu`
 
 1. Connection Initiation and Header Exchange
     1. The Sending Host (Host A) initiates a connection (Connection 1) to the Receiving Host (Host B).
-    2. Host A transmits the message header for the MSG being sent.
-    3. Host B downloads the message header and MUST perform a DNS lookup on the _fmsg subdomain of the sender's domain (_fmsg.example.com) to verify that the IP address of the incoming connection is in those authorised by the sending domain. If the incoming IP address is not in the authorised set, Host B MUST terminate the connection.
+    2. Host A begins sending the message to Host B.
+    3. Host B downloads the message header, parses it, then MUST perform a DNS lookup on the _fmsg subdomain of the from address in the message header (_fmsg.example.com) to verify that the IP address of the incoming connection is in those authorised by the sending domain. If the incoming IP address is not in the authorised set, Host B MUST terminate the connection. See [Domain Resolution](#domain-resolution).
 
 2. The Automatic Challenge
-    1. Host B MUST initiate a separate connection (Connection 2) back to Host A to the same incoming IP address.
+    1. Host B MUST initiate a separate connection (Connection 2) back to Host A using the same incoming IP address.
     2. Host B sends a CHALLENGE to Host A, supplying the hash of the message header received in Connection 1.
     3. Host A MUST verify the authenticity of the challenge by checking the header hash matches a message currently being sent to Host B. 
         - If not matched then the connection MUST be terminated.
-    4. If matched, Host A transmits a CHALLENGE RESP containing the SHA-256 hash of the entire message.
+    4. If matched, Host A transmits a CHALLENGE RESP on Connection 2 consisting of the SHA-256 hash of the message.
 
-3. Message Content Transfer
-    1. Host B performs final checks on the CHALLENGE RESP then either rejects the entire message outright; or continues to download the content. A REJECT response at this stage allows the receiving host a chance to respond before downloading the rest of the message.
-        * REJECT MUST apply to all recipients belonging to Host B, i.e. "REJECT or ACCEPT RESPONSE" code must be less than 100.
+3. Reject or Message Download Continuation
+    1. Host B performs final checks on the CHALLENGE RESP then either rejects the entire message outright; or continues to download the message on Connection 1. A REJECT response at this stage allows the receiving host a chance to reject the message before continuing the download for any reasons e.g. the message to too big.
+        * REJECT MUST apply to all recipients belonging to Host B, i.e. "REJECT or ACCEPT RESPONSE" code must be less than 100, see: [Reject or Accept Response](#reject-or-accept-response).
         * REJECT MUST be sent on Connection 1.
-        * REJECT if sent MUST be immediately followed by closure of Connection 1 by Host B upon which the message exchange is completed.
+        * REJECT, if sent, MUST immediately be followed by closure of Connection 1 upon which the message exchange is completed.
     2. Connection 2 MUST be closed, initiated by Host B.
-    3. Host B completes the download of the full remaining MSG, i.e. remaining bytes totalling size + the sum of any attachment sizes.
+    3. If not rejected, the message transmission continues on Connection 1. Host B completes the download of the full remaining message, i.e. remaining bytes totalling message size + the sum of any attachment sizes.
 
 4. Integrity Verification and Disposition
-    1. Host B MUST perform a message integrity check by calculating the SHA-256 hash of the fully downloaded message including header, data and any attachments. Then compare this calculated hash against the hash provided in the CHALLENGE RESP earlier.
+    1. Host B MUST perform a message integrity check by calculating the SHA-256 hash of the fully downloaded message including header, data and any attachments; then compare this calculated hash against the hash provided in the CHALLENGE RESP earlier.
         - If hashes do not match Host B MUST TERMINATE the connection.
-    2. If the hashes match, Host B transmits an "ACCEPT or REJECT RESPONSE" code to Host A for each individual recipient.
-    3. Host A MUST record the responses per recipient.
+    2. If the hashes match, Host B transmits an "ACCEPT or REJECT RESPONSE" code to Host A for each individual recipient belonging Host B.
+    3. Host A MUST record the "ACCEPT or REJECT RESPONSE" per recipient.
     4. Host A and Host B gracefully close Connection 1, completing the message exchange.
 
 
 ## Domain Resolution
 
-Hosts MUST obtain and verify authorised IP addresses by resolving the subdomain _fmsg of the domain name in an fmsg address and evaluating the resulting A and AAAA records (including those obtained via CNAME aliasing). For example if `@alice@example.com` is sending a message to `@bob@example.edu`, Alice's authorised fmsg host IP addresses are obtained by resolving `_fmsg.example.com`, and Bob's from `_fmsg.example.edu`.
+Hosts MUST obtain and verify authorised IP addresses by resolving the subdomain `_fmsg` of the domain name in an fmsg address and evaluating the resulting A and AAAA records (including those obtained via CNAME aliasing). For example if `@alice@example.com` is sending a message to `@bob@example.edu`, Alice's authorised fmsg host IP addresses are obtained by resolving `_fmsg.example.com`, and Bob's from `_fmsg.example.edu`.
 
 Sending and receiving hosts SHOULD perform DNSSEC validation for _fmsg lookups when supported. If DNSSEC validation fails, the the conenction MUST be terminated.
 
