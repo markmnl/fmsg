@@ -132,12 +132,12 @@ fmsg includes some time checking and controls, rejecting messages too far in fut
 | bit index | name         | description                                                                                                                                                                                                                 |
 |----------:|--------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | 0         | has pid      | Set if this message is in reply to another and pid field is present.                                                                                                                                                        |
-| 1         | common type  | Indicates the type field is just a uint8 value and Media Type can be looked up per [Common MIME Types](#common-mime-types)                                                                                                  |
+| 1         | common type  | Indicates the type field is just a uint8 value and Media Type can be looked up per [Common Media Types](#common-media-types)                                                                                                  |
 | 2         | important    | Sender indicates this message is IMPORTANT!                                                                                                                                                                                 |
 | 3         | no reply     | Sender indicates any reply will be discarded.                                                                                                                                                                               |
 | 4         | no challenge | Sender asks challenge skipped, hosts accepting unsolicited messages SHOULD be cautious accepting this, especially on the wild Internet.                                                                                     |
 | 5         | deflate      | Message data is compressed using the zlib structure (defined in RFC 1950), with the deflate compression algorithm (defined in RFC 1951).                                                                                    |
-| 6         |    | Unused                                                       |
+| 6         |              | Unused, reserved for future use                                                       |
 | 7         | under duress | Sender indicates this message was written under duress.    |
 
 
@@ -268,7 +268,7 @@ A whole address is encoded UTF-8 prepended with size:
 
 | name        | type     | comment                                                                            |
 |-------------|----------|------------------------------------------------------------------------------------|
-| version     | uint8    | MUST be 255 which indicates this messages is a challenge                           |
+| version     | uint8    | Challenge version, decrements from 255 coressponding to fmsg protocol version, 255 is CHALLENGE for fmsg protocol version 1, 254 would be CHALLENGE for fmsg protocol version 2 etc. |
 | header hash | 32 bytes | SHA-256 hash of message header being sent/received up to and including type field. |
 
 
