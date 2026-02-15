@@ -100,14 +100,14 @@ On the wire messages are encoded thus:
 
 | name                | type                                 | description                                                                                                                                                     |
 |---------------------|--------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| version             | uint8                                | Version number message is in (currently only 1); or 255 if CHALLENGE – defined below.                                                                           |
+| version             | uint8                                | A value less than 128 is the fmsg version number; otherwise this message is a CHALLENGE which is defined below.                                                 |
 | flags               | uint8                                | See [flags](#flags) for each bit's meaning.                                                                                                                     |
 | [pid]               | byte array                           | SHA-256 hash of message this message is a reply to. Only present if flags has pid bit set.                                                                      |
 | from                | fmsg address                         | See [address](#address) definition.                                                                                                                             |
 | to                  | uint8 + list of fmsg address         | See [address](#address) definition. Prefixed by uint8 count, addresses MUST be distinct (case-insensitive) of which there MUST be at least one.                 |
 | time                | float64                              | POSIX epoch time message was received by host sending the message.                                                                                              |
 | topic               | uint8 + [UTF-8 string]               | UTF-8 free text title of the message thread, prefixed by unit8 size which may be 0.                                                                             |
-| type                | uint8 + [ASCII string]               | Either a common type, see [Common Media Types](#common-media-types), or a US-ASCII encoded Media Type: RFC 6838.                                                  |
+| type                | uint8 + [ASCII string]               | Either a common type, see [Common Media Types](#common-media-types), or a US-ASCII encoded Media Type: RFC 6838.                                                |
 | size                | uint32                               | Size of data in bytes, 0 or greater                                                                                                                             |
 | attachment headers  | uint8 + [list of attachment headers] | See [attachment](#attachment) header definition. Prefixed by uint8 count of attachments of which there may be 0.                                                |
 | data                | byte array                           | The message body of type defined in type field and size in the size field                                                                                       |
@@ -117,7 +117,7 @@ On the wire messages are encoded thus:
 ### Notes on Message Definition
 
 * Square brackets "[ ]" indicate fields or part thereof may not exist on a message. Where the brackets surround the name, e.g. pid, the whole field my not be present (which in the case of pid is only valid if the message is not a reply). Where they surround part of the type, that part may not be present, e.g. list of attachment headers will not be present if unit8 prefix is 0.
-* Topic is set only on the first message sent in a thread, thereafter topic size is always 0. Making topic immutable because it cannot be changed by subsequent replies. (Presentations of message threads COULD use a local mutable field for display).
+* Topic is set only on the first message sent in a thread, thereafter topic size is always 0. Making topic immutable because it cannot be changed by subsequent replies. (Presentations of message threads COULD use a local mutable field for display purposes).
 
 
 ### Notes on Time
@@ -132,7 +132,7 @@ fmsg includes some time checking and controls, rejecting messages too far in fut
 | bit index | name         | description                                                                                                                                                                                                                 |
 |----------:|--------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | 0         | has pid      | Set if this message is in reply to another and pid field is present.                                                                                                                                                        |
-| 1         | common type  | Indicates the type field is just a uint8 value and Media Type can be looked up per [Common Media Types](#common-media-types)                                                                                                  |
+| 1         | common type  | Indicates the type field is just a uint8 value and Media Type can be looked up per [Common Media Types](#common-media-types)                                                                                                |
 | 2         | important    | Sender indicates this message is IMPORTANT!                                                                                                                                                                                 |
 | 3         | no reply     | Sender indicates any reply will be discarded.                                                                                                                                                                               |
 | 4         | no challenge | Sender asks challenge skipped, hosts accepting unsolicited messages SHOULD be cautious accepting this, especially on the wild Internet.                                                                                     |
@@ -274,7 +274,7 @@ A whole address is encoded UTF-8 prepended with size:
 
 ### Challenge Response
 
-A challenge response is the next 32 bytes received in reply to challenge request – the existance of which indicates the sender accepted the challenge. This SHA-256 hash SHOULD be kept to ensure the complete message (including attachments) once downloaded matches.
+A challenge response is the next 32 bytes received in reply to challenge request – the existance of which indicates the sender accepted the challenge. This SHA-256 hash MUST be kept to ensure the complete message (including attachments) once downloaded matches.
 
 | name     | type          | comment                                                              |
 |----------|---------------|----------------------------------------------------------------------|
@@ -336,18 +336,18 @@ Following the example of `@A@example.com` is sending a message to `@B@example.ed
     2. Host B sends a CHALLENGE to Host A, supplying the hash of the message header received in Connection 1.
     3. Host A MUST verify the authenticity of the challenge by checking the header hash matches a message currently being sent to Host B. 
         - If not matched then the connection MUST be terminated.
-    4. If matched, Host A transmits a CHALLENGE RESP containing the SHA256 hash of the entire message.
+    4. If matched, Host A transmits a CHALLENGE RESP containing the SHA-256 hash of the entire message.
 
 3. Message Content Transfer
     1. Host B performs final checks on the CHALLENGE RESP then either rejects the entire message outright; or continues to download the content. A REJECT response at this stage allows the receiving host a chance to respond before downloading the rest of the message.
         * REJECT MUST apply to all recipients belonging to Host B, i.e. "REJECT or ACCEPT RESPONSE" code must be less than 100.
         * REJECT MUST be sent on Connection 1.
-        * REJECT if sent MUST be immediately followed by closure of Connection 1 by Host B.
-        * Connection 2 MUST be closed, initiated by Host B.
-    2. Host B completes the download of the full remaining MSG, i.e. remaining bytes totalling size + the sum of any attachment sizes.
+        * REJECT if sent MUST be immediately followed by closure of Connection 1 by Host B upon which the message exchange is completed.
+    2. Connection 2 MUST be closed, initiated by Host B.
+    3. Host B completes the download of the full remaining MSG, i.e. remaining bytes totalling size + the sum of any attachment sizes.
 
 4. Integrity Verification and Disposition
-    1. Host B MUST perform a message integrity check by calculating the SHA256 hash of the fully downloaded message including header, data and any attachments. Then compare this calculated hash against the hash provided in the CHALLENGE RESP earlier.
+    1. Host B MUST perform a message integrity check by calculating the SHA-256 hash of the fully downloaded message including header, data and any attachments. Then compare this calculated hash against the hash provided in the CHALLENGE RESP earlier.
         - If hashes do not match Host B MUST TERMINATE the connection.
     2. If the hashes match, Host B transmits an "ACCEPT or REJECT RESPONSE" code to Host A for each individual recipient.
     3. Host A MUST record the responses per recipient.
