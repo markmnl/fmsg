@@ -100,11 +100,12 @@ On the wire messages are encoded thus:
 
 | name                | type                                 | description                                                                                                                                                     |
 |---------------------|--------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| version             | uint8                                | A value less than 128 is the fmsg version number; otherwise this message is a CHALLENGE which is defined below.                                                 |
-| flags               | uint8                                | See [flags](#flags) for each bit's meaning.                                                                                                                     |
-| [pid]               | byte array                           | SHA-256 hash of message this message is a reply to. Only present if flags has pid bit set.                                                                      |
-| from                | fmsg address                         | See [address](#address) definition.                                                                                                                             |
-| to                  | uint8 + list of fmsg address         | See [address](#address) definition. Prefixed by uint8 count, addresses MUST be distinct (case-insensitive) of which there MUST be at least one.                 |
+| version             | uint8                                | A value less than 128 is the fmsg version number; otherwise this message is a [CHALLENGE](#challenge) defined below.                                            |
+| flags               | uint8                                | Bit field. See [flags](#flags) for each bit's meaning.                                                                                                          |
+| [pid]               | byte array                           | SHA-256 hash of entire message exluding fwd_to this message is a reply to. Only present if flags has pid bit set.                                               |
+| from                | fmsg address                         | Sender's address. See [address](#address) definition.                                                                                                           |
+| to                  | uint8 + list of fmsg addresses       | Recipient addresses. See [address](#address) definition. Prefixed by uint8 count, addresses MUST be distinct (case-insensitive) of which there MUST be at least one. |
+| [fwd_to]            | uint8 + list of fmsg addresses       | Additional recipient addresses. See [address](#address) definition. Prefixed by uint8 count, addresses MUST be distinct (case-insensitive) of which there MUST be at least one. |
 | time                | float64                              | POSIX epoch time message was received by host sending the message.                                                                                              |
 | topic               | uint8 + [UTF-8 string]               | UTF-8 free text title of the message thread, prefixed by unit8 size which may be 0.                                                                             |
 | type                | uint8 + [ASCII string]               | Either a common type, see [Common Media Types](#common-media-types), or a US-ASCII encoded Media Type: RFC 6838.                                                |
@@ -137,8 +138,8 @@ fmsg includes some time checking and controls, rejecting messages too far in fut
 | 3         | no reply     | Sender indicates any reply will be discarded.                                                                                                                                                                               |
 | 4         | no challenge | Sender asks challenge skipped, hosts accepting unsolicited messages SHOULD be cautious accepting this, especially on the wild Internet.                                                                                     |
 | 5         | deflate      | Message data is compressed using the zlib structure (defined in RFC 1950), with the deflate compression algorithm (defined in RFC 1951).                                                                                    |
-| 6         |              | Unused, reserved for future use                                                       |
-| 7         | under duress | Sender indicates this message was written under duress.    |
+| 6         | has fwd_to   | Means fwd_to field is populated i.e. this message is copy of an existing message being forwarded                                                       |
+| 7         |  | Unused, reserved for future use    |
 
 
 #### Common Media Types
@@ -297,10 +298,10 @@ A code less than 100 indicates rejection for all recipients and will be the only
 | 3    | undisclosed           | no reason is given                                                      |
 | 4    | too big               | total size exceeds host's maximum permitted size of messages            |
 | 5    | insufficent resources | such as disk space to store the message                                 |
-| 6    | parent not found      | parent referenced by pid not found                                      |
-| 7    | past time             | timestamp is too far in the past for this host to accept |
-| 8    | future time           | timestamp is too far in the future for this host to accept   |
-| 9    | time travel           | timestamp is before parent timestamp                         |
+|      |                       |                                                                         |
+| 7    | past time             | timestamp is too far in the past for this host to accept                |
+| 8    | future time           | timestamp is too far in the future for this host to accept              |
+| 9    | time travel           | timestamp is before parent timestamp                                    |
 | 10   | duplicate             | message has already been received                                       |
 | 11   | must challenge        | no challenge was requested but is required                              |
 | 12   | cannot challenge      | challenge was requested by sender but receiver is configured not to     |
@@ -325,24 +326,24 @@ Two connection-orientated, reliable, in-order and duplex transports are required
 *Protocol flow diagram*
 
 ### Notes
-* Host reaching the TERMINATE step MUST tear down any connections with the remote host, becuase they must not be following the protocol!
+* Host reaching the TERMINATE step MUST tear down any connection(s) with the remote host, becuase they must not be following the protocol!
 
 Following the example of `@A@example.com` is sending a message to `@B@example.edu`
 
 1. Connection and Header Exchange
     1. The Sending Host (Host A) initiates a connection (Connection 1) to a Receiving Host (Host B) authorised IP address determined by [Domain Resolution](#domain-resolution).
-    2. Host A begins sending the message to Host B.
+    2. Host A starts transmitting the message to Host B.
     3. Host B downloads the message header, parses it, then MUST perform a DNS lookup on the _fmsg subdomain of the from address in the message header (_fmsg.example.com) to verify that the IP address of the incoming connection is in those authorised by the sending domain. If the incoming IP address is not in the authorised set, Host B MUST terminate the message exchange.
 
 2. The Automatic Challenge
-    1. Host B MUST initiate a separate new connection (Connection 2) back to Host A using the same incoming IP address.
+    1. Before continuing to download the remaining data on Connection 1, Host B MUST initiate a separate new connection (Connection 2) back to Host A using the same incoming IP address.
     2. Host B sends a CHALLENGE to Host A, supplying the hash of the message header received in Connection 1.
     3. Host A MUST verify the authenticity of the challenge by checking the header hash matches a message currently being sent to Host B. 
-        - If not matched then the connection MUST be terminated.
+        - If not matched then Host A MUST terminate the connection.
     4. Host A transmits a CHALLENGE RESP on Connection 2 consisting of the SHA-256 hash of the entire message.
 
 3. Reject or Continue
-    1. Host B performs final checks on the CHALLENGE RESP then either rejects the entire message outright; or continues to download the message on Connection 1. A REJECT response at this stage allows the receiving host a chance to reject the message before continuing the download for any reason e.g. the message is too big.
+    1. Host B downloads and checks the CHALLENGE RESP then either rejects the entire message outright; or continues to download the message on Connection 1. A REJECT response at this stage allows the receiving host a chance to reject the message before continuing the download for any reason e.g. the message is too big.
         * REJECT MUST apply to all recipients belonging to Host B, i.e. "REJECT or ACCEPT RESPONSE" code must be less than 100, see: [Reject or Accept Response](#reject-or-accept-response).
         * REJECT MUST be sent on Connection 1.
         * REJECT, if sent, MUST immediately be followed by closure of Connection 1.
@@ -361,13 +362,13 @@ Following the example of `@A@example.com` is sending a message to `@B@example.ed
 
 Hosts MUST obtain and verify authorised IP addresses by resolving the subdomain `_fmsg` of the domain name in an fmsg address and evaluating the resulting A and AAAA records (including those obtained via CNAME aliasing). For example if `@alice@example.com` is sending a message to `@bob@example.edu`, Alice's authorised fmsg host IP addresses are obtained by resolving `_fmsg.example.com`, and Bob's from `_fmsg.example.edu`.
 
-Sending and receiving hosts SHOULD perform DNSSEC validation for _fmsg lookups when supported. If DNSSEC validation fails, the the conenction MUST be terminated.
+Sending and receiving hosts SHOULD perform DNSSEC validation for _fmsg lookups when supported. If DNSSEC validation fails, the the connection MUST be terminated.
 
 Before opening the second connection to send CHALLENGE, the receiving host MUST independently resolve the senders authorised IP set from the `_fmsg` subdomain and verify the originating IP address of the incoming connection is in that set. If verification fails the connection MUST be terminated without challenging. This ensures the fmsg host sending a message is listed by the senders domain and prevents orchestrating a denial-of-service style attack by falsifying an address to trigger many fmsg hosts challenging an unsuspecting host.
 
 ### Notes on Domain Resolution
 
-Various alternatives were considered before arriving at using the `_fmsg` subdomain method. For instance an MX record combined with a WKS record on the domain would align with original intent of RFC 974 allowing message exchange services to be located for a domain along with WKS specifying the protocol. However the intent of MX records has been superceded by RFC 1123 and is now assumed to be SMTP and WKS is obsolote. Using a TXT record as SPF does was considered too, but that leads to a growing problem of proliferation of TXT records. So the `_fmsg` subdomain method was chosen as it allows the receiver to verify that the originating host of a message is explicitly authorized by the owning domain. Also, because the incoming IP address and sender's domain will be known to the receiving host, only one domain lookup is needed.
+Various alternatives were considered before arriving at using the `_fmsg` subdomain method. For instance an MX record combined with a WKS record on the domain would align with original intent of RFC 974 allowing message exchange services to be located for a domain along with WKS specifying the protocol. However the intent of MX records has been superceded and is now assumed to be SMTP and WKS is obsolote. Using a TXT record as SPF does was considered too, but that leads to a growing problem of proliferation of TXT records. So the `_fmsg` subdomain method was chosen as it allows the receiver to verify that the originating host of a message is explicitly authorized by the owning domain. Also, because the incoming IP address and sender's domain will be known to the receiving host, only one domain lookup is needed.
 
 ### Practical Concerns
 
