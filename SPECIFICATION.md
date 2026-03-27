@@ -53,7 +53,7 @@ Throughout this document the following data types are used. All types are encode
 | name       | description                                                                                                          |
 |------------|----------------------------------------------------------------------------------------------------------------------|
 | uint8      | 8 bit wide unsigned integer with a value in the set 0 to 255                                                         |
-| uint16     | 16 bit wide unsigned integer with a value in the set 0 to 65535                                                      |
+| uint16     | 16 bit wide unsigned integer with a value in the set 0 to 65535                                                      | 
 | uint32     | 32 bit wide unsigned integer with a value in the set 0 to 4294967295                                                 |
 | bit        | single bit 0 or 1 within one of the uint types, the 0 based index of which is defined alongside in this document     |
 | float64    | 64 bit wide number in the set of all IEEE-754 64-bit floating-point numbers                                          |
@@ -325,22 +325,21 @@ Two connection-orientated, reliable, in-order and duplex transports are required
 *Protocol flow diagram*
 
 ### Notes
-* Host reaching the TERMINATE step MUST tear down any connections with the remote host - becuase the remote host is not following the protocol!
-*   
+* Host reaching the TERMINATE step MUST tear down any connections with the remote host, becuase they must not be following the protocol!
 
 Following the example of `@A@example.com` is sending a message to `@B@example.edu`
 
 1. Connection and Header Exchange
-    1. The Sending Host (Host A) initiates a connection (Connection 1) to the Receiving Host (Host B).
+    1. The Sending Host (Host A) initiates a connection (Connection 1) to a Receiving Host (Host B) authorised IP address determined by [Domain Resolution](#domain-resolution).
     2. Host A begins sending the message to Host B.
-    3. Host B downloads the message header, parses it, then MUST perform a DNS lookup on the _fmsg subdomain of the from address in the message header (_fmsg.example.com) to verify that the IP address of the incoming connection is in those authorised by the sending domain. If the incoming IP address is not in the authorised set, Host B MUST terminate the message exchange. See [Domain Resolution](#domain-resolution).
+    3. Host B downloads the message header, parses it, then MUST perform a DNS lookup on the _fmsg subdomain of the from address in the message header (_fmsg.example.com) to verify that the IP address of the incoming connection is in those authorised by the sending domain. If the incoming IP address is not in the authorised set, Host B MUST terminate the message exchange.
 
 2. The Automatic Challenge
     1. Host B MUST initiate a separate new connection (Connection 2) back to Host A using the same incoming IP address.
     2. Host B sends a CHALLENGE to Host A, supplying the hash of the message header received in Connection 1.
     3. Host A MUST verify the authenticity of the challenge by checking the header hash matches a message currently being sent to Host B. 
         - If not matched then the connection MUST be terminated.
-    4. If matched, Host A transmits a CHALLENGE RESP on Connection 2 consisting of the SHA-256 hash of the entire message.
+    4. Host A transmits a CHALLENGE RESP on Connection 2 consisting of the SHA-256 hash of the entire message.
 
 3. Reject or Continue
     1. Host B performs final checks on the CHALLENGE RESP then either rejects the entire message outright; or continues to download the message on Connection 1. A REJECT response at this stage allows the receiving host a chance to reject the message before continuing the download for any reason e.g. the message is too big.
