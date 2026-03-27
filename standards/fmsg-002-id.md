@@ -4,8 +4,8 @@ fmsg Id standard describes an HTTP API for a fmsg host to lookup the identity of
 
 1. Verify the user indeed exists
 2. Check user is accepting messages
-3. Get user message limits and actuals
-4. Get user meta data such as display name and any host specific tags
+3. Get user's daily and total message limits and actuals
+4. Get user metadata such as display name and any host specific tags
 
 
 TODO move address from query string to body

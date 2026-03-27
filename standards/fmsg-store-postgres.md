@@ -1,2 +1,0 @@
-# fmsg Store - PostgreSQL Standard
-
