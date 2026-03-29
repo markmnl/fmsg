@@ -348,7 +348,7 @@ _NB_ Host reaching the TERMINATE step MUST tear down any connection(s) with the 
 
 ### Protocol Steps
 
-The below steps are described following the example `@A@example.com` is sending a message to `@B@example.edu` for clarity. There could be more recipients on the same or different domains in a message being sent, the steps include how to handel those recipients in-situ; otherwise each receiving host performs the same steps without regards to other receiving hosts. If at any step TERMINATE is reached the message exchange is aborted. If at any step completing the message exchange is reached no further steps are performed.
+The below steps are described following the example `@A@example.com` is sending a message to `@B@example.edu` for clarity. There could be more recipients on the same or different domains in a message being sent, the steps include how to handel those recipients in-situ; otherwise each recipient host performs the same steps without regards to other recipient hosts. If at any step TERMINATE is reached the message exchange is aborted. If at any step completing the message exchange is reached no further steps are performed.
 
 The following varibles corresponding to host configuration are used in the below steps.
 
@@ -361,10 +361,10 @@ CHALLENGE_MODE
 
 TODO what if same address in from, to, add to?
 
-1. Connection and Header Exchange
+#### 1. Connection and Header Exchange
     1. The Sending Host (Host A) initiates a connection (Connection 1) to a Receiving Host (Host B) authorised IP address determined by [Domain Resolution](#domain-resolution).
-        1. If the remote host is un-repsonsive and other IP addresses were listed, they SHOULD each be tried in order until a responsive host is found.
-    2. Host A starts transmitting the message to Host B.
+        1. If the remote host is un-repsonsive after a reasonable timeout and other IP addresses were listed, they SHOULD each be tried one at a time until a responsive host is found.
+    2. Host A starts transmiting the message to Host B.
     3. Host B downloads the first byte 
         1. If the value is less than 128 and a supported fmsg version, continue.
         2. If the value is greater then 128 and 256 minus the value is a supported fmsg version - this is an incoming CHALLENGE and should be processed per [Handling a Challenge](#handling-a-challenge).
@@ -388,7 +388,7 @@ TODO what if same address in from, to, add to?
             3. Else _pid_ exists and _add to_ does not, the message _pid_ refers to MUST be verfied to be stored already on Host B per (Verifying Message Stored)[#verifying-message-stored]; otherwise respond with REJECT code 6 (parent not found)
         
 
-2. The Automatic Challenge
+#### 2. The Automatic Challenge
     TODO determine if challenge neccessary depending on CHALLENGE_MODE
     1. Before continuing to download the remaining data on Connection 1, Host B MUST initiate a separate new connection (Connection 2) back to Host A using the same incoming IP address of Connection 1.
     2. Host B sends a CHALLENGE to Host A, supplying the hash of the message header received in Connection 1.
@@ -396,7 +396,7 @@ TODO what if same address in from, to, add to?
         - If not matched then Host A MUST TERMiNATE the message exchange.
     4. Host A transmits a CHALLENGE RESP on Connection 2 consisting of the SHA-256 hash of the entire message.
 
-3. Reject or Continue
+#### 3. Reject or Continue
     1. Host B downloads and checks the CHALLENGE RESP then either rejects the entire message outright; or continues to download the message on Connection 1. A REJECT response at this stage allows the receiving host a chance to reject the message before continuing the download for any reason e.g. the message is too big.
         * REJECT MUST apply to all recipients belonging to Host B, i.e. "REJECT or ACCEPT RESPONSE" code must be less than 100, see: [Reject or Accept Response](#reject-or-accept-response).
         * REJECT MUST be sent on Connection 1.
@@ -404,7 +404,7 @@ TODO what if same address in from, to, add to?
     2. Connection 2 MUST be closed, if REJECT was sent the message exchange is completed.
     3. If not rejected, the message transmission continues on Connection 1. Host B completes the download of the full remaining message, i.e. message size plus the sum of any attachment sizes.
 
-4. Integrity Verification, Per-recipient Response and Disposition
+#### 4. Integrity Verification, Per-recipient Response and Disposition
     1. Host B MUST perform a message integrity check by calculating the SHA-256 hash of the fully downloaded message including header, data and any attachments; then compare this calculated hash against the hash provided in the CHALLENGE RESP earlier.
         * If hashes do not match Host B MUST TERMiNATE the message exchange.
     2. If the hashes match, Host B transmits an "ACCEPT or REJECT RESPONSE" code to Host A for each individual recipient belonging Host B.
