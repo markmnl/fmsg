@@ -29,7 +29,9 @@ _"fmsg"_ is the name given to the protocol and message definitions described in 
 
 ### Terms
 
-_"address"_ an fmsg address in the form @user@example.com, see: [Address](#address).
+_"address"_ an fmsg address in the form `@user@example.com`, see: [Address](#address).
+
+_"case-insensitive"_ byte-wise equality comparison after applying Unicode default case folding (locale-independent) to both UTF-8 strings
 
 _"DNS"_ is for the Domain Name System.
 
@@ -43,13 +45,13 @@ _"message header"_ refers to the fields up to and including the attachment heade
 
 _"message header hash"_ the SHA-256 digest of a message header.
 
-_"participants"_ all receipients plus the sender
+_"participants"_ all recipients plus the sender
 
-_"receipients"_ the set of all addresses in a message's _to_ and _add to_ fields
+_"recipients"_ the set of all addresses in a message's _to_ and _add to_ fields
 
 _"sender"_ the address in a message's _from_ field
 
-_"thread"_ is a linked heirarchy of messages where messages relate to previous messages using the pid field
+_"thread"_ is a linked heirarchy of messages where messages relate to previous messages using the _pid_ field
 
 _"UTF-8"_ is for the unicode standard: Unicode Transformation Format – 8-bit.
 
@@ -88,15 +90,13 @@ In programmer friendly JSON a message could look like (once decoded from the bin
 ```JSON
 {
     "version": 1,
-    "flags": {
-        "important": false,
-        "noreply": false,
-    }
+    "important": false,
+    "noreply": false,
     "pid": null,
-    "from": "@markmnl@fmsg.io",
+    "from": "@user@example.com",
     "to": [
         "@世界@example.com",
-        "@chris@fmsg.io"
+        "@chris@example.edu"
     ],
     "add_to": [],
     "time": 1654503265.679954,
@@ -336,11 +336,13 @@ A code less than 100 indicates rejection for all recipients and will be the only
 A message is sent from the sender's host to each unique recipient host (i.e. each domain only once even if multiple recipients with the same domain). Sending a message either wholly succeeds or fails per recipient. During the sending from one host to another several steps are performed depicted in the below diagram. 
 Two connection-orientated, reliable, in-order and duplex transports are required to perform the full flow. Transmission Control Protocol (TCP) is an obvious choice, on top of which Transport Layer Security (TLS) may meet your encryption needs.
 
+<p align="center">
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="pics/flow-dark.png">
   <source media="(prefers-color-scheme: light)" srcset="pics/flow-light.png">
   <img alt="fmsg protocol flow diagram" src="pics/flow-dark.png">
 </picture>
+</p>
 
 *Protocol flow diagram*
 
@@ -362,54 +364,58 @@ CHALLENGE_MODE
 TODO what if same address in from, to, add to?
 
 #### 1. Connection and Header Exchange
-    1. The Sending Host (Host A) initiates a connection (Connection 1) to a Receiving Host (Host B) authorised IP address determined by [Domain Resolution](#domain-resolution).
-        1. If the remote host is un-repsonsive after a reasonable timeout and other IP addresses were listed, they SHOULD each be tried one at a time until a responsive host is found.
-    2. Host A starts transmiting the message to Host B.
-    3. Host B downloads the first byte 
-        1. If the value is less than 128 and a supported fmsg version, continue.
-        2. If the value is greater then 128 and 256 minus the value is a supported fmsg version - this is an incoming CHALLENGE and should be processed per [Handling a Challenge](#handling-a-challenge).
-        3. Otherwise send REJECT code 2 (unsupported version) then close the connection completing the message exchange.
-    4. Host B downloads the remaining message header, parses it then performs the following verification steps in order:
-        1. If parsing fails because types cannot be decoded, receiving host MUST TERMINATE the message exchange.
-        2. Receiving Host B MUST perform a DNS lookup on the _fmsg subdomain of the from address in the message header (_fmsg.example.com) to verify that the IP address of the incoming connection is in those authorised by the sending domain. If the incoming IP address is not in the authorised set, Host B MUST TERMINATE the message exchange.
-        2. If _size_ plus all _attachment size_ is greater than MAX_SIZE, Host B MUST respond REJECT code 4 (too big) then close the connection completing the message exchange.
-        3. The _time_ field is subtracted by the current POSIX epoch time resulting DELTA representing seconds difference between when the message was recieved for sending by an fmsg host for the sender.
-            1. If DELTA is greater than MAX_MESSAGE_AGE, Host B MUST respond REJECT code 4 (too big) then close the connection completing the message exchange.
-            2. If DELTA is negative and ABS(DELTA) is greater than MAX_TIME_SKEW, Host B MUST respond REJECT code 8 (future time) then close the connection completing the message exchange.
-        4. The _pid_ field requirements depends on the existance and contents of _add to_ field:
-            1. If neither _pid_ nor _add to_ exist, the message must be the first in a thread and the message exchange continues normally.
-            2. If _add to_ exists:
-                1. _pid_ field MUST exist too, otherwise Host B MUST respond REJECT code 1 (invalid) and close the connection completing the message exchange.
-                2. If any of the recipients in _add to_ are for Host B (i.e. example.edu domain), then the message exchange continues normally except message refered to by _pid_ does NOT have to be be already stored.
-                3. else if none of the recipients in _add to_ are for Host B (i.e. example.edu domain), then:
-                    1. The message _pid_ refers to MUST be verfied to be stored already on Host B per (Verifying Message Stored)[#verifying-message-stored]; otherwise respond with REJECT code 6 (parent not found)
-                    2. At least one of the recipients in _to_ MUST be for Host B (i.e. example.edu domain); otherwise Host B MUST respond with REJECT code 1 (invalid) and close the connection completing the message exchange.
-                    3. At this stage we have been informed additional recipients have been added to a message we already have, there will be no further data. Host B MUST record this message header received so far such that the message header hash can be faithfully computed as this could be referred to by subsequent messages. Host B MUST then respond with ACCEPT code 201 (message header received) then close the connection completing the message exchange. 
-            3. Else _pid_ exists and _add to_ does not, the message _pid_ refers to MUST be verfied to be stored already on Host B per (Verifying Message Stored)[#verifying-message-stored]; otherwise respond with REJECT code 6 (parent not found)
+
+1. The Sending Host (Host A) initiates a connection (Connection 1) to a Receiving Host (Host B) authorised IP address determined by [Domain Resolution](#domain-resolution).
+    1. If the remote host is un-repsonsive after a reasonable timeout and other IP addresses were listed, they SHOULD each be tried one at a time until a responsive host is found.
+2. Host A starts transmiting the message to Host B.
+3. Host B downloads the first byte 
+    1. If the value is less than 128 and a supported fmsg version, continue.
+    2. If the value is greater then 128 and 256 minus the value is a supported fmsg version - this is an incoming CHALLENGE and should be processed per [Handling a Challenge](#handling-a-challenge).
+    3. Otherwise send REJECT code 2 (unsupported version) then close the connection completing the message exchange.
+4. Host B downloads the remaining message header, parses it then performs the following verification steps in order:
+    1. If parsing fails because types cannot be decoded, receiving host MUST TERMINATE the message exchange.
+    2. Receiving Host B MUST perform a DNS lookup on the _fmsg subdomain of the from address in the message header (_fmsg.example.com) to verify that the IP address of the incoming connection is in those authorised by the sending domain. If the incoming IP address is not in the authorised set, Host B MUST TERMINATE the message exchange.
+    2. If _size_ plus all _attachment size_ is greater than MAX_SIZE, Host B MUST respond REJECT code 4 (too big) then close the connection completing the message exchange.
+    3. The _time_ field is subtracted by the current POSIX epoch time resulting DELTA representing seconds difference between when the message was recieved for sending by an fmsg host for the sender.
+        1. If DELTA is greater than MAX_MESSAGE_AGE, Host B MUST respond REJECT code 4 (too big) then close the connection completing the message exchange.
+        2. If DELTA is negative and ABS(DELTA) is greater than MAX_TIME_SKEW, Host B MUST respond REJECT code 8 (future time) then close the connection completing the message exchange.
+    4. The _pid_ field requirements depends on the existance and contents of _add to_ field:
+        1. If neither _pid_ nor _add to_ exist, the message must be the first in a thread and the message exchange continues normally.
+        2. If _add to_ exists:
+            1. _pid_ field MUST exist too, otherwise Host B MUST respond REJECT code 1 (invalid) and close the connection completing the message exchange.
+            2. If any of the recipients in _add to_ are for Host B (i.e. example.edu domain), then the message exchange continues normally except message refered to by _pid_ does NOT have to be be already stored.
+            3. else if none of the recipients in _add to_ are for Host B (i.e. example.edu domain), then:
+                1. The message _pid_ refers to MUST be verfied to be stored already on Host B per (Verifying Message Stored)[#verifying-message-stored]; otherwise respond with REJECT code 6 (parent not found)
+                2. At least one of the recipients in _to_ MUST be for Host B (i.e. example.edu domain); otherwise Host B MUST respond with REJECT code 1 (invalid) and close the connection completing the message exchange.
+                3. At this stage we have been informed additional recipients have been added to a message we already have, there will be no further data. Host B MUST record this message header received so far such that the message header hash can be faithfully computed as this could be referred to by subsequent messages. Host B MUST then respond with ACCEPT code 201 (message header received) then close the connection completing the message exchange. 
+        3. Else _pid_ exists and _add to_ does not, the message _pid_ refers to MUST be verfied to be stored already on Host B per (Verifying Message Stored)[#verifying-message-stored]; otherwise respond with REJECT code 6 (parent not found)
         
 
 #### 2. The Automatic Challenge
-    TODO determine if challenge neccessary depending on CHALLENGE_MODE
-    1. Before continuing to download the remaining data on Connection 1, Host B MUST initiate a separate new connection (Connection 2) back to Host A using the same incoming IP address of Connection 1.
-    2. Host B sends a CHALLENGE to Host A, supplying the hash of the message header received in Connection 1.
-    3. Host A MUST verify the authenticity of the challenge by checking the header hash matches a message currently being sent to Host B. 
-        - If not matched then Host A MUST TERMiNATE the message exchange.
-    4. Host A transmits a CHALLENGE RESP on Connection 2 consisting of the SHA-256 hash of the entire message.
+
+TODO determine if challenge neccessary depending on CHALLENGE_MODE
+1. Before continuing to download the remaining data on Connection 1, Host B MUST initiate a separate new connection (Connection 2) back to Host A using the same incoming IP address of Connection 1.
+2. Host B sends a CHALLENGE to Host A, supplying the hash of the message header received in Connection 1.
+3. Host A MUST verify the authenticity of the challenge by checking the header hash matches a message currently being sent to Host B. 
+    - If not matched then Host A MUST TERMiNATE the message exchange.
+4. Host A transmits a CHALLENGE RESP on Connection 2 consisting of the SHA-256 hash of the entire message.
 
 #### 3. Reject or Continue
-    1. Host B downloads and checks the CHALLENGE RESP then either rejects the entire message outright; or continues to download the message on Connection 1. A REJECT response at this stage allows the receiving host a chance to reject the message before continuing the download for any reason e.g. the message is too big.
-        * REJECT MUST apply to all recipients belonging to Host B, i.e. "REJECT or ACCEPT RESPONSE" code must be less than 100, see: [Reject or Accept Response](#reject-or-accept-response).
-        * REJECT MUST be sent on Connection 1.
-        * REJECT, if sent, MUST immediately be followed by closure of Connection 1.
-    2. Connection 2 MUST be closed, if REJECT was sent the message exchange is completed.
-    3. If not rejected, the message transmission continues on Connection 1. Host B completes the download of the full remaining message, i.e. message size plus the sum of any attachment sizes.
+
+1. Host B downloads and checks the CHALLENGE RESP then either rejects the entire message outright; or continues to download the message on Connection 1. A REJECT response at this stage allows the receiving host a chance to reject the message before continuing the download for any reason e.g. the message is too big.
+    * REJECT MUST apply to all recipients belonging to Host B, i.e. "REJECT or ACCEPT RESPONSE" code must be less than 100, see: [Reject or Accept Response](#reject-or-accept-response).
+    * REJECT MUST be sent on Connection 1.
+    * REJECT, if sent, MUST immediately be followed by closure of Connection 1.
+2. Connection 2 MUST be closed, if REJECT was sent the message exchange is completed.
+3. If not rejected, the message transmission continues on Connection 1. Host B completes the download of the full remaining message, i.e. message size plus the sum of any attachment sizes.
 
 #### 4. Integrity Verification, Per-recipient Response and Disposition
-    1. Host B MUST perform a message integrity check by calculating the SHA-256 hash of the fully downloaded message including header, data and any attachments; then compare this calculated hash against the hash provided in the CHALLENGE RESP earlier.
-        * If hashes do not match Host B MUST TERMiNATE the message exchange.
-    2. If the hashes match, Host B transmits an "ACCEPT or REJECT RESPONSE" code to Host A for each individual recipient belonging Host B.
-    3. Host A MUST record the "ACCEPT or REJECT RESPONSE" per recipient.
-    4. Host A and Host B gracefully close Connection 1, completing the message exchange.
+
+1. Host B MUST perform a message integrity check by calculating the SHA-256 hash of the fully downloaded message including header, data and any attachments; then compare this calculated hash against the hash provided in the CHALLENGE RESP earlier.
+    * If hashes do not match Host B MUST TERMiNATE the message exchange.
+2. If the hashes match, Host B transmits an "ACCEPT or REJECT RESPONSE" code to Host A for each individual recipient belonging Host B.
+3. Host A MUST record the "ACCEPT or REJECT RESPONSE" per recipient.
+4. Host A and Host B gracefully close Connection 1, completing the message exchange.
 
 
 ### Handling a Challenge
