@@ -154,10 +154,10 @@ fmsg includes some time checking and controls, rejecting messages too far in fut
 | 1         | common type  | Indicates the type field is just a uint8 value and Media Type can be looked up per [Common Media Types](#common-media-types)                                                                                                |
 | 2         | important    | Sender indicates this message is IMPORTANT!                                                                                                                                                                                 |
 | 3         | no reply     | Sender indicates any reply will be discarded.                                                                                                                                                                               |
-| 4         | no challenge | Sender asks challenge skipped, hosts accepting unsolicited messages SHOULD be cautious accepting this, especially on the wild Internet. Hosts COULD consider skipping challenging when                                                                                     |
+| 4         | TBD          |                                                                         |
 | 5         | deflate      | Message data is compressed using the zlib structure (defined in RFC 1950), with the deflate compression algorithm (defined in RFC 1951).                                                                                    |
 | 6         | has add to   | Set if "add to" field is included i.e. this message is copy of an existing message being with recipient being added                                                       |
-| 7         |              | Unused, reserved for future use    |
+| 7         | TBD          | Unused, reserved for future use    |
 
 
 #### Common Media Types
@@ -321,14 +321,13 @@ A code less than 100 indicates rejection for all recipients and will be the only
 | 8    | future time           | timestamp is too far in the future for this host to accept              |
 | 9    | time travel           | timestamp is before parent timestamp                                    |
 | 10   | duplicate             | message has already been received                                       |
-| 11   | must challenge        | no challenge was requested but is required                              |
-| 12   | cannot challenge      | challenge was requested by sender but receiver is configured not to     |
 |      |                       |                                                                         |
 | 100  | user unknown          | the recipient message is addressed to is unknown by this host           |
 | 101  | user full             | insufficent resources for specific recipient                            |
+| 102  | user full             | user is known but not accepting new messages at this time               |
 |      |                       |                                                                         |
-| 200  | accept                | message received                                          |
-| 201  | accept header         | message header received                                          |
+| 200  | accept                | message received                                                        |
+| 201  | accept header         | message header received                                                 |
 
 
 ## Protocol
@@ -346,7 +345,7 @@ Two connection-orientated, reliable, in-order and duplex transports are required
 
 *Protocol flow diagram*
 
-_NB_ Host reaching the TERMINATE step MUST tear down any connection(s) with the remote host, becuase they must not be following the protocol!
+_NB_ Host reaching the TERMINATE step MUST tear down any connection(s) with the remote host, becuase they are not be following the protocol!
 
 ### Protocol Steps
 
@@ -358,7 +357,6 @@ The following varibles corresponding to host configuration are used in the below
 MAX_SIZE
 MAX_MESSAGE_AGE
 MAX_TIME_SKEW
-CHALLENGE_MODE
 ```
 
 TODO what if same address in from, to, add to?
@@ -376,9 +374,9 @@ TODO what if same address in from, to, add to?
     1. If parsing fails because types cannot be decoded, receiving host MUST TERMINATE the message exchange.
     2. Receiving Host B MUST perform a DNS lookup on the _fmsg subdomain of the from address in the message header (_fmsg.example.com) to verify that the IP address of the incoming connection is in those authorised by the sending domain. If the incoming IP address is not in the authorised set, Host B MUST TERMINATE the message exchange.
     2. If _size_ plus all _attachment size_ is greater than MAX_SIZE, Host B MUST respond REJECT code 4 (too big) then close the connection completing the message exchange.
-    3. The _time_ field is subtracted by the current POSIX epoch time resulting DELTA representing seconds difference between when the message was recieved for sending by an fmsg host for the sender.
+    3. The _time_ field is subtracted by the current POSIX epoch time resulting DELTA representing seconds since message sent (to senders host for sending on).
         1. If DELTA is greater than MAX_MESSAGE_AGE, Host B MUST respond REJECT code 4 (too big) then close the connection completing the message exchange.
-        2. If DELTA is negative and ABS(DELTA) is greater than MAX_TIME_SKEW, Host B MUST respond REJECT code 8 (future time) then close the connection completing the message exchange.
+        2. If DELTA is negative and absolute DELTA is greater than MAX_TIME_SKEW, Host B MUST respond REJECT code 8 (future time) then close the connection completing the message exchange.
     4. The _pid_ field requirements depends on the existance and contents of _add to_ field:
         1. If neither _pid_ nor _add to_ exist, the message must be the first in a thread and the message exchange continues normally.
         2. If _add to_ exists:
@@ -388,17 +386,35 @@ TODO what if same address in from, to, add to?
                 1. The message _pid_ refers to MUST be verfied to be stored already on Host B per (Verifying Message Stored)[#verifying-message-stored]; otherwise respond with REJECT code 6 (parent not found)
                 2. At least one of the recipients in _to_ MUST be for Host B (i.e. example.edu domain); otherwise Host B MUST respond with REJECT code 1 (invalid) and close the connection completing the message exchange.
                 3. At this stage we have been informed additional recipients have been added to a message we already have, there will be no further data. Host B MUST record this message header received so far such that the message header hash can be faithfully computed as this could be referred to by subsequent messages. Host B MUST then respond with ACCEPT code 201 (message header received) then close the connection completing the message exchange. 
-        3. Else _pid_ exists and _add to_ does not, the message _pid_ refers to MUST be verfied to be stored already on Host B per (Verifying Message Stored)[#verifying-message-stored]; otherwise respond with REJECT code 6 (parent not found)
+        3. Else _pid_ exists and _add to_ does not.
+            1. The message _pid_ refers to MUST be verfied to be stored already on Host B per (Verifying Message Stored)[#verifying-message-stored]; otherwise respond with REJECT code 6 (parent not found)
+            2. The stored message for _pid_'s _time_ MUST be before _time_ on the incoming message header; otherwise respond with REJECT code 9 (time travel)
         
 
 #### 2. The Automatic Challenge
 
-TODO determine if challenge neccessary depending on CHALLENGE_MODE
+A recipient fmsg host is responsible for challenging a sender for detail of the message being sent, while it is being sent, before deciding whether to continue downloading the message. A sender MUST be listening and respond to such a challenge on the same IP address as the outgoing message. There are three suggested challenge modes an fmsg host COULD use: ALWAYS, NEVER and NO_PARENT. This setting would determine when a recipient host would issue a CHALLENGE as so:
+
+1. When mode is NEVER, recipient host will never send a CHALLENGE.
+2. When mode is ALWAYS, recipient host will always send a CHALLENGE during the message exchange.
+3. When mode is NO_PARENT, recipient host will send a CHALLENGE when _pid_ does not exist or _pid_ refers to a message that is not stored (possible for _add to_ recipients).
+
+To issue a CHALLENGE a receiving host follows these steps:
+
 1. Before continuing to download the remaining data on Connection 1, Host B MUST initiate a separate new connection (Connection 2) back to Host A using the same incoming IP address of Connection 1.
 2. Host B sends a CHALLENGE to Host A, supplying the hash of the message header received in Connection 1.
 3. Host A MUST verify the authenticity of the challenge by checking the header hash matches a message currently being sent to Host B. 
     - If not matched then Host A MUST TERMiNATE the message exchange.
-4. Host A transmits a CHALLENGE RESP on Connection 2 consisting of the SHA-256 hash of the entire message.
+4. Host A transmits a CHALLENGE RESP on Connection 2 consisting of the message hash.
+
+##### Notes on Challenge Mode
+
+The automatic challenge is an important component of fmsg's message integrity and sender verification guarantees. So why the optionality and not always automatically challenge if hosts need to implement it anyway? The intention is to allow trading protocol guarantees for efficiency which may be desirable depending on the use case.
+
+A NEVER challenge mode could be useful on private networks supporting a high volume of messages.
+
+A NO_PARENT challenge mode could be a useful middle ground where the first message in a thread has the extra checking and controls of an automatic challenge. The automatic challenge can help mitigate spam by performing strong sender verification and requiring the sender to listen, calc the message digests and respond. Subsequent messages in a thread providing a valid pid already proves prior participation in the thread, which combined with checking the IP address is authorised for the domain already, gives a level of sender verification. The recipient fmsg host could be running on top of another protocol providing integrity level gurantees of the byte steam being received, like TLS does. The combination of these guarantees might be sufficent for a recipient fmsg host to opt-out of challenging.
+
 
 #### 3. Reject or Continue
 
