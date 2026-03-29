@@ -102,8 +102,7 @@ if __name__ == "__main__":
         ips = resolve_fmsg_host(domain)
     except socket.gaierror as e:
         print(f"DNS resolution failed for _fmsg.{domain}: {e}")
-        print("\nNote: The _fmsg.fmsg.io domain may not exist. This is expected")
-        print("for domains that haven't set up fmsg hosting.")
+        print(f"\nNote: The _fmsg.{domain} domain may not exist. This is expected for domains that haven't set up fmsg hosting.")
     else:
         if not ips:
             print(f"No IP addresses found for _fmsg.{domain}")
