@@ -410,7 +410,7 @@ For example, a host MAY implement different challenge modes of operation such as
 1. NEVER, recipient host never sends a CHALLENGE.
 2. ALWAYS, recipient host will always send a CHALLENGE during the message exchange.
 3. HAS_NOT_PARTICIPATED, recipient host will send a CHALLENGE when _pid_ does not exist or none of the messages in the thread referenced by _pid_ are from Host B's domain.
-4. DIFFERENT_DOMAIN, recipient host will always send a CHALLENGE during the message exchange if the messages is _from_ a different domain.
+4. DIFFERENT_DOMAIN, recipient host will always send a CHALLENGE during the message exchange if the message _from_ is for a different domain.
 
 To issue a CHALLENGE a receiving host follows these steps:
 
