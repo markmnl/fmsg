@@ -33,9 +33,11 @@ _"address"_ an fmsg address in the form `@user@example.com`, see: [Address](#add
 
 _"case-insensitive"_ byte-wise equality comparison after applying Unicode default case folding (locale-independent) to both UTF-8 strings
 
+_"client"_ the end participant 
+
 _"DNS"_ is for the Domain Name System.
 
-_"host"_ is an fmsg implementation which can send and receive fmsg messages to and from other hosts.
+_"host"_ is an fmsg implementation which can send and receive fmsg messages to and from other hosts following the definitions and protocol of this specification.
 
 _"message"_ refers to an entire message described in [Message](#message) definition.
 
@@ -58,7 +60,7 @@ _"UTF-8"_ is for the unicode standard: Unicode Transformation Format – 8-bit.
 
 ### Message Types
 
-fmsg defines four message types: MESSAGE, CHALLENGE, CHALLENGE RESPONSE and "REJECT or ACCEPT RESPONSE". These structures are aggregates of [Data Types](#data-types) and are described in the [Definition](#definition) section.
+Four message types are defined by fmsg: MESSAGE, CHALLENGE, CHALLENGE RESPONSE and "REJECT or ACCEPT RESPONSE". These structures are aggregates of [Data Types](#data-types) and are described in the [Definition](#definition) section.
 
 
 ### Data Types
@@ -124,7 +126,7 @@ On the wire messages are encoded thus:
 | to                  | uint8 + list of fmsg addresses       | Recipient addresses. See [address](#address) definition. Prefixed by uint8 count, addresses MUST be distinct (case-insensitive) of which there MUST be at least one. |
 | [add to]            | uint8 + list of fmsg addresses       | Additional recipient addresses. Only present if flags has add to bit set. See [address](#address) definition. Prefixed by uint8 count, addresses MUST be distinct (case-insensitive) of which there MUST be at least one. |
 | time                | float64                              | POSIX epoch time message was received by host sending the message.                                                                                              |
-| topic               | uint8 + [UTF-8 string]               | UTF-8 free text title of the message thread, prefixed by unit8 size which may be 0.                                                                             |
+| topic               | uint8 + [UTF-8 string]               | UTF-8 free text title of the message thread, prefixed by unit8 size which may be 0. TODO only if no pid                                                                             |
 | type                | uint8 + [ASCII string]               | Either a common type, see [Common Media Types](#common-media-types), or a US-ASCII encoded Media Type: RFC 6838.                                                |
 | size                | uint32                               | Size of data in bytes, 0 or greater                                                                                                                             |
 | attachment headers  | uint8 + [list of attachment headers] | See [attachment](#attachment) header definition. Prefixed by uint8 count of attachments of which there may be 0.                                                |
@@ -141,7 +143,7 @@ On the wire messages are encoded thus:
 
 ### Notes on Time
 
-Only one time field is present on a message and this time is stamped by the sending host when it acquired the message. (Implementations COULD associate additional timestamps with messages, such as the time message was delivered).
+Only one time field is present on a message and this time is stamped by the sending host when it acquired the message. (Implementations MAY associate additional timestamps with messages, such as the time message was delivered).
 
 fmsg includes some time checking and controls, rejecting messages too far in future or past compared to current time of the receiver, and, checking replies cannot claim to be sent before their parent (See [Reject or Accept Response](#reject-or-accept-response)). Of course this all relies on accuracy of clocks being used, so some leniancy is granted determined by the receiving host. Bearing in mind a host may not be reachable for some time so greater leniancy SHOULD be given to messages from the past. Since the time field is stamped by the sending host – one only need concern themselves that their clock is accurate.
 
@@ -324,7 +326,7 @@ A code less than 100 indicates rejection for all recipients and will be the only
 |      |                       |                                                                         |
 | 100  | user unknown          | the recipient message is addressed to is unknown by this host           |
 | 101  | user full             | insufficent resources for specific recipient                            |
-| 102  | user full             | user is known but not accepting new messages at this time               |
+| 102  | user not accepting    | user is known but not accepting new messages at this time               |
 |      |                       |                                                                         |
 | 200  | accept                | message received                                                        |
 | 201  | accept header         | message header received                                                 |
@@ -351,30 +353,37 @@ _NB_ Host reaching the TERMINATE step MUST tear down any connection(s) with the 
 
 The below steps are described following the example `@A@example.com` is sending a message to `@B@example.edu` for clarity. There could be more recipients on the same or different domains in a message being sent, the steps include how to handel those recipients in-situ; otherwise each recipient host performs the same steps without regards to other recipient hosts. If at any step TERMINATE is reached the message exchange is aborted. If at any step completing the message exchange is reached no further steps are performed.
 
-The following varibles corresponding to host configuration are used in the below steps.
+_NOTE_ Responding with the applicable REJECT code helps sending hosts and their clients to know when re-sending may be worthwhile (e.g. "user full"), re-sending is not worthwhile (e.g. "duplicate") or there is an issue with either side that warrents further investigation (e.g. "invalid" suggests something wrong with the implementation, "future time" is likely due to one or both hosts' clocks being incorrect).
 
-```
-MAX_SIZE
-MAX_MESSAGE_AGE
-MAX_TIME_SKEW
-```
+The following varibles corresponding to host defined configuration are used in the below steps.
+
+| Variable           | Example Value | Description                        |
+|--------------------|--------------|-------------------------------------|
+| MAX_SIZE           | 1048576      | Maximum allowed size in bytes       |
+| MAX_MESSAGE_AGE    | 700000       | Maximum age since message _time_ field for message to be accepted (seconds)      |
+| MAX_TIME_SKEW      | 20           | Maximum tolerance for message _time_ field to be ahead of current time (seconds)   |
 
 TODO what if same address in from, to, add to?
 
 #### 1. Connection and Header Exchange
 
 1. The Sending Host (Host A) initiates a connection (Connection 1) to a Receiving Host (Host B) authorised IP address determined by [Domain Resolution](#domain-resolution).
-    1. If the remote host is un-repsonsive after a reasonable timeout and other IP addresses were listed, they SHOULD each be tried one at a time until a responsive host is found.
-2. Host A starts transmiting the message to Host B.
+    1. If the selected IP address is unresponsive within an implementation-defined timeout, and multiple IP addresses were returned during domain resolution, Host A SHOULD attempt to connect to each address in the order provided, one at a time, until a responsive host is reached. Preserving the order of IP addresses allows the Sending Host to benefit from any load balancing, latency optimisation, or geographic routing applied during domain resolution.
+    2. If no responsive Receiving Host is found, Host A SHOULD retry delivery after an implementation-defined delay. Implementations SHOULD apply a back-off strategy (e.g. exponential back-off) to subsequent retry attempts.
+    3. Host A SHOULD continue retrying delivery until a maximum delivery window has elapsed, after which the message MAY be considered undeliverable. Implementations MAY provide a mechanism for clients or operators to manually trigger or influence retry behaviour.
+2. Once connection is established Host A starts transmitting the message to Host B.
 3. Host B downloads the first byte 
     1. If the value is less than 128 and a supported fmsg version, continue.
     2. If the value is greater then 128 and 256 minus the value is a supported fmsg version - this is an incoming CHALLENGE and should be processed per [Handling a Challenge](#handling-a-challenge).
-    3. Otherwise send REJECT code 2 (unsupported version) then close the connection completing the message exchange.
-4. Host B downloads the remaining message header, parses it then performs the following verification steps in order:
-    1. If parsing fails because types cannot be decoded, receiving host MUST TERMINATE the message exchange.
+    3. Otherwise Host B sends REJECT code 2 (unsupported version) on the open connection then closes it completing the message exchange.
+4. Host B downloads the remaining message header and parses the fields. If parsing fails because types cannot be decoded, receiving host MUST TERMINATE the message exchange, otherwise the following verification steps MUST be performed:
+    1. The following conditions MUST be met otherwise Host B MUST respond REJECT code 1 (invalid) and close the connection completing the message exchange:
+        1. _to_ addresses only contains an address once using case-insensitive comparison
+        2. _add to_ addresses if exists, only contains an address once using case-insensitive comparison
+        3. _type_ number when [Flag](#flags) is set, exists in [Common Media Type](#common-media-types) mapping.
     2. Receiving Host B MUST perform a DNS lookup on the _fmsg subdomain of the from address in the message header (_fmsg.example.com) to verify that the IP address of the incoming connection is in those authorised by the sending domain. If the incoming IP address is not in the authorised set, Host B MUST TERMINATE the message exchange.
     2. If _size_ plus all _attachment size_ is greater than MAX_SIZE, Host B MUST respond REJECT code 4 (too big) then close the connection completing the message exchange.
-    3. The _time_ field is subtracted by the current POSIX epoch time resulting DELTA representing seconds since message sent (to senders host for sending on).
+    3. The _time_ field is subtracted by the current POSIX epoch time resulting in DELTA - representing seconds since message sent (to senders host for sending on).
         1. If DELTA is greater than MAX_MESSAGE_AGE, Host B MUST respond REJECT code 4 (too big) then close the connection completing the message exchange.
         2. If DELTA is negative and absolute DELTA is greater than MAX_TIME_SKEW, Host B MUST respond REJECT code 8 (future time) then close the connection completing the message exchange.
     4. The _pid_ field requirements depends on the existance and contents of _add to_ field:
@@ -383,19 +392,22 @@ TODO what if same address in from, to, add to?
             1. _pid_ field MUST exist too, otherwise Host B MUST respond REJECT code 1 (invalid) and close the connection completing the message exchange.
             2. If any of the recipients in _add to_ are for Host B (i.e. example.edu domain), then the message exchange continues normally except message refered to by _pid_ does NOT have to be be already stored.
             3. else if none of the recipients in _add to_ are for Host B (i.e. example.edu domain), then:
-                1. The message _pid_ refers to MUST be verfied to be stored already on Host B per (Verifying Message Stored)[#verifying-message-stored]; otherwise respond with REJECT code 6 (parent not found)
+                1. The message _pid_ refers to MUST be verfied to be stored already on Host B per [Verifying Message Stored](#verifying-message-stored); otherwise respond with REJECT code 6 (parent not found)
                 2. At least one of the recipients in _to_ MUST be for Host B (i.e. example.edu domain); otherwise Host B MUST respond with REJECT code 1 (invalid) and close the connection completing the message exchange.
                 3. At this stage we have been informed additional recipients have been added to a message we already have, there will be no further data. Host B MUST record this message header received so far such that the message header hash can be faithfully computed as this could be referred to by subsequent messages. Host B MUST then respond with ACCEPT code 201 (message header received) then close the connection completing the message exchange. 
         3. Else _pid_ exists and _add to_ does not.
-            1. The message _pid_ refers to MUST be verfied to be stored already on Host B per (Verifying Message Stored)[#verifying-message-stored]; otherwise respond with REJECT code 6 (parent not found)
+            1. The message _pid_ refers to MUST be verfied to be stored already on Host B per [Verifying Message Stored](#verifying-message-stored); otherwise respond with REJECT code 6 (parent not found)
             2. The stored message for _pid_'s _time_ MUST be before _time_ on the incoming message header; otherwise respond with REJECT code 9 (time travel)
-        
+
+
 
 #### 2. The Automatic Challenge
 
-A recipient fmsg host is responsible for challenging a sender for detail of the message being sent, while it is being sent, before deciding whether to continue downloading the message. A sender MUST be listening and respond to such a challenge on the same IP address as the outgoing message. There are three suggested challenge modes an fmsg host COULD use: ALWAYS, NEVER and NO_PARENT. This setting would determine when a recipient host would issue a CHALLENGE as so:
+A recipient fmsg host is responsible for challenging a sender for detail of the message being sent, while it is being sent, before deciding whether to continue downloading the message. A sender MUST be listening and respond to such a challenge on the same IP address as the outgoing message. IMPORTANTLY its the perogative of the rec 
 
-1. When mode is NEVER, recipient host will never send a CHALLENGE.
+For example, a host COULD implement different challenge modes of operation such as: ALWAYS, NEVER and NO_PARENT. This setting would determine when a recipient host would issue a CHALLENGE as so:
+
+1. When mode is NEVER, recipient host never sends a CHALLENGE.
 2. When mode is ALWAYS, recipient host will always send a CHALLENGE during the message exchange.
 3. When mode is NO_PARENT, recipient host will send a CHALLENGE when _pid_ does not exist or _pid_ refers to a message that is not stored (possible for _add to_ recipients).
 
@@ -405,7 +417,8 @@ To issue a CHALLENGE a receiving host follows these steps:
 2. Host B sends a CHALLENGE to Host A, supplying the hash of the message header received in Connection 1.
 3. Host A MUST verify the authenticity of the challenge by checking the header hash matches a message currently being sent to Host B. 
     - If not matched then Host A MUST TERMiNATE the message exchange.
-4. Host A transmits a CHALLENGE RESP on Connection 2 consisting of the message hash.
+4. 
+5. Host A transmits a CHALLENGE RESP on Connection 2 consisting of the message hash.
 
 ##### Notes on Challenge Mode
 
@@ -457,3 +470,7 @@ Various alternatives were considered before arriving at using the `_fmsg` subdom
 ### Practical Concerns
 
 Verifying the sender's IP address requires the receiving host to observe the true originating IP address of the connection. This implies that fmsg hosts must be directly routable, or that any intervening infrastructure preserves and conveys the originating IP address. Care must therefore be taken when fmsg hosts operate behind network address translators (NAT), layer-4 load balancers, or proxying infrastructure.
+
+
+## Security Concerns
+
