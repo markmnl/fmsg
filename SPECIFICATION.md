@@ -403,7 +403,7 @@ TODO what if same address in from, to, add to?
 
 #### 2. The Automatic Challenge
 
-A recipient fmsg host is responsible for challenging a sender for detail of the message being sent, while it is being sent, before deciding whether to continue downloading the message. A sender MUST be listening and respond to such a challenge on the same IP address as the outgoing message. IMPORTANTLY its the perogative of the rec 
+A recipient fmsg host is responsible for challenging a sender for detail of the message being sent, while it is being sent, before deciding whether to continue downloading the message. A sender MUST be listening and respond to such a challenge on the same IP address as the outgoing message.
 
 For example, a host COULD implement different challenge modes of operation such as: ALWAYS, NEVER and NO_PARENT. This setting would determine when a recipient host would issue a CHALLENGE as so:
 
@@ -424,9 +424,9 @@ To issue a CHALLENGE a receiving host follows these steps:
 
 The automatic challenge is an important component of fmsg's message integrity and sender verification guarantees. So why the optionality and not always automatically challenge if hosts need to implement it anyway? The intention is to allow trading protocol guarantees for efficiency which may be desirable depending on the use case.
 
-A NEVER challenge mode could be useful on private networks supporting a high volume of messages.
+The NEVER challenge mode discussed above could be useful on private networks supporting a high volume of messages.
 
-A NO_PARENT challenge mode could be a useful middle ground where the first message in a thread has the extra checking and controls of an automatic challenge. The automatic challenge can help mitigate spam by performing strong sender verification and requiring the sender to listen, calc the message digests and respond. Subsequent messages in a thread providing a valid pid already proves prior participation in the thread, which combined with checking the IP address is authorised for the domain already, gives a level of sender verification. The recipient fmsg host could be running on top of another protocol providing integrity level gurantees of the byte steam being received, like TLS does. The combination of these guarantees might be sufficent for a recipient fmsg host to opt-out of challenging.
+A NO_PARENT challenge mode could be a useful middle ground where the first message in a thread has the extra checking and controls of an automatic challenge. The automatic challenge can help mitigate spam by performing strong sender verification and requiring the sender to listen, calculate the message digests and respond accordingly. Subsequent messages in a thread providing a valid pid already proves prior participation in the thread, which combined with checking the IP address is authorised for the domain already, gives a level of sender verification. The recipient fmsg host could already have a level of message integrity gurantees, for example if the byte stream being read is over TLS. The combination of these guarantees might be sufficent for a recipient fmsg host to opt-out of challenging.
 
 
 #### 3. Reject or Continue
