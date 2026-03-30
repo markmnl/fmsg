@@ -304,7 +304,7 @@ A challenge response is the next 32 bytes received in reply to challenge request
 
 ### Reject or Accept Response
 
-A code less than 100 indicates rejection for all recipients and will be the only value. Other codes are per recipient in the same order as the as in the to field of the message after excluding recipients for other domains.
+A code less than 100 indicates rejection or acceptance for all recipients and will be the only value. Other codes are per recipient in the same order as the as in the _to_ then _add to_ fields of the message after excluding recipients for other domains.
 
 | name  | type       | comment                             |
 |-------|------------|-------------------------------------|
@@ -317,19 +317,21 @@ A code less than 100 indicates rejection for all recipients and will be the only
 | 2    | unsupported version   | the version is not supported by the receiving host                      |
 | 3    | undisclosed           | no reason is given                                                      |
 | 4    | too big               | total size exceeds host's maximum permitted size of messages            |
-| 5    | insufficient resources | such as disk space to store the message                                 |
+| 5    | insufficient resources | such as disk space to store the message                                |
 | 6    | parent not found      | parent referenced by pid SHA-256 not found and is required              |
 | 7    | too old               | timestamp is too far in the past for this host to accept                |
 | 8    | future time           | timestamp is too far in the future for this host to accept              |
 | 9    | time travel           | timestamp is before parent timestamp                                    |
 | 10   | duplicate             | message has already been received                                       |
+| 11   | accept header         | message header received                                                 |
 |      |                       |                                                                         |
 | 100  | user unknown          | the recipient message is addressed to is unknown by this host           |
 | 101  | user full             | insufficent resources for specific recipient                            |
 | 102  | user not accepting    | user is known but not accepting new messages at this time               |
+| 103  | user undisclosed      | no reason is given for not accepting messages to addressed user         |
 |      |                       |                                                                         |
-| 200  | accept                | message received                                                        |
-| 201  | accept header         | message header received                                                 |
+| 200  | accept                | message received for recipient                                          |
+
 
 
 ## Protocol
@@ -353,7 +355,7 @@ _NB_ Host reaching the TERMINATE step MUST tear down any connection(s) with the 
 
 The below steps are described following the example `@A@example.com` is sending a message to `@B@example.edu` for clarity. There could be more recipients on the same or different domains in a message being sent, the steps include how to handle those recipients in-situ; otherwise each recipient host performs the same steps without regards to other recipient hosts. If at any step TERMINATE is reached the message exchange is aborted. If at any step completing the message exchange is reached no further steps are performed.
 
-_NOTE_ Responding with the applicable REJECT code helps sending hosts and their clients to know when re-sending may be worthwhile (e.g. "user full"), re-sending is not worthwhile (e.g. "duplicate") or there is an issue with either side that warrants further investigation (e.g. "invalid" suggests something wrong with the implementation, "future time" is likely due to one or both hosts' clocks being incorrect).
+_NOTE_ Responding with the applicable REJECT code helps sending hosts and their clients to know when re-sending may be worthwhile trying (e.g. "user full"), re-sending would not be worthwhile (e.g. "duplicate") or there is an issue with either side that warrants further investigation (e.g. "invalid" suggests something wrong with the implementation, "future time" is likely due to one or both hosts' clocks being incorrect).
 
 The following varibles corresponding to host defined configuration are used in the below steps.
 
@@ -363,7 +365,6 @@ The following varibles corresponding to host defined configuration are used in t
 | MAX_MESSAGE_AGE    | 700000       | Maximum age since message _time_ field for message to be accepted (seconds)      |
 | MAX_TIME_SKEW      | 20           | Maximum tolerance for message _time_ field to be ahead of current time (seconds)   |
 
-TODO what if same address in from, to, add to?
 
 #### 1. Connection and Header Exchange
 
@@ -375,7 +376,7 @@ TODO what if same address in from, to, add to?
 3. Host B downloads the first byte 
     1. If the value is less than 128 and a supported fmsg version, continue.
     2. If the value is greater than 128 and 256 minus the value is a supported fmsg version - this is an incoming CHALLENGE and should be processed per [Handling a Challenge](#handling-a-challenge).
-    3. Otherwise Host B sends REJECT code 2 (unsupported version) on the open connection then closes it completing the message exchange.
+    3. Otherwise Host B sends REJECT code 2 (unsupported version) on Connection 1 then closes the connection completing the message exchange.
 4. Host B downloads the remaining message header and parses the fields. If parsing fails because types cannot be decoded, receiving host MUST TERMINATE the message exchange, otherwise the following verification steps MUST be performed:
     1. The following conditions MUST be met otherwise Host B MUST respond REJECT code 1 (invalid) and close the connection completing the message exchange:
         1. _to_ addresses only contains an address once using case-insensitive comparison
@@ -394,7 +395,7 @@ TODO what if same address in from, to, add to?
             3. else if none of the recipients in _add to_ are for Host B (i.e. example.edu domain), then:
                 1. The message _pid_ refers to MUST be verified to be stored already on Host B per [Verifying Message Stored](#verifying-message-stored); otherwise respond with REJECT code 6 (parent not found)
                 2. At least one of the recipients in _to_ MUST be for Host B (i.e. example.edu domain); otherwise Host B MUST respond with REJECT code 1 (invalid) and close the connection completing the message exchange.
-                3. At this stage we have been informed additional recipients have been added to a message we already have, there will be no further data. Host B MUST record this message header received so far such that the message header hash can be faithfully computed as this could be referred to by subsequent messages. Host B MUST then respond with ACCEPT code 201 (message header received) then close the connection completing the message exchange. 
+                3. At this stage we have been informed additional recipients have been added to a message we already have, there will be no further data. Host B MUST record this message header received so far such that the message header hash can be faithfully computed as this could be referred to by subsequent messages. Host B MUST then respond with ACCEPT code 11 (message header received) then close the connection completing the message exchange. 
         3. Else _pid_ exists and _add to_ does not.
             1. The message _pid_ refers to MUST be verified to be stored already on Host B per [Verifying Message Stored](#verifying-message-stored); otherwise respond with REJECT code 6 (parent not found)
             2. The stored message for _pid_'s _time_ MUST be before _time_ on the incoming message header; otherwise respond with REJECT code 9 (time travel)
@@ -434,16 +435,20 @@ Ultimately, whether to challenge or not is at the discretion of the recipient ho
 
 #### 3. Integrity Verification, Per-Recipient Response and Disposition
 
-1. Host B MAY perform some checks before continuing to download the remaining message being transmitted on Connection 1.
-    1. If the CHALLENGE, CHALLENGE-RESP exchange was completed, the message hash received in the CHALLENGE-RESP SHOULD used to check if the message is already stored per [Verifying Message Stored](#verifying-message-stored).
+1. Host B performs some checks before continuing to download the remaining message being transmitted on Connection 1.
+    1. If the CHALLENGE, CHALLENGE-RESP exchange was completed, the message hash received in the CHALLENGE-RESP SHOULD be used to check if the message is already stored per [Verifying Message Stored](#verifying-message-stored).
         1. If the message is found to be already stored, Host B MUST respond REJECT code 10 (duplicate) then close the connection completing the message exchange.
 2. Host B continues downloading the remaining message constituting of message _data_ and _attachments data_
-3. Upon downloading the exact size of the message, Host B MUST perform a message integrity check by calculating the SHA-256 hash of the fully downloaded message.
-    1. If the CHALLENGE, CHALLENGE-RESP exchange was completed, the message hash received in the CHALLENGE-RESP MUST be compared to calculated one to be binary equal, if found not equal, Host B MUST TERMINATE the message exchange.
-4. Host B transmits an "ACCEPT or REJECT RESPONSE" code to Host A for each individual recipient belonging Host B.
-    1. Host B iterates through each address for its domain (example.edu) in the order they appear in _to_ then in _add to_ (if any)
-    2. 
-    3. Host A MUST record the "ACCEPT or REJECT RESPONSE" per recipient.
+3. Upon downloading the exact size of the message, Host B MUST perform a message integrity check by calculating the message hash of the fully downloaded message.
+    1. If the CHALLENGE, CHALLENGE-RESP exchange was completed, the message hash received in the CHALLENGE-RESP MUST be compared to calculated one, if found not equal, Host B MUST TERMINATE the message exchange.
+4. Host B transmits an "ACCEPT or REJECT RESPONSE" code to Host A for each individual recipient belonging to Host B.
+    1. Host B iterates through each address for its domain (example.edu) in the order they appear in _to_ then in _add to_ (if any). Note for any REJECT code specific to a user, 104 (user undisclosed) MAY be used instead - so Host B does not have to disclose the reason message was not accepted for that address. For each recipient:
+        1. Host B looks up implementation specific data for the recipient address such as quotas and whether the address is accepting new messages.
+        2. If the address is unknown to Host B, Host B MUST respond either REJECT code 100 (user unknown) OR REJECT code 104 (user undisclosed). 
+        3. Else if accepting the message would exceed user quotas such as size or count limits, Host B MUST respond  either REJECT code 101 (user full) OR REJECT code 104 (user undisclosed).
+        4. Else if the address is not accepting new messages, Host B MUST respond either REJECT code 102 (user not accepting) OR REJECT code 104 (user undisclosed).
+        5. Otherwise, Host B MUST respond ACCEPT code 200 (accepted) for the recipient address 
+    2. Host A MUST record the "ACCEPT or REJECT RESPONSE" code received per recipient for Host B's domain in the order they appear in _to_ then in _add to_ (if any) in the message just sent.
 5. Host A and Host B close Connection 1, completing the message exchange.
 
 
@@ -452,8 +457,8 @@ Ultimately, whether to challenge or not is at the discretion of the recipient ho
 TODO
 
 ### Verifying Message Stored
-
-TODO
+TODO when is message header hash used - check when adding recipient used to have etc.
+Verifying a message is stored MUST be done using byte wise comparison between the calculated message hash and a hash being checked.  
 
 ## Domain Resolution
 
