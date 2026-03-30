@@ -400,51 +400,51 @@ TODO what if same address in from, to, add to?
             2. The stored message for _pid_'s _time_ MUST be before _time_ on the incoming message header; otherwise respond with REJECT code 9 (time travel)
 
 
-
 #### 2. The Automatic Challenge
 
 A recipient fmsg host is responsible for challenging a sender for detail of the message being sent, while it is being sent, before deciding whether to continue downloading the message. A sender MUST be listening and respond to such a challenge on the same IP address as the outgoing message.
 
-For example, a host COULD implement different challenge modes of operation such as: ALWAYS, NEVER and NO_PARENT. This setting would determine when a recipient host would issue a CHALLENGE as so:
+For example, a host COULD implement different challenge modes of operation such as:
 
-1. When mode is NEVER, recipient host never sends a CHALLENGE.
-2. When mode is ALWAYS, recipient host will always send a CHALLENGE during the message exchange.
-3. When mode is NO_PARENT, recipient host will send a CHALLENGE when _pid_ does not exist or _pid_ refers to a message that is not stored (possible for _add to_ recipients).
+1. NEVER, recipient host never sends a CHALLENGE.
+2. ALWAYS, recipient host will always send a CHALLENGE during the message exchange.
+3. HAS_NOT_PARTICIPATED, recipient host will send a CHALLENGE when _pid_ does not exist or none of the messages in the the thread referenced by _pid_ are from Host B's domain.
+4. DIFFERENT_DOMAIN, recipient host will always send a CHALLENGE during the message exchange if the messages is _from_ a different domain.
 
 To issue a CHALLENGE a receiving host follows these steps:
 
 1. Before continuing to download the remaining data on Connection 1, Host B MUST initiate a separate new connection (Connection 2) back to Host A using the same incoming IP address of Connection 1.
 2. Host B sends a CHALLENGE to Host A, supplying the hash of the message header received in Connection 1.
-3. Host A MUST verify the authenticity of the challenge by checking the header hash matches a message currently being sent to Host B. 
+3. Host A MUST verify the authenticity of the challenge by checking the header hash matches a the message currently being sent to Host B. 
     - If not matched then Host A MUST TERMiNATE the message exchange.
-4. 
 5. Host A transmits a CHALLENGE RESP on Connection 2 consisting of the message hash.
+6. Host B downloads the CHALLENGE-RESP which MUST be kept to later verify the message once fully downloaded.
+7. Host A and Host B close Connection 2 and continue the message exchange on Connection 1. 
 
 ##### Notes on Challenge Mode
 
 The automatic challenge is an important component of fmsg's message integrity and sender verification guarantees. So why the optionality and not always automatically challenge if hosts need to implement it anyway? The intention is to allow trading protocol guarantees for efficiency which may be desirable depending on the use case.
 
-The NEVER challenge mode discussed above could be useful on private networks supporting a high volume of messages.
+The NEVER challenge mode discussed above could be useful on trusted private networks supporting a high volume of messages.
 
-A NO_PARENT challenge mode could be a useful middle ground where the first message in a thread has the extra checking and controls of an automatic challenge. The automatic challenge can help mitigate spam by performing strong sender verification and requiring the sender to listen, calculate the message digests and respond accordingly. Subsequent messages in a thread providing a valid pid already proves prior participation in the thread, which combined with checking the IP address is authorised for the domain already, gives a level of sender verification. The recipient fmsg host could already have a level of message integrity gurantees, for example if the byte stream being read is over TLS. The combination of these guarantees might be sufficent for a recipient fmsg host to opt-out of challenging.
+A HAS_NOT_PARTICIPATED challenge mode could be a useful middle ground where the first message in a thread has the extra checking and controls of an automatic challenge. The automatic challenge can help mitigate spam by performing strong sender verification and requiring the sender to listen, calculate the message digests and respond accordingly. Subsequent messages in a thread providing a valid pid where one of the messages in the thread is _from_ Host B's domain provides some proof of prior participation in the thread, which combined with checking the IP address is authorised for the domain already, gives a level of sender verification. The recipient fmsg host could already have a level of message integrity gurantees, for example if the byte stream being read is over TLS. The combination of these guarantees might be sufficent for a recipient fmsg host to opt-out of challenging.
+
+Ultimitly, whether to challenge or not is at the discretion of the recipient host.
 
 
-#### 3. Reject or Continue
+#### 3. Integrity Verification, Per-Recipient Response and Disposition
 
-1. Host B downloads and checks the CHALLENGE RESP then either rejects the entire message outright; or continues to download the message on Connection 1. A REJECT response at this stage allows the receiving host a chance to reject the message before continuing the download for any reason e.g. the message is too big.
-    * REJECT MUST apply to all recipients belonging to Host B, i.e. "REJECT or ACCEPT RESPONSE" code must be less than 100, see: [Reject or Accept Response](#reject-or-accept-response).
-    * REJECT MUST be sent on Connection 1.
-    * REJECT, if sent, MUST immediately be followed by closure of Connection 1.
-2. Connection 2 MUST be closed, if REJECT was sent the message exchange is completed.
-3. If not rejected, the message transmission continues on Connection 1. Host B completes the download of the full remaining message, i.e. message size plus the sum of any attachment sizes.
-
-#### 4. Integrity Verification, Per-recipient Response and Disposition
-
-1. Host B MUST perform a message integrity check by calculating the SHA-256 hash of the fully downloaded message including header, data and any attachments; then compare this calculated hash against the hash provided in the CHALLENGE RESP earlier.
-    * If hashes do not match Host B MUST TERMiNATE the message exchange.
-2. If the hashes match, Host B transmits an "ACCEPT or REJECT RESPONSE" code to Host A for each individual recipient belonging Host B.
-3. Host A MUST record the "ACCEPT or REJECT RESPONSE" per recipient.
-4. Host A and Host B gracefully close Connection 1, completing the message exchange.
+1. Host B MAY perform some checks before continuing to download the remaining message being transmitted on Connection 1.
+    1. If the CHALLENGE, CHALLENGE-RESP exchange was completed, the message hash received in the CHALLENGE-RESP SHOULD used to check if the message is already stored per [Verifying Message Stored](#verifying-message-stored).
+        1. If the message is found to be already stored, Host B MUST respond REJECT code 10 (duplicate) then close the connection completing the message exchange.
+2. Host B continues downloading the remaining message constituting of message _data_ and _attachments data_
+3. Upon downloading the exact size of the message, Host B MUST perform a message integrity check by calculating the SHA-256 hash of the fully downloaded message.
+    1. If the CHALLENGE, CHALLENGE-RESP exchange was completed, the message hash received in the CHALLENGE-RESP MUST be compared to caculated one to be binary equal, if found not equal, Host B MUST TERMINATE the message exchange.
+4. Host B transmits an "ACCEPT or REJECT RESPONSE" code to Host A for each individual recipient belonging Host B.
+    1. Host B iterates through each address for it's domain (exmaple.edu) in the order they appear in _to_ then in _add to_ (if any)
+    2. 
+    3. Host A MUST record the "ACCEPT or REJECT RESPONSE" per recipient.
+5. Host A and Host B close Connection 1, completing the message exchange.
 
 
 ### Handling a Challenge
@@ -474,3 +474,7 @@ Verifying the sender's IP address requires the receiving host to observe the tru
 
 ## Security Concerns
 
+TODO 
+record domain, IP address and response for analysis
+rate limit
+quotas
