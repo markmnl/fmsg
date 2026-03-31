@@ -20,7 +20,8 @@ Each standard is prefixed with a unique identifer following the format: "FMSG-##
 | Standard  | Short Description                                      |
 |-----------|--------------------------------------------------------|
 | [FMSG-001](standards/fmsg-001-ports.md) | Standard fmsg IP ports |
-| [FMSG-002](standards/fmsg-002-client-host-http-api.md) | HTTP API for client-host retrieval, posting, and searching of messages |
+| [FMSG-002](standards/fmsg-002-id.md) | HTTP API spec for recipient lookup and associated size and count limits |
+| [FMSG-003](standards/fmsg-003-webapi.md) | HTTP API spec client to perform CRUD operations on messages for a specific address |
 
 
 
