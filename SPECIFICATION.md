@@ -125,12 +125,12 @@ On the wire messages are encoded thus:
 |---------------------|--------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | version             | uint8                                | A value less than 128 is the fmsg version number; otherwise this message is a [CHALLENGE](#challenge) defined below.                                            |
 | flags               | uint8                                | Bit field. See [flags](#flags) for each bit's meaning.                                                                                                          |
-| [pid]               | byte array                           | The previous message hash, or message header hash in the case of _add to_ containing only addresses for other domains, see [Steps](#protocol-steps). Only present if flags has pid bit set.                                               |
+| [pid]               | byte array                           | The previous message hash, or message header hash, this message is in reply to. Only present if flags has pid bit set.                                               |
 | from                | fmsg address                         | Sender's address. See [address](#address) definition.                                                                                                           |
 | to                  | uint8 + list of fmsg addresses       | Recipient addresses. See [address](#address) definition. Prefixed by uint8 count, addresses MUST be distinct (case-insensitive) of which there MUST be at least one. |
 | [add to]            | uint8 + list of fmsg addresses       | Additional recipient addresses. Only present if flags has add to bit set. See [address](#address) definition. Prefixed by uint8 count, addresses MUST be distinct (case-insensitive) of which there MUST be at least one. |
 | time                | float64                              | POSIX epoch time message was received by host sending the message.                                                                                              |
-| topic               | uint8 + [UTF-8 string]               | UTF-8 free text title of the first meassage in thread, prefixed by uint8 size which may be 0. TODO only if no pid                                                                             |
+| [topic]             | uint8 + UTF-8 string                 | UTF-8 free text title of the first message in a thread. Only present if _pid_ is not set. Prefixed by uint8 size which may be 0.                                |
 | type                | uint8 + [ASCII string]               | Either a common type, see [Common Media Types](#common-media-types), or a US-ASCII encoded Media Type: RFC 6838.                                                |
 | size                | uint32                               | Size of data in bytes, 0 or greater                                                                                                                             |
 | attachment headers  | uint8 + [list of attachment headers] | See [attachment](#attachment) header definition. Prefixed by uint8 count of attachments of which there may be 0.                                                |
@@ -141,8 +141,8 @@ On the wire messages are encoded thus:
 ### Notes on Message Definition
 
 * Square brackets "[ ]" indicate fields or part thereof may not exist on a message. Where the brackets surround the name, e.g. _pid_, the whole field may not be present (which in the case of pid is only valid if the message is the first in a thread). Where they surround part of the type, that part may not be present, e.g. list of attachment headers will not be present if uint8 prefix is 0.
-* _topic_ is set only on the first message sent in a thread, thereafter _topic_ size is always 0. Making _topic_ immutable because it cannot be changed by subsequent replies. (Presentations of message threads COULD use a local mutable field for display purposes).
-* When _add to_ field exists and any addresses are for the receiving host's domain - a recipient belonging to that host is being added to an existing message which follows in full; otherwise when _add to_ has only recipients for other domains only the _message header_ is being sent to existing recipients specified in the _to_ field. In either case _pid_ refers to the full message before any _add to_ recipients were added. See [Protocol Steps](#protocol-steps) for more.
+* _topic_ MUST be present only on the first message in a thread, i.e. when _pid_ does not exist. When _pid_ exists the entire _topic_ field MUST NOT be included. This makes _topic_ immutable because it cannot be changed by subsequent replies. (Presentations of message threads COULD use a local mutable field for display purposes).
+* When _add to_ field exists and any addresses are for the receiving host's domain - a recipient belonging to that host is being added to an existing message which follows in full; otherwise when _add to_ has only recipients for other domains only the _message header_ is being sent to existing recipients specified in the _to_ field. In either case _pid_ refers to the full message before any _add to_ recipients were added i.e. recipients can only be added to a message without _add to_. See [Protocol Steps](#protocol-steps) for more.
 
 
 ### Notes on Time
@@ -168,7 +168,7 @@ fmsg includes some time checking and controls, rejecting messages too far in fut
 
 #### Common Media Types
 
-If the common type flag bit is set in the flags field, then type field consists of one uint8 value which maps to the Media Type including parameters in the table below. A value not in the table is invalid and the entire message SHOULD be rejected with "invalid" REJECT response. If the common type bit is not set the first uint8 is the length of the subsequent bytes US-ASCII encoded Media Type per RFC 6838. Note, even if the common type flag bit is not set (i.e. the Media Type is spelt out in full), the Media Type may be one of these "common" types.
+If the common type flag bit is set, the type field consists of one uint8 value which maps to a complete Media Type string, including any parameters, exactly as listed in the table below. If the common type bit is not set, the first uint8 is the length of the subsequent US-ASCII encoded complete Media Type string, including any parameters, per RFC 6838. If the common type flag bit is set and and the value has no mapping in the table below - the message is invalid and should be rejected with REJECT code 1 (invalid).
 
 For reference the current IANA list of Media Types is located [here](https://www.iana.org/assignments/media-types/media-types.xhtml).
 
@@ -219,27 +219,27 @@ For reference the current IANA list of Media Types is located [here](https://www
 | 40     | text/calendar                                                             |
 | 41     | text/css                                                                  |
 | 42     | text/csv                                                                  |
-| 42     | text/markdown                                                             |
-| 43     | text/html                                                                 |
-| 44     | text/javascript                                                           |
-| 45     | text/plain;charset=ASCII                                                  |
-| 46     | text/plain;charset=UTF-16                                                 |
-| 47     | text/plain;charset=UTF-8                                                  |
-| 48     | text/vcard                                                                |
-| 48     | video/H264                                                                |
-| 49     | video/H264-RCDO                                                           |
-| 50     | video/H264-SVC                                                            |
-| 51     | video/H265                                                                |
-| 52     | video/H266                                                                |
-| 53     | video/ogg                                                                 |
-| 54     | video/VP8                                                                 |
-| 55     | video/VP9                                                                 |
-| 56     | video/webm                                                                |
-| 57     | model/3mf                                                                 |
-| 59     | model/gltf-binary                                                         |
-| 60     | model/obj                                                                 |
-| 61     | model/stl                                                                 |
-| 62     | model/step
+| 43     | text/markdown                                                             |
+| 44     | text/html                                                                 |
+| 45     | text/javascript                                                           |
+| 46     | text/plain;charset=ASCII                                                  |
+| 47     | text/plain;charset=UTF-16                                                 |
+| 48     | text/plain;charset=UTF-8                                                  |
+| 49     | text/vcard                                                                |
+| 50     | video/H264                                                                |
+| 51     | video/H264-RCDO                                                           |
+| 52     | video/H264-SVC                                                            |
+| 53     | video/H265                                                                |
+| 54     | video/H266                                                                |
+| 55     | video/ogg                                                                 |
+| 56     | video/VP8                                                                 |
+| 57     | video/VP9                                                                 |
+| 58     | video/webm                                                                |
+| 59     | model/3mf                                                                 |
+| 61     | model/gltf-binary                                                         |
+| 62     | model/obj                                                                 |
+| 63     | model/stl                                                                 |
+| 64     | model/step
 
 </details>
 
@@ -294,7 +294,7 @@ A whole address is encoded UTF-8 prepended with size:
 | name        | type     | comment                                                                            |
 |-------------|----------|------------------------------------------------------------------------------------|
 | version     | uint8    | Challenge version, decrements from 255 corresponding to fmsg protocol version, 255 is CHALLENGE for fmsg protocol version 1, 254 would be CHALLENGE for fmsg protocol version 2 etc. |
-| header hash | 32 bytes | SHA-256 hash of message header being sent/received up to and including type field. |
+| header hash | 32 bytes | SHA-256 digest of message header being sent/received up to and including attachment headers. |
 
 
 ### Challenge Response
@@ -388,8 +388,8 @@ The following varibles corresponding to host defined configuration are used in t
         3. _type_ number when [Flag](#flags) is set, exists in [Common Media Type](#common-media-types) mapping.
     2. Receiving Host B MUST perform a DNS lookup on the _fmsg subdomain of the from address in the message header (_fmsg.example.com) to verify that the IP address of the incoming connection is in those authorised by the sending domain. If the incoming IP address is not in the authorised set, Host B MUST TERMINATE the message exchange.
     2. If _size_ plus all _attachment size_ is greater than MAX_SIZE, Host B MUST respond REJECT code 4 (too big) then close the connection completing the message exchange.
-    3. The _time_ field is subtracted by the current POSIX epoch time resulting in DELTA - representing seconds since message sent (to senders host for sending on).
-        1. If DELTA is greater than MAX_MESSAGE_AGE, Host B MUST respond REJECT code 4 (too big) then close the connection completing the message exchange.
+    3. Current POSIX epoch time minus message _time_ gives DELTA - representing seconds since message sent (to senders host for sending on).
+        1. If DELTA is greater than MAX_MESSAGE_AGE, Host B MUST respond REJECT code 7 (too old) then close the connection completing the message exchange.
         2. If DELTA is negative and absolute DELTA is greater than MAX_TIME_SKEW, Host B MUST respond REJECT code 8 (future time) then close the connection completing the message exchange.
     4. The _pid_ field requirements depends on the existence and contents of _add to_ field:
         1. If neither _pid_ nor _add to_ exist, the message is the first in a thread and the message exchange continues normally.
