@@ -58,10 +58,29 @@ _"sender"_ the address in a message's _from_ field
 
 _"thread"_ is a linked hierarchy of messages where messages relate to previous messages using the _pid_ field
 
-_"user"_ alias of recipient
+_"user"_ alias of participant
 
 _"UTF-8"_ is for the unicode standard: Unicode Transformation Format – 8-bit.
 
+
+## Overview
+
+Before diving into the technical details, the following principles outline how fmsg works at a high level.
+
+**Binary and compact.** Messages are encoded in a binary format with explicitly sized fields. There are no null terminators or delimiters — every field's length is known, keeping messages compact and resistant to common parsing vulnerabilities.
+
+**One message at a time.** A host sends a single message per connection to a receiving host. The message is either rejected outright for all recipients (e.g. the message is malformed or too large) or accepted and rejected on a per-recipient basis (e.g. a recipient's mailbox is full while another's accepts the message).
+
+**Messages form threads.** Every reply references the previous message it is responding to via a cryptographic hash. This creates a linked chain of messages — a thread — where each message's parentage is verifiable by all participants. The first message in a thread has no parent reference and instead carries a topic.
+
+**Only recipients can reply.** To reply to a message a sender must have been a recipient of that message. This is enforced structurally: the hash used to reference a parent depends on whether the sender was in the original recipient list or was added later, and the receiving host verifies this linkage.
+
+**Rejection tells you why.** When a message is rejected the receiving host includes a reason code. This allows the sending host to determine whether re-sending is worthwhile (e.g. the recipient was temporarily full), pointless (e.g. the message is a duplicate), or indicative of a problem that needs attention (e.g. the message was deemed invalid).
+
+**Sender verification is built in.** A receiving host verifies that the sending host's IP address is authorised by the sender's domain via DNS. An optional challenge mechanism provides additional assurance by requiring the sender to prove knowledge of the message content while it is being transmitted.
+
+
+## Definition
 
 ### Message Types
 
@@ -88,25 +107,6 @@ Throughout this document the following data types are used. All types are always
 String lengths are always explicitly defined and null terminating characters are not used. This is a design decision because it prevents a class of buffer over-run bugs (search "Heartbleed bug"), simplifies message size calculation, and, inherently limits the length of strings while adding no extra data than a null terminating character would (since all strings lengths here are defined by one uint8).
 
 
-## Overview
-
-Before diving into the technical details, the following principles outline how fmsg works at a high level.
-
-**Binary and compact.** Messages are encoded in a binary format with explicitly sized fields. There are no null terminators or delimiters — every field's length is known, keeping messages compact and resistant to common parsing vulnerabilities.
-
-**One message at a time.** A host sends a single message per connection to a receiving host. The message is either rejected outright for all recipients (e.g. the message is malformed or too large) or accepted and rejected on a per-recipient basis (e.g. a recipient's mailbox is full while another's accepts the message).
-
-**Messages form threads.** Every reply references the previous message it is responding to via a cryptographic hash. This creates a linked chain of messages — a thread — where each message's parentage is verifiable by all participants. The first message in a thread has no parent reference and instead carries a topic.
-
-**Only recipients can reply.** To reply to a message a sender must have been a recipient of that message. This is enforced structurally: the hash used to reference a parent depends on whether the sender was in the original recipient list or was added later, and the receiving host verifies this linkage.
-
-**Rejection tells you why.** When a message is rejected the receiving host includes a reason code. This allows the sending host to determine whether re-sending is worthwhile (e.g. the recipient was temporarily full), pointless (e.g. the message is a duplicate), or indicative of a problem that needs attention (e.g. the message was deemed invalid).
-
-**Sender verification is built in.** A receiving host verifies that the sending host's IP address is authorised by the sender's domain via DNS. An optional challenge mechanism provides additional assurance by requiring the sender to prove knowledge of the message content while it is being transmitted.
-
-
-## Definition
-
 ### Message
 
 In programmer friendly JSON a message could look like (once decoded from the binary format defined below):
@@ -130,8 +130,9 @@ In programmer friendly JSON a message could look like (once decoded from the bin
     "data": "The quick brown fox jumps over the lazy dog.",
     "attachments": [
         {
-            "size": 1024,
-            "filename": "doc.pdf"
+            "type": "application/pdf",
+            "filename": "doc.pdf",
+            "size": 1024
         }
     ]
 }
@@ -161,7 +162,7 @@ On the wire messages are encoded thus:
 * Square brackets "[ ]" indicate fields or part thereof may not exist on a message. Where the brackets surround the name, e.g. _pid_, the whole field may not be present (which in the case of pid is only valid if the message is the first in a thread). Where they surround part of the type, that part may not be present, e.g. list of attachment headers will not be present if uint8 prefix is 0.
 * _pid_ references a previous message hash if _from_ was in _to_ of the previous message; otherwise if _from_ was only in _add to_ of the previous message then _pid_ references the previous message header hash. It is not possible _from_ is in neither _to_ nor _add to_ following the [Protocol Steps](#protocol-steps).
 * _topic_ MUST be present only on the first message in a thread, i.e. when _pid_ does not exist. When _pid_ exists the entire _topic_ field MUST NOT be included. This makes _topic_ immutable because it cannot be changed by subsequent replies. (Presentations of message threads COULD use a local mutable field for display purposes).
-* When _add to_ field exists and any addresses are for the receiving host's domain - a recipient belonging to that host is being added to an existing message which follows in full; otherwise when _add to_ has only recipients for other domains only the _message header_ is being sent to existing recipients specified in the _to_ field. In either case _pid_ refers to the full message before any _add to_ recipients were added i.e. recipients can only be added to a message without _add to_. See [Protocol Steps](#protocol-steps) for more.
+* When _add to_ field exists and any addresses are for the receiving host's domain - a recipient belonging to that host is being added to an existing message which follows in full; otherwise when _add to_ only has recipients for other domains only the _message header_ is being sent to existing recipients specified in the _to_ field. In either case _pid_ refers to the full message before any _add to_ recipients were added and cannot reference an existing message with _add to_ - restricting only original recipients specified in _to_ the ability to add recipients to a message. See [Protocol Steps](#protocol-steps) for more.
 
 
 ### Notes on Time
@@ -176,12 +177,12 @@ fmsg includes some time checking and controls, rejecting messages too far in fut
 | bit index | name         | description                                                                                                                                                                                                                 |
 |----------:|--------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | 0         | has pid      | Set if this message is in reply to another and pid field is present.                                                                                                                                                        |
-| 1         | common type  | Indicates the type field is just a uint8 value and Media Type can be looked up per [Common Media Types](#common-media-types)                                                                                                |
-| 2         | important    | Sender indicates this message is IMPORTANT!                                                                                                                                                                                 |
-| 3         | no reply     | Sender indicates any reply will be discarded.                                                                                                                                                                               |
-| 4         | TBD          |                                                                         |
+| 1         | has add to   | Set if "add to" field is included i.e. this message is copy of an existing message being with recipient being added                                                       |
+| 2         | common type  | Indicates the type field is just a uint8 value and Media Type can be looked up per [Common Media Types](#common-media-types)                                                                                                |
+| 3         | important    | Sender indicates this message is IMPORTANT!                                                                                                                                                                                 |
+| 4         | no reply     | Sender indicates any reply will be discarded.                                                                                                                                                                               |
 | 5         | deflate      | Message data is compressed using the zlib structure (defined in RFC 1950), with the deflate compression algorithm (defined in RFC 1951).                                                                                    |
-| 6         | has add to   | Set if "add to" field is included i.e. this message is copy of an existing message being with recipient being added                                                       |
+| 6         | TBD          | Unused, reserved for future use                                                                        |
 | 7         | TBD          | Unused, reserved for future use    |
 
 
@@ -265,18 +266,28 @@ For reference the current IANA list of Media Types is located [here](https://www
 
 ### Attachment
 
-Attachment headers consist of the two fields, filename and size:
+Each attachment header consists of four fields: flags, type, filename and size:
 
-| name     | type       | comment                                                                                            |
-|----------|------------|----------------------------------------------------------------------------------------------------|
-| filename | string     | UTF-8 prefixed by uint8 size.                                                                      |
-| size     | uint32     | Size of attachment data. uint32 is the max theoretical size, but hosts can/should accept less.     |
+| name     | type                   | comment                                                                                            |
+|----------|------------------------|----------------------------------------------------------------------------------------------------||
+| flags    | uint8                  | Bit field. See attachment flags below.                                                             |
+| type     | uint8 + [ASCII string] | Either a common type, see [Common Media Types](#common-media-types), or a US-ASCII encoded Media Type: RFC 6838. Encoding determined by this attachment's own _common type_ flag. |
+| filename | string                 | UTF-8 prefixed by uint8 size.                                                                      |
+| size     | uint32                 | Size of attachment data. uint32 is the max theoretical size, but hosts can/should accept less.     |
+
+#### Attachment Flags
+
+| bit index | name        | description                                                                                                                        |
+|----------:|-------------|------------------------------------------------------------------------------------------------------------------------------------||
+| 0         | common type | Indicates this attachment's type field is just a uint8 value and Media Type can be looked up per [Common Media Types](#common-media-types). |
+| 1         | deflate     | Attachment data is compressed using the zlib structure (defined in RFC 1950), with the deflate compression algorithm (defined in RFC 1951). |
+| 2 - 7     | TBD         | Unused, reserved for future use                                                                                                    |
 
 filename MUST be:
 
 * UTF-8
 * any letter in any language, or any numeric characters (`\p{L}` and `\p{N}` Unicode Standard Annex #44 and #18)
-* the hyphen "-", underscore "_" or single space " " characters non-consecutively and not at beginning or end
+* the hyphen "-", underscore "_", single space " " or dot "." characters non-consecutively and not at beginning or end
 * unique amongst attachments, case-insensitive
 * less than 256 bytes length
 
@@ -297,7 +308,7 @@ Recipient part is a string of characters which MUST be:
 
 * UTF-8
 * any letter in any language, or any numeric characters (`\p{L}` and `\p{N}` Unicode Standard Annex #44 and #18)
-* the hyphen "-" or underscore "_" characters non-consecutively and not at beginning or end
+* the hyphen "-", underscore "_" or dot "." characters non-consecutively and not at beginning or end
 * unique on host using case-insensitive comparison
 * less than 256 bytes length when combined with domain name and @ characters 
 
@@ -403,7 +414,8 @@ The following varibles corresponding to host defined configuration are used in t
 4. Host B downloads the remaining message header and parses the fields. If parsing fails because types cannot be decoded, receiving host MUST TERMINATE the message exchange, otherwise the following verification steps MUST be performed:
     1. The following conditions MUST be met otherwise Host B MUST respond REJECT code 1 (invalid) and close the connection completing the message exchange:
         1. The set of all recipients in _to_ and _add to_ addresses are distinct using case-insensitive comparison.
-        3. _type_ number when [Flag](#flags) is set, exists in [Common Media Type](#common-media-types) mapping.
+        3. _type_ number when _common type_ [Flag](#flags) is set, exists in [Common Media Type](#common-media-types) mapping.
+        4. Each attachment _type_ number, when that attachment's _common type_ flag is set, exists in [Common Media Type](#common-media-types) mapping.
     2. Receiving Host B MUST perform a DNS lookup on the _fmsg subdomain of the from address in the message header (_fmsg.example.com) to verify that the IP address of the incoming connection is in those authorised by the sending domain. If the incoming IP address is not in the authorised set, Host B MUST TERMINATE the message exchange.
     2. If _size_ plus all _attachment size_ is greater than MAX_SIZE, Host B MUST respond REJECT code 4 (too big) then close the connection completing the message exchange.
     3. Current POSIX epoch time minus message _time_ gives DELTA - representing seconds since message sent (to senders host for sending on).
