@@ -4,6 +4,7 @@
     - [Terms](#terms)
     - [Message Types](#message-types)
     - [Data Types](#data-types)
+- [Overview](#overview)
 - [Definition](#definition)
     - [Message](#message)
         - [Common Media Types](#common-media-types)
@@ -87,6 +88,23 @@ Throughout this document the following data types are used. All types are always
 String lengths are always explicitly defined and null terminating characters are not used. This is a design decision because it prevents a class of buffer over-run bugs (search "Heartbleed bug"), simplifies message size calculation, and, inherently limits the length of strings while adding no extra data than a null terminating character would (since all strings lengths here are defined by one uint8).
 
 
+## Overview
+
+Before diving into the technical details, the following principles outline how fmsg works at a high level.
+
+**Binary and compact.** Messages are encoded in a binary format with explicitly sized fields. There are no null terminators or delimiters — every field's length is known, keeping messages compact and resistant to common parsing vulnerabilities.
+
+**One message at a time.** A host sends a single message per connection to a receiving host. The message is either rejected outright for all recipients (e.g. the message is malformed or too large) or accepted and rejected on a per-recipient basis (e.g. a recipient's mailbox is full while another's accepts the message).
+
+**Messages form threads.** Every reply references the previous message it is responding to via a cryptographic hash. This creates a linked chain of messages — a thread — where each message's parentage is verifiable by all participants. The first message in a thread has no parent reference and instead carries a topic.
+
+**Only recipients can reply.** To reply to a message a sender must have been a recipient of that message. This is enforced structurally: the hash used to reference a parent depends on whether the sender was in the original recipient list or was added later, and the receiving host verifies this linkage.
+
+**Rejection tells you why.** When a message is rejected the receiving host includes a reason code. This allows the sending host to determine whether re-sending is worthwhile (e.g. the recipient was temporarily full), pointless (e.g. the message is a duplicate), or indicative of a problem that needs attention (e.g. the message was deemed invalid).
+
+**Sender verification is built in.** A receiving host verifies that the sending host's IP address is authorised by the sender's domain via DNS. An optional challenge mechanism provides additional assurance by requiring the sender to prove knowledge of the message content while it is being transmitted.
+
+
 ## Definition
 
 ### Message
@@ -123,9 +141,9 @@ On the wire messages are encoded thus:
 
 | name                | type                                 | description                                                                                                                                                     |
 |---------------------|--------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| version             | uint8                                | A value less than 128 is the fmsg version number; otherwise this message is a [CHALLENGE](#challenge) defined below.                                            |
+| version             | uint8                                | A value greater than 0 and less than 128 is the fmsg version number; a value greater than 128 less than 256 means this message is a [CHALLENGE](#challenge) defined below.                                            |
 | flags               | uint8                                | Bit field. See [flags](#flags) for each bit's meaning.                                                                                                          |
-| [pid]               | byte array                           | The previous message hash, or message header hash, this message is in reply to. Only present if flags has pid bit set.                                               |
+| [pid]               | byte array                           | Reference to the message or message header this message is in reply to. Only present if flags has pid bit set.                                               |
 | from                | fmsg address                         | Sender's address. See [address](#address) definition.                                                                                                           |
 | to                  | uint8 + list of fmsg addresses       | Recipient addresses. See [address](#address) definition. Prefixed by uint8 count, addresses MUST be distinct (case-insensitive) of which there MUST be at least one. |
 | [add to]            | uint8 + list of fmsg addresses       | Additional recipient addresses. Only present if flags has add to bit set. See [address](#address) definition. Prefixed by uint8 count, addresses MUST be distinct (case-insensitive) of which there MUST be at least one. |
@@ -141,6 +159,7 @@ On the wire messages are encoded thus:
 ### Notes on Message Definition
 
 * Square brackets "[ ]" indicate fields or part thereof may not exist on a message. Where the brackets surround the name, e.g. _pid_, the whole field may not be present (which in the case of pid is only valid if the message is the first in a thread). Where they surround part of the type, that part may not be present, e.g. list of attachment headers will not be present if uint8 prefix is 0.
+* _pid_ references a previous message hash if _from_ was in _to_ of the previous message; otherwise if _from_ was only in _add to_ of the previous message then _pid_ references the previous message header hash. It is not possible _from_ is in neither _to_ nor _add to_ following the [Protocol Steps](#protocol-steps).
 * _topic_ MUST be present only on the first message in a thread, i.e. when _pid_ does not exist. When _pid_ exists the entire _topic_ field MUST NOT be included. This makes _topic_ immutable because it cannot be changed by subsequent replies. (Presentations of message threads COULD use a local mutable field for display purposes).
 * When _add to_ field exists and any addresses are for the receiving host's domain - a recipient belonging to that host is being added to an existing message which follows in full; otherwise when _add to_ has only recipients for other domains only the _message header_ is being sent to existing recipients specified in the _to_ field. In either case _pid_ refers to the full message before any _add to_ recipients were added i.e. recipients can only be added to a message without _add to_. See [Protocol Steps](#protocol-steps) for more.
 
@@ -383,8 +402,7 @@ The following varibles corresponding to host defined configuration are used in t
     3. Otherwise Host B sends REJECT code 2 (unsupported version) on Connection 1 then closes the connection completing the message exchange.
 4. Host B downloads the remaining message header and parses the fields. If parsing fails because types cannot be decoded, receiving host MUST TERMINATE the message exchange, otherwise the following verification steps MUST be performed:
     1. The following conditions MUST be met otherwise Host B MUST respond REJECT code 1 (invalid) and close the connection completing the message exchange:
-        1. _to_ addresses only contains an address once using case-insensitive comparison
-        2. _add to_ addresses if exists, only contains an address once using case-insensitive comparison
+        1. The set of all recipients in _to_ and _add to_ addresses are distinct using case-insensitive comparison.
         3. _type_ number when [Flag](#flags) is set, exists in [Common Media Type](#common-media-types) mapping.
     2. Receiving Host B MUST perform a DNS lookup on the _fmsg subdomain of the from address in the message header (_fmsg.example.com) to verify that the IP address of the incoming connection is in those authorised by the sending domain. If the incoming IP address is not in the authorised set, Host B MUST TERMINATE the message exchange.
     2. If _size_ plus all _attachment size_ is greater than MAX_SIZE, Host B MUST respond REJECT code 4 (too big) then close the connection completing the message exchange.
@@ -398,10 +416,10 @@ The following varibles corresponding to host defined configuration are used in t
             2. If any of the recipients in _add to_ are for Host B (i.e. example.edu domain), then the message exchange continues normally except message referred to by _pid_ does NOT have to be be already stored.
             3. else if none of the recipients in _add to_ are for Host B (i.e. none are for example.edu domain), then:
                 1. The message _pid_ refers to MUST be verified to be stored already on Host B per [Verifying Message Stored](#verifying-message-stored); otherwise respond with REJECT code 6 (parent not found)
-                2. At least one of the recipients in _to_ MUST be for Host B (i.e. example.edu domain) and all the other message header fields MUST match the message _pid_ refers to already validated to be stored on Host B in the previous step; otherwise Host B MUST respond with REJECT code 1 (invalid) and close the connection completing the message exchange.
+                2. At least one of the recipients in _to_ MUST be for Host B (i.e. example.edu domain); otherwise Host B MUST respond with REJECT code 1 (invalid) and close the connection completing the message exchange.
                 3. At this stage we have been informed additional recipients have been added to a message we already have, there will be no further data. Host B MUST record this message header received so far such that the message header hash can be faithfully computed as this could be referred to by subsequent messages. Host B MUST then respond with ACCEPT code 11 (message header received) then close the connection completing the message exchange. 
         3. Else _pid_ exists and _add to_ does not.
-            1. The message _pid_ refers to MUST be verified to be stored already on Host B per [Verifying Message Stored](#verifying-message-stored); otherwise Host B MUST respond with REJECT code 6 (parent not found)
+            1. The message or message header _pid_ refers to MUST be verified to be stored already on Host B per [Verifying Message Stored](#verifying-message-stored); otherwise Host B MUST respond with REJECT code 6 (parent not found)
             2. The stored message for _pid_'s _time_ MUST be before _time_ on the incoming message header; otherwise Host B MUST respond with REJECT code 9 (time travel)
 
 
@@ -419,7 +437,7 @@ For example, a host MAY implement different challenge modes of operation such as
 To issue a CHALLENGE a receiving host follows these steps:
 
 1. Before continuing to download the remaining data on Connection 1, Host B MUST initiate a separate new connection (Connection 2) back to Host A using the same incoming IP address of Connection 1.
-2. Host B sends a CHALLENGE to Host A, supplying the hash of the message header received in Connection 1.
+2. Host B sends a CHALLENGE to Host A, supplying the message header hash of the message header received on Connection 1.
 3. Host A MUST verify the authenticity of the challenge by checking the header hash matches the message currently being sent to Host B. 
     - If not matched then Host A MUST TERMINATE the message exchange.
 5. Host A transmits a CHALLENGE RESP on Connection 2 consisting of the message hash.
@@ -445,11 +463,11 @@ Ultimately, whether to challenge or not is at the discretion of the recipient ho
 2. Host B continues downloading the remaining message constituting of message _data_ and _attachments data_
 3. Upon downloading the exact size of the message, if the CHALLENGE, CHALLENGE-RESP exchange was completed, the message hash received in the CHALLENGE-RESP MUST exactly match the computed message hash; otherwise Host B MUST TERMINATE the message exchange.
 4. Host B transmits an "ACCEPT or REJECT RESPONSE" code to Host A for each individual recipient belonging to Host B.
-    1. Host B iterates through each address for its domain (example.edu) in the order they appear in _to_ then in _add to_ (if any). Note for any REJECT code specific to a user, 104 (user undisclosed) MAY be used instead - so Host B does not have to disclose the reason message was not accepted for that address. For each recipient:
+    1. Host B iterates through each address for its domain (example.edu) in the order they appear in _to_ then in _add to_ (if any). Note for any REJECT code specific to a user, 103 (user undisclosed) MAY be used instead - so Host B does not have to disclose the reason message was not accepted for that address. For each recipient:
         1. Host B looks up implementation specific data for the recipient address such as quotas and whether the address is accepting new messages.
-        2. If the address is unknown to Host B, Host B MUST respond either REJECT code 100 (user unknown) OR REJECT code 104 (user undisclosed). 
-        3. Else if accepting the message would exceed user quotas such as size or count limits, Host B MUST respond either REJECT code 101 (user full) OR REJECT code 104 (user undisclosed).
-        4. Else if the address is not accepting new messages, Host B MUST respond either REJECT code 102 (user not accepting) OR REJECT code 104 (user undisclosed).
+        2. If the address is unknown to Host B, Host B MUST respond either REJECT code 100 (user unknown) OR REJECT code 103 (user undisclosed). 
+        3. Else if accepting the message would exceed user quotas such as size or count limits, Host B MUST respond either REJECT code 101 (user full) OR REJECT code 103 (user undisclosed).
+        4. Else if the address is not accepting new messages, Host B MUST respond either REJECT code 102 (user not accepting) OR REJECT code 103 (user undisclosed).
         5. Otherwise, Host B MUST respond ACCEPT code 200 (accepted) for the recipient address 
     2. Host A MUST record the "ACCEPT or REJECT RESPONSE" code received per recipient for Host B's domain.
 5. Host A and Host B close Connection 1, completing the message exchange.
@@ -466,11 +484,11 @@ TODO
 ### Verifying Message Stored
 
 A host verifies that a message is stored given a SHA-256 digest if and only if:
-* The provided digest exactly matches the SHA-256 digest computed over a message that was previously accepted by the host, i.e. for which the host responded with "REJECT or ACCEPT CODE" 200 (accept); and
+* The provided digest exactly matches the SHA-256 digest computed over the message bytes as received that was previously accepted by the host, i.e. for which the host responded with "REJECT or ACCEPT CODE" 200 (accept); and
 * The corresponding message currently exists on the host and can be retrieved.
 
 A host verifies that a message header is stored given a SHA-256 digest if and only if:
-* The provided digest exactly matches the SHA-256 digest computed over a message header that was previously accepted by the host, i.e. for which the host responded with "REJECT or ACCEPT CODE" 11 (accept header); and
+* The provided digest exactly matches the SHA-256 digest computed over a message header bytes that was previously accepted by the host, i.e. for which the host responded with "REJECT or ACCEPT CODE" 11 (accept header); and
 * The corresponding message header currently exists on the host and can be retrieved.
 
 _NOTE_ Messages or message headers MAY subsequently be deleted or become unavailable after verification.
