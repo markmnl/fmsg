@@ -29,6 +29,14 @@
     - [Notes on Domain Resolution](#notes-on-domain-resolution)
     - [Practical Concerns](#practical-concerns)
 - [Security Concerns](#security-concerns)
+    - [Connection Flooding](#connection-flooding)
+    - [Oversized or Slow Data Attacks](#oversized-or-slow-data-attacks)
+    - [Challenge Reflection and Amplification](#challenge-reflection-and-amplification)
+    - [DNS Spoofing and Cache Poisoning](#dns-spoofing-and-cache-poisoning)
+    - [Message Replay](#message-replay)
+    - [Sender Enumeration](#sender-enumeration)
+    - [Resource Exhaustion via Storage](#resource-exhaustion-via-storage)
+    - [Monitoring and Logging](#monitoring-and-logging)
 
 
 
@@ -496,9 +504,28 @@ Ultimately, whether to challenge or not is at the discretion of the recipient ho
 
 #### 4. Sending a Message
 
-TODO
+A sending host (Host A) delivers a message to each unique recipient domain exactly once, regardless of how many recipients share that domain. This section describes the steps Host A performs for each recipient domain. If multiple recipient domains exist, Host A performs these steps independently for each domain without regard to the others.
 
-### Handling a Challenge
+1. Host A determines the set of recipient domains by collecting the unique domain parts from all addresses in _to_ and _add to_ (if any), excluding Host A's own domain.
+2. For each recipient domain, Host A resolves the authorised IP addresses via [Domain Resolution](#domain-resolution).
+    1. Host A initiates a connection (Connection 1) to the first authorised IP address for the Receiving Host (Host B).
+    2. If the first IP address is unresponsive within an implementation-defined timeout, and multiple IP addresses were returned during domain resolution, Host A SHOULD attempt to connect to each address in the order provided, one at a time, until a responsive host is reached.
+    3. If no responsive Receiving Host is found, Host A SHOULD retry delivery after an implementation-defined delay. Implementations SHOULD apply a back-off strategy (e.g. exponential back-off) to subsequent retry attempts.
+    4. Host A SHOULD continue retrying delivery until a maximum delivery window has elapsed, after which the message MAY be considered undeliverable for the affected recipients. Implementations MAY provide a mechanism for clients or operators to manually trigger or influence retry behaviour.
+3. Before transmitting, Host A MUST register the _message header hash_ of the outgoing message so that incoming [CHALLENGE](#challenge) requests on Connection 2 can be matched to this message per [Handling a Challenge](#handling-a-challenge).
+4. Host A transmits the complete message to Host B on Connection 1, encoding all fields in the order defined in [Message](#message):
+    1. _version_, _flags_, [_pid_], _from_, _to_, [_add to_], _time_, [_topic_], _type_, _size_, _attachment headers_, _data_, [_attachments data_].
+5. Host A waits for Host B's response. During this time Host B may open Connection 2 to issue a CHALLENGE which Host A MUST handle per [Handling a Challenge](#handling-a-challenge).
+6. Host A reads the "REJECT or ACCEPT RESPONSE" from Host B on Connection 1.
+    1. If the first byte is a code less than 100, this is a rejection for all recipients on Host B's domain. Host A records this code against every recipient address on Host B's domain.
+        - If the code indicates a transient condition (e.g. 3 undisclosed, 5 insufficient resources), Host A SHOULD retry delivery after an implementation-defined delay.
+        - If the code indicates a permanent condition (e.g. 1 invalid, 2 unsupported version, 4 too big, 10 duplicate), Host A SHOULD NOT retry delivery.
+    2. Otherwise, the response contains one code per recipient on Host B's domain in the order they appear in _to_ then _add to_, excluding recipients for other domains. Host A reads the remaining codes and records each against the corresponding recipient address.
+        - For each recipient with ACCEPT code 200, delivery is complete for that address.
+        - For each recipient with a per-user REJECT code (100 user unknown, 101 user full, 102 user not accepting, 103 user undisclosed), Host A records the code. Whether to retry is at the discretion of the implementation; codes 101 (user full) MAY warrant a retry after a delay whereas 100 (user unknown) typically would not.
+7. Host A removes the _message header hash_ from its outgoing record.
+8. Host A and Host B close Connection 1, completing the message exchange for this recipient domain.
+
 
 ### Handling a Challenge
 
@@ -548,7 +575,75 @@ Verifying the sender's IP address requires the receiving host to observe the tru
 
 ## Security Concerns
 
-TODO 
-record domain, IP address and response for analysis
-rate limit
-quotas
+This section identifies threats relevant to fmsg deployments and recommends safeguards for implementors and operators. Many of these overlap — a single malicious actor may exploit multiple vectors simultaneously — so a layered approach is strongly encouraged.
+
+### Connection Flooding
+
+An attacker can open many TCP connections to a host without sending valid message data, exhausting file descriptors, memory or connection-table capacity.
+
+**Safeguards:**
+* Hosts SHOULD enforce a maximum number of concurrent connections, in total and per source IP address.
+* Hosts SHOULD apply short timeouts for idle or slow connections. If no valid version byte is received within a brief period the connection SHOULD be closed.
+* Operating system level controls such as SYN cookies and connection rate limiting SHOULD be enabled.
+
+### Oversized or Slow Data Attacks
+
+A sender may begin transmitting a message header declaring a small size then either send data indefinitely, or send data extremely slowly ("slowloris" style), tying up resources.
+
+**Safeguards:**
+* Hosts MUST enforce the declared _size_ plus _attachment sizes_ and MUST NOT read beyond the expected total. MAX_SIZE provides an upper bound that should be checked before downloading any data.
+* Hosts SHOULD enforce minimum data-rate thresholds. A connection where the transfer rate drops below a configurable floor for a sustained period SHOULD be terminated.
+
+### Challenge Reflection and Amplification
+
+A malicious host could forge the _from_ address in a message to contain a victim's domain, causing the receiving host to open Connection 2 back to the victim as part of the automatic challenge — effectively using the receiving host as a reflector.
+
+**Safeguards:**
+* The specification already requires the receiving host to verify the originating IP address of Connection 1 against the DNS records for the _from_ domain **before** issuing a challenge (see [Domain Resolution](#domain-resolution)). This is the primary defence and MUST NOT be skipped.
+* Hosts SHOULD rate limit outgoing challenge connections per destination IP address to limit amplification even if DNS verification is somehow bypassed.
+
+### DNS Spoofing and Cache Poisoning
+
+If an attacker can poison DNS responses for `_fmsg.<domain>`, they can redirect messages to a host they control or cause a legitimate host to accept messages from an unauthorised IP.
+
+**Safeguards:**
+* Hosts SHOULD perform DNSSEC validation for all `_fmsg` lookups. If DNSSEC validation fails the connection MUST be terminated as specified in [Domain Resolution](#domain-resolution).
+* Hosts SHOULD use trusted resolvers and minimise DNS cache TTLs for `_fmsg` records to reduce the window of exposure to poisoned entries.
+
+### Message Replay
+
+An attacker who has captured a valid message off the wire could attempt to re-deliver it to the same or different hosts.
+
+**Safeguards:**
+* The automatic challenge is the primary defence against replay: a replaying attacker cannot produce a valid CHALLENGE RESPONSE without possessing the original message in full and being resident at the authorised sender IP.
+* Even without a challenge, hosts SHOULD maintain a record of recently accepted message hashes and reject duplicates (REJECT code 10).
+* The time validity window (MAX_MESSAGE_AGE, MAX_TIME_SKEW) limits how long a captured message remains deliverable.
+
+### Sender Enumeration
+
+An attacker could craft messages addressed to many candidate recipient names to discover which addresses exist on a host, using REJECT code 100 (user unknown) vs 200 (accept) as an oracle.
+
+**Safeguards:**
+* Hosts MAY respond with REJECT code 103 (user undisclosed) for all per-user rejections, as the specification already permits. This prevents the attacker from distinguishing between unknown, full, and not-accepting addresses.
+* Hosts SHOULD rate limit incoming messages from any single source IP or domain.
+
+### Resource Exhaustion via Storage
+
+An attacker could send a high volume of valid messages or very large messages to fill storage on the receiving host, preventing legitimate messages from being accepted.
+
+**Safeguards:**
+* Operators SHOULD configure MAX_SIZE to a value appropriate for their deployment.
+* Implementations SHOULD support per-user quotas on message count and total storage. When quotas are exceeded the host responds REJECT code 101 (user full).
+* Implementations SHOULD support global storage thresholds. When critically low the host responds REJECT code 5 (insufficient resources) to all incoming messages.
+
+### Monitoring and Logging
+
+Hosts SHOULD record the following for each message exchange to support detection and investigation of abuse:
+
+* Originating IP address
+* Domain from the _from_ field
+* REJECT or ACCEPT response codes sent
+* Whether a CHALLENGE was issued and whether it succeeded
+* Timestamp
+
+Operators SHOULD review these logs for anomalous patterns such as high rejection rates from a single domain or IP, repeated invalid messages, or spikes in connection volume. Automated alerting on such patterns is recommended.
