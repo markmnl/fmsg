@@ -500,7 +500,21 @@ TODO
 
 ### Handling a Challenge
 
-TODO
+### Handling a Challenge
+
+A sending host MUST be listening for incoming connections on the same IP address it uses to send outgoing messages. While a message is being transmitted on Connection 1, the receiving host may open Connection 2 back to the sending host to issue a [CHALLENGE](#challenge). The sending host handles this as follows:
+
+1. Host B downloads the first byte 
+    1. If the value is less than 128 and a supported fmsg version - this is an incoming message and should be processed per [Connection and Header Exchange](#1-Connection-and-Header-Exchange).
+    2. If the value is greater than 128 and 256 minus the value is a supported fmsg version, this is a CHALLENGE we support, continue.
+    3. Otherwise Host B sends REJECT code 2 (unsupported version) on Connection 1 then closes the connection completing the message exchange.
+2. Host A downloads the next 32 bytes — the _header hash_ supplied by Host B.
+3. Host A MUST verify the authenticity of the challenge by checking the _header hash_ exactly matches the _message header hash_ of a message Host A is currently transmitting to Host B.
+    - If no currently outgoing message matches the supplied _header hash_, Host A MUST TERMINATE the connection. The challenge does not correspond to any message Host A is sending and may be spurious or malicious.
+4. Host A computes the _message hash_ (SHA-256 digest of the entire message) and transmits a [CHALLENGE RESPONSE](#challenge-response) on Connection 2 consisting of the _message hash_.
+5. Host A and Host B close Connection 2. The message exchange continues on Connection 1.
+
+_NOTE_ A sending host MUST maintain a record of messages currently being transmitted, keyed by their _message header hash_, so that incoming challenges can be matched to the correct outgoing message. This record SHOULD be created before transmission begins and removed once the message exchange completes or is aborted. Implementors should be mindful of concurrent access to this header hash store, as they are likely sending and receiving concurrently.
 
 ### Verifying Message Stored
 
