@@ -49,9 +49,9 @@ _"fmsg"_ is the name given to the protocol and message definitions described in 
 
 _"address"_ an fmsg address in the form `@user@example.com`, see: [Address](#address).
 
-_"case-insensitive"_ byte-wise equality comparison after applying Unicode default case folding (locale-independent) to both UTF-8 strings
+_"case-insensitive"_ byte-wise equality comparison after applying Unicode default case folding (locale-independent) to both UTF-8 strings.
 
-_"client"_ the end participant 
+_"client"_ the end participant/application that sends and recieves messages via their host.
 
 _"DNS"_ is for the Domain Name System.
 
@@ -84,11 +84,13 @@ _"UTF-8"_ is for the unicode standard: Unicode Transformation Format – 8-bit.
 
 Before diving into the technical details, the following principles outline how fmsg works at a high level.
 
-**Binary and compact.** Messages are encoded in a binary format with explicitly sized fields. There are no null terminators or delimiters — every field's length is known, keeping messages compact and resistant to common parsing vulnerabilities.
+**Messages are immutable.** Messages can never be changed once sent.
+
+**Messages form threads.** Every reply references the previous message it is responding to via a cryptographic hash. This creates a linked chain of messages — a thread — where each message's parentage is verifiable by all participants. The first message in a thread has no parent reference and instead carries a topic.
 
 **One message at a time.** A host sends a single message per connection to a receiving host. The message is either rejected outright for all recipients (e.g. the message is malformed or too large) or accepted and rejected on a per-recipient basis (e.g. a recipient's mailbox is full while another's accepts the message).
 
-**Messages form threads.** Every reply references the previous message it is responding to via a cryptographic hash. This creates a linked chain of messages — a thread — where each message's parentage is verifiable by all participants. The first message in a thread has no parent reference and instead carries a topic.
+**Binary and compact.** Messages are encoded in a binary format with explicitly sized fields. There are no null terminators or delimiters — every field's length is known, keeping messages compact and resistant to common parsing vulnerabilities.
 
 **Only recipients can reply.** To reply to a message a sender must have been a recipient of that message. This is enforced structurally: the hash used to reference a parent depends on whether the sender was in the original recipient list or was added later, and the receiving host verifies this linkage.
 
@@ -194,7 +196,7 @@ fmsg includes some time checking and controls, rejecting messages too far in fut
 | bit index | name         | description                                                                                                                                                                                                                 |
 |----------:|--------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | 0         | has pid      | Set if this message is in reply to another and pid field is present.                                                                                                                                                        |
-| 1         | has add to   | Set if "add to" field is included i.e. this message is copy of an existing message being with recipient being added                                                       |
+| 1         | has add to   | Set if "add to" field is included i.e. this message is copy of an existing message with recipients added                                                       |
 | 2         | common type  | Indicates the type field is just a uint8 value and Media Type can be looked up per [Common Media Types](#common-media-types)                                                                                                |
 | 3         | important    | Sender indicates this message is IMPORTANT!                                                                                                                                                                                 |
 | 4         | no reply     | Sender indicates any reply will be discarded.                                                                                                                                                                               |
