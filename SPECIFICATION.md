@@ -163,7 +163,7 @@ On the wire messages are encoded thus:
 |---------------------|--------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | version             | uint8                                | A value greater than 0 and less than 128 is the fmsg version number; a value greater than 128 less than 256 means this message is a [CHALLENGE](#challenge) defined below.                                            |
 | flags               | uint8                                | Bit field. See [flags](#flags) for each bit's meaning.                                                                                                          |
-| [pid]               | byte array                           | Reference to the message or message header this message is in reply to. Only present if flags has pid bit set.                                               |
+| [pid]               | byte array                           | Reference to the previous message hash. Only present if flags has pid bit set.                                               |
 | from                | fmsg address                         | Sender's address. See [address](#address) definition.                                                                                                           |
 | to                  | uint8 + list of fmsg addresses       | Recipient addresses. See [address](#address) definition. Prefixed by uint8 count, addresses MUST be distinct (case-insensitive) of which there MUST be at least one. |
 | [add to]            | uint8 + list of fmsg addresses       | Additional recipient addresses. Only present if flags has add to bit set. See [address](#address) definition. Prefixed by uint8 count, addresses MUST be distinct (case-insensitive) of which there MUST be at least one. |
@@ -179,9 +179,9 @@ On the wire messages are encoded thus:
 ### Notes on Message Definition
 
 * Square brackets "[ ]" indicate fields or part thereof may not exist on a message. Where the brackets surround the name, e.g. _pid_, the whole field may not be present (which in the case of pid is only valid if the message is the first in a thread). Where they surround part of the type, that part may not be present, e.g. list of attachment headers will not be present if uint8 prefix is 0.
-* It is not possible to receive a message _from_ an address that wasn't a participant in the previous message referenced by _pid_ following the [Protocol Steps](#protocol-steps). _pid_ references a previous _message hash_ if _from_ was in _to_ or _from_ of the previous message being referenced; otherwise if _from_ was only in _add to_ of the previous message then _pid_ references the previous _message header hash_. 
 * _topic_ MUST be present only on the first message in a thread, i.e. when _pid_ does not exist. When _pid_ exists the entire _topic_ field MUST NOT be included. This makes _topic_ immutable because it cannot be changed by subsequent replies. (Presentations of message threads COULD use a local mutable field for display purposes).
-* When _add to_ field exists and any addresses are for the receiving host's domain - a recipient is being added to an existing message which follows in full; otherwise when _add to_ only has recipients for other domains only the _message header_ is being sent to existing recipients specified in the _to_ field. In either case _pid_ refers to the full message before any _add to_ recipients were added and cannot reference an existing message with _add to_ - allowing only original recipients specified in _to_ the ability to add recipients to a message. See [Protocol Steps](#protocol-steps) for more.
+* It is not possible to receive a message _from_ an address that wasn't a participant in the message referenced by _pid_ following the [Protocol Steps](#protocol-steps).
+* When _add to_ exists and any addresses are for the receiving host's domain - a recipient is being added to an existing message which follows in full. Otherwise, only the _message header_ is being sent to existing recipients specified in the _to_ field (to notify them of the new _add to_ recipients).
 
 
 ### Notes on Time
@@ -217,68 +217,69 @@ For reference the current IANA list of Media Types is located [here](https://www
 | number | Media Type                                                                |
 |--------|---------------------------------------------------------------------------|
 | 1      | application/epub+zip                                                      |
-| 2      | application/json                                                          |
-| 3      | application/msword                                                        |
-| 4      | application/octet-stream                                                  |
-| 5      | application/pdf                                                           |
-| 6      | application/rtf                                                           |
-| 7      | application/vnd.amazon.ebook                                              |
-| 8      | application/vnd.ms-excel                                                  |
-| 9      | application/vnd.ms-fontobject                                             |
+| 2      | application/gzip                                                          |
+| 3      | application/json                                                          |
+| 4      | application/msword                                                        |
+| 5      | application/octet-stream                                                  |
+| 6      | application/pdf                                                           |
+| 7      | application/rtf                                                           |
+| 8      | application/vnd.amazon.ebook                                              |
+| 9      | application/vnd.ms-excel                                                  |
 | 10     | application/vnd.ms-powerpoint                                             |
 | 11     | application/vnd.oasis.opendocument.presentation                           |
 | 12     | application/vnd.oasis.opendocument.spreadsheet                            |
 | 13     | application/vnd.oasis.opendocument.text                                   |
-| 14     | application/vnd.oasis.opendocument.text-web                               |
-| 15     | application/vnd.openxmlformats-officedocument.presentationml.presentation |
-| 16     | application/vnd.openxmlformats-officedocument.spreadsheetml.sheet         |
-| 17     | application/vnd.openxmlformats-officedocument.wordprocessingml.document   |
+| 14     | application/vnd.openxmlformats-officedocument.presentationml.presentation |
+| 15     | application/vnd.openxmlformats-officedocument.spreadsheetml.sheet         |
+| 16     | application/vnd.openxmlformats-officedocument.wordprocessingml.document   |
+| 17     | application/x-tar                                                         |
 | 18     | application/xhtml+xml                                                     |
 | 19     | application/xml                                                           |
 | 20     | application/zip                                                           |
 | 21     | audio/aac                                                                 |
 | 22     | audio/midi                                                                |
-| 23     | audio/ogg                                                                 |
-| 24     | audio/opus                                                                |
-| 25     | audio/wav                                                                 |
-| 26     | audio/webm                                                                |
-| 27     | font/otf                                                                  |
-| 28     | font/ttf                                                                  |
-| 29     | font/woff                                                                 |
-| 30     | font/woff2                                                                |
-| 31     | image/apng                                                                |
-| 32     | image/avif                                                                |
-| 33     | image/bmp                                                                 |
-| 34     | image/gif                                                                 |
-| 35     | image/jpeg                                                                |
-| 36     | image/png                                                                 |
-| 37     | image/svg+xml                                                             |
-| 38     | image/tiff                                                                |
-| 39     | image/webp                                                                |
-| 40     | text/calendar                                                             |
-| 41     | text/css                                                                  |
-| 42     | text/csv                                                                  |
-| 43     | text/markdown                                                             |
-| 44     | text/html                                                                 |
-| 45     | text/javascript                                                           |
-| 46     | text/plain;charset=ASCII                                                  |
-| 47     | text/plain;charset=UTF-16                                                 |
-| 48     | text/plain;charset=UTF-8                                                  |
-| 49     | text/vcard                                                                |
-| 50     | video/H264                                                                |
-| 51     | video/H264-RCDO                                                           |
-| 52     | video/H264-SVC                                                            |
-| 53     | video/H265                                                                |
-| 54     | video/H266                                                                |
-| 55     | video/ogg                                                                 |
-| 56     | video/VP8                                                                 |
-| 57     | video/VP9                                                                 |
-| 58     | video/webm                                                                |
-| 59     | model/3mf                                                                 |
-| 61     | model/gltf-binary                                                         |
-| 62     | model/obj                                                                 |
-| 63     | model/stl                                                                 |
-| 64     | model/step
+| 23     | audio/mpeg                                                                |
+| 24     | audio/ogg                                                                 |
+| 25     | audio/opus                                                                |
+| 26     | audio/vnd.wave                                                            |
+| 27     | audio/webm                                                                |
+| 28     | font/otf                                                                  |
+| 29     | font/ttf                                                                  |
+| 30     | font/woff                                                                 |
+| 31     | font/woff2                                                                |
+| 32     | image/apng                                                                |
+| 33     | image/avif                                                                |
+| 34     | image/bmp                                                                 |
+| 35     | image/gif                                                                 |
+| 36     | image/heic                                                                |
+| 37     | image/jpeg                                                                |
+| 38     | image/png                                                                 |
+| 39     | image/svg+xml                                                             |
+| 40     | image/tiff                                                                |
+| 41     | image/webp                                                                |
+| 42     | model/3mf                                                                 |
+| 43     | model/gltf-binary                                                         |
+| 44     | model/obj                                                                 |
+| 45     | model/step                                                                |
+| 46     | model/stl                                                                 |
+| 47     | model/vnd.usdz+zip                                                        |
+| 48     | text/calendar                                                             |
+| 49     | text/css                                                                  |
+| 50     | text/csv                                                                  |
+| 51     | text/html                                                                 |
+| 52     | text/javascript                                                           |
+| 53     | text/markdown                                                             |
+| 54     | text/plain;charset=US-ASCII                                               |
+| 55     | text/plain;charset=UTF-16                                                 |
+| 56     | text/plain;charset=UTF-8                                                  |
+| 57     | text/vcard                                                                |
+| 58     | video/H264                                                                |
+| 59     | video/H265                                                                |
+| 60     | video/H266                                                                |
+| 61     | video/ogg                                                                 |
+| 62     | video/VP8                                                                 |
+| 63     | video/VP9                                                                 |
+| 64     | video/webm                                                                |
 
 </details>
 
@@ -375,13 +376,14 @@ A code less than 100 indicates rejection or acceptance for all recipients and wi
 | 7    | too old               | timestamp is too far in the past for this host to accept                |
 | 8    | future time           | timestamp is too far in the future for this host to accept              |
 | 9    | time travel           | timestamp is before parent timestamp                                    |
-| 10   | duplicate             | message has already been received                                       |
-| 11   | accept header         | message header received                                                 |
+| 10   | duplicate             | message has already been received for all recipients on this host       |
+| 11   | accept add to         | additional recipients received                                          |
 |      |                       |                                                                         |
 | 100  | user unknown          | the recipient message is addressed to is unknown by this host           |
 | 101  | user full             | insufficent resources for specific recipient                            |
 | 102  | user not accepting    | user is known but not accepting new messages at this time               |
-| 103  | user undisclosed      | no reason is given for not accepting messages to addressed user         |
+| 103  | user duplicate        | message has already been received for this recipient                    |
+| 105  | user undisclosed      | no reason is given for not accepting messages to addressed recipient    |
 |      |                       |                                                                         |
 | 200  | accept                | message received for recipient                                          |
 
@@ -389,7 +391,7 @@ A code less than 100 indicates rejection or acceptance for all recipients and wi
 
 ## Protocol
 
-A message is sent from the sender's host to each unique recipient host (i.e. each domain only once even if multiple recipients with the same domain). Sending a message either wholly succeeds or fails per recipient. During the sending from one host to another several steps are performed depicted in the below diagram. 
+A message is sent from the sender's host to each unique recipient host (i.e. each domain only once even if multiple recipients with the same domain). Sending a message either succeeds or fails per recipient of the host for the domain being sent to. During the sending from one host to another several steps are performed depicted in the below diagram. 
 Two connection-orientated, reliable, in-order and duplex transports are required to perform the full flow. Transmission Control Protocol (TCP) is an obvious choice, on top of which Transport Layer Security (TLS) may meet your encryption needs.
 
 <p align="center">
@@ -432,26 +434,34 @@ The following varibles corresponding to host defined configuration are used in t
     3. Otherwise Host B sends REJECT code 2 (unsupported version) on Connection 1 then closes the connection completing the message exchange.
 4. Host B downloads the remaining message header and parses the fields. If parsing fails because types cannot be decoded, receiving host MUST TERMINATE the message exchange, otherwise the following verification steps MUST be performed:
     1. The following conditions MUST be met otherwise Host B MUST respond REJECT code 1 (invalid) and close the connection completing the message exchange:
-        1. The set of all recipients in _to_ and _add to_ addresses are distinct using case-insensitive comparison.
-        3. _type_ number when _common type_ [Flag](#flags) is set, exists in [Common Media Type](#common-media-types) mapping.
-        4. Each attachment _type_ number, when that attachment's _common type_ flag is set, exists in [Common Media Type](#common-media-types) mapping.
+        1. There must be at least one address in _to_.
+        2. All recipients in _to_ are distinct using case-insensitive comparison.
+        3. All recipients in _add to_, if any, are distinct using case-insensitive comparison.
+        4. There must be at least one recipient in _to_ or _add to_ for Host B (example.edu domain).
+        5. _type_ number when _common type_ [Flag](#flags) is set, exists in [Common Media Type](#common-media-types) mapping.
+        6. Each attachment _type_ number, when that attachment's _common type_ flag is set, exists in [Common Media Type](#common-media-types) mapping.
     2. Receiving Host B MUST perform a DNS lookup on the _fmsg subdomain of the from address in the message header (_fmsg.example.com) to verify that the IP address of the incoming connection is in those authorised by the sending domain. If the incoming IP address is not in the authorised set, Host B MUST TERMINATE the message exchange.
-    2. If _size_ plus all _attachment size_ is greater than MAX_SIZE, Host B MUST respond REJECT code 4 (too big) then close the connection completing the message exchange.
-    3. Current POSIX epoch time minus message _time_ gives DELTA - representing seconds since message sent (to senders host for sending on).
+    3. If _size_ plus all _attachment size_ is greater than MAX_SIZE, Host B MUST respond REJECT code 4 (too big) then close the connection completing the message exchange.
+    4. Current POSIX epoch time minus message _time_ gives DELTA - representing seconds since message sent (to senders host for sending on).
         1. If DELTA is greater than MAX_MESSAGE_AGE, Host B MUST respond REJECT code 7 (too old) then close the connection completing the message exchange.
         2. If DELTA is negative and absolute DELTA is greater than MAX_TIME_SKEW, Host B MUST respond REJECT code 8 (future time) then close the connection completing the message exchange.
-    4. The _pid_ field requirements depends on the existence and contents of _add to_ field:
+    5. The _pid_ field requirements depends on the existence and contents of _add to_ field:
         1. If neither _pid_ nor _add to_ exist, the message is the first in a thread and the message exchange continues normally.
-        2. If _add to_ exists:
-            1. _pid_ field MUST exist too, otherwise Host B MUST respond REJECT code 1 (invalid) and close the connection completing the message exchange.
-            2. If any of the recipients in _add to_ are for Host B (i.e. example.edu domain), then the message exchange continues normally except message referred to by _pid_ does NOT have to be be already stored.
-            3. else if none of the recipients in _add to_ are for Host B (i.e. none are for example.edu domain), then:
-                1. The message _pid_ refers to MUST be verified to be stored already on Host B per [Verifying Message Stored](#verifying-message-stored); otherwise respond with REJECT code 6 (parent not found)
-                2. At least one of the recipients in _to_ MUST be for Host B (i.e. example.edu domain); otherwise Host B MUST respond with REJECT code 1 (invalid) and close the connection completing the message exchange.
-                3. At this stage we have been informed additional recipients have been added to a message we already have, there will be no further data. Host B MUST record this message header received so far such that the message header hash can be faithfully computed as this could be referred to by subsequent messages. Host B MUST then respond with ACCEPT code 11 (message header received) then close the connection completing the message exchange. 
-        3. Else _pid_ exists and _add to_ does not.
-            1. The message or message header _pid_ refers to MUST be verified to be stored already on Host B per [Verifying Message Stored](#verifying-message-stored); otherwise Host B MUST respond with REJECT code 6 (parent not found)
+        2. If _pid_ exists and _add to_ does not.
+            1. The message _pid_ refers to MUST be verified to be stored already on Host B per [Verifying Message Stored](#verifying-message-stored); otherwise Host B MUST respond with REJECT code 6 (parent not found)
             2. The stored message for _pid_'s _time_ MUST be before _time_ on the incoming message header; otherwise Host B MUST respond with REJECT code 9 (time travel)
+            
+            _NOTE_ Verifying Message Stored checks the host has the parent message, not that every recipient still has it in their mailbox. Implementations SHOULD consider restoring the parent message to a recipient's mailbox if that recipient had previously deleted it, so that the incoming reply has proper thread context for all recipients.
+        3. Else _add to_ exists;
+            1. _pid_ field MUST exist too, otherwise Host B MUST respond REJECT code 1 (invalid) and close the connection completing the message exchange.
+            2. If any of the recipients in _add to_ are for Host B (i.e. example.edu domain):
+                1. Message download continues in full (_pid_ is referencing the previous message Host B might not have).
+            3. else if none of the recipients in _add to_ are for Host B (i.e. none are for example.edu domain), then:
+                1. _pid_ references the previous message that recipients are being added to. The message _pid_ refers to MUST be verified to be stored already on Host B and MUST match a message originally accepted with code 200 (accept), not one accepted with code 11 (additional recipients received); otherwise Host B MUST respond with REJECT code 6 (parent not found). This prevents chaining _add to_ on top of a previous _add to_ — recipients can only be added to an original message.
+                2. The stored message for _pid_'s _time_ MUST be before _time_ on the incoming message header; otherwise Host B MUST respond with REJECT code 9 (time travel)
+                3. At this stage Host B has been informed additional recipients have been added to a message it already has, there will be no further data. Host B MUST record these new _add to_ recipients such that the message hash can be faithfully computed before and after this batch of additional recipients as per [Verifying Message Stored](#verifying-message-stored) as either could be referred to by subsequent messages. Host B MUST then respond with ACCEPT code 11 (additional recipients received) then close the connection completing the message exchange. 
+            
+                _NOTE_ When responding with ACCEPT code 11 (additional recipients received), implementations SHOULD consider restoring the referenced message to a recipient's mailbox if that recipient had previously deleted it, so that the newly added recipients have proper thread context alongside existing recipients.
 
 
 #### 2. The Automatic Challenge
@@ -462,7 +472,7 @@ For example, a host MAY implement different challenge modes of operation such as
 
 1. NEVER, recipient host never sends a CHALLENGE.
 2. ALWAYS, recipient host will always send a CHALLENGE during the message exchange.
-3. HAS_NOT_PARTICIPATED, recipient host will send a CHALLENGE when _pid_ does not exist or none of the messages in the thread referenced by _pid_ are from Host B's domain.
+3. HAS_NOT_PARTICIPATED, recipient host will send a CHALLENGE when _pid_ does not exist or none of the linked messages in the thread following each message's _pid_ are from a recipient on Host B's domain.
 4. DIFFERENT_DOMAIN, recipient host will always send a CHALLENGE during the message exchange if the message _from_ is for a different domain.
 
 To issue a CHALLENGE a receiving host follows these steps:
@@ -481,25 +491,26 @@ The automatic challenge is an important component of fmsg's message integrity an
 
 The NEVER challenge mode discussed above could be useful on trusted private networks supporting a high volume of messages.
 
-A HAS_NOT_PARTICIPATED challenge mode could be a useful middle ground where the first message in a thread has the extra checking and controls of an automatic challenge. The automatic challenge can help mitigate spam by performing strong sender verification and requiring the sender to listen, calculate the message digests and respond accordingly. Subsequent messages in a thread providing a valid pid where one of the messages in the thread is _from_ Host B's domain provides some proof of prior participation in the thread, which combined with checking the IP address is authorised for the domain already, gives a level of sender verification. The recipient fmsg host could already have a level of message integrity guarantees, for example if the byte stream being read is over TLS. The combination of these guarantees might be sufficient for a recipient host to opt-out of challenging.
+A HAS_NOT_PARTICIPATED challenge mode could be a useful middle ground where the first message in a thread has the extra checking and controls of an automatic challenge. The automatic challenge can help mitigate spam by performing strong sender verification and requiring the sender to listen, calculate the message digests and respond accordingly. Subsequent messages in a thread providing a valid pid where one of the messages in the thread is _from_ Host B's domain provides some proof of prior participation in the thread, which combined with checking the IP address is authorised for the domain already, gives a level of sender verification. The receiving fmsg host could already have a level of message integrity guarantees, for example if the byte stream being read is over TLS. The combination of these guarantees might be sufficient for a recipient host to opt-out of challenging.
 
-Ultimately, whether to challenge or not is at the discretion of the recipient host.
+Ultimately, whether to challenge or not is at the discretion of the reciving host.
 
 
 #### 3. Integrity Verification, Per-Recipient Response and Disposition
 
 1. Host B performs some checks before continuing to download the remaining message being transmitted on Connection 1.
-    1. If the CHALLENGE, CHALLENGE-RESP exchange was completed, the message hash received in the CHALLENGE-RESP SHOULD be used to check if the message is already stored per [Verifying Message Stored](#verifying-message-stored).
-        1. If the message is found to be already stored, Host B MUST respond REJECT code 10 (duplicate) then close the connection completing the message exchange.
-2. Host B continues downloading the remaining message constituting of message _data_ and _attachments data_
+    1. If the CHALLENGE, CHALLENGE-RESP exchange was completed, the message hash received in the CHALLENGE-RESP SHOULD be used to check if the message is already stored for **all** recipients on Host B per [Verifying Message Stored](#verifying-message-stored).
+        1. If the message is found to be already stored for all recipients on Host B, Host B MUST respond REJECT code 10 (duplicate) then close the connection completing the message exchange.
+2. Host B continues downloading the remaining message i.e. message _data_ and _attachments data_
 3. Upon downloading the exact size of the message, if the CHALLENGE, CHALLENGE-RESP exchange was completed, the message hash received in the CHALLENGE-RESP MUST exactly match the computed message hash; otherwise Host B MUST TERMINATE the message exchange.
 4. Host B transmits an "ACCEPT or REJECT RESPONSE" code to Host A for each individual recipient belonging to Host B.
-    1. Host B iterates through each address for its domain (example.edu) in the order they appear in _to_ then in _add to_ (if any). Note for any REJECT code specific to a user, 103 (user undisclosed) MAY be used instead - so Host B does not have to disclose the reason message was not accepted for that address. For each recipient:
+    1. Host B iterates through each address for its domain (example.edu) in the order they appear in _to_ then in _add to_ (if any). Note for any REJECT code specific to a user, 105 (user undisclosed) MAY be used instead - so Host B does not have to disclose the reason message was not accepted for that address. For each recipient:
         1. Host B looks up implementation specific data for the recipient address such as quotas and whether the address is accepting new messages.
-        2. If the address is unknown to Host B, Host B MUST respond either REJECT code 100 (user unknown) OR REJECT code 103 (user undisclosed). 
-        3. Else if accepting the message would exceed user quotas such as size or count limits, Host B MUST respond either REJECT code 101 (user full) OR REJECT code 103 (user undisclosed).
-        4. Else if the address is not accepting new messages, Host B MUST respond either REJECT code 102 (user not accepting) OR REJECT code 103 (user undisclosed).
-        5. Otherwise, Host B MUST respond ACCEPT code 200 (accepted) for the recipient address 
+        2. If the message has already been received for this recipient, Host B MUST respond either REJECT code 103 (user duplicate) OR REJECT code 105 (user undisclosed).
+        3. If the address is unknown to Host B, Host B MUST respond either REJECT code 100 (user unknown) OR REJECT code 105 (user undisclosed). 
+        4. Else if accepting the message would exceed user quotas such as size or count limits, Host B MUST respond either REJECT code 101 (user full) OR REJECT code 105 (user undisclosed).
+        5. Else if the address is not accepting new messages, Host B MUST respond either REJECT code 102 (user not accepting) OR REJECT code 105 (user undisclosed).
+        6. Otherwise, Host B MUST respond ACCEPT code 200 (accepted) for the recipient address 
     2. Host A MUST record the "ACCEPT or REJECT RESPONSE" code received per recipient for Host B's domain.
 5. Host A and Host B close Connection 1, completing the message exchange.
 
@@ -524,7 +535,7 @@ A sending host (Host A) delivers a message to each unique recipient domain exact
         - If the code indicates a permanent condition (e.g. 1 invalid, 2 unsupported version, 4 too big, 10 duplicate), Host A SHOULD NOT retry delivery.
     2. Otherwise, the response contains one code per recipient on Host B's domain in the order they appear in _to_ then _add to_, excluding recipients for other domains. Host A reads the remaining codes and records each against the corresponding recipient address.
         - For each recipient with ACCEPT code 200, delivery is complete for that address.
-        - For each recipient with a per-user REJECT code (100 user unknown, 101 user full, 102 user not accepting, 103 user undisclosed), Host A records the code. Whether to retry is at the discretion of the implementation; codes 101 (user full) MAY warrant a retry after a delay whereas 100 (user unknown) typically would not.
+        - For each recipient with a per-user REJECT code (100 user unknown, 101 user full, 102 user not accepting, 103 user duplicate, 105 user undisclosed), Host A records the code. Whether to retry is at the discretion of the implementation; codes 101 (user full) MAY warrant a retry after a delay whereas 100 (user unknown) or 103 (user duplicate) typically would not.
 7. Host A removes the _message header hash_ from its outgoing record.
 8. Host A and Host B close Connection 1, completing the message exchange for this recipient domain.
 
@@ -551,11 +562,12 @@ A host verifies that a message is stored given a SHA-256 digest if and only if:
 * The provided digest exactly matches the SHA-256 digest computed over the message bytes as received that was previously accepted by the host, i.e. for which the host responded with "REJECT or ACCEPT CODE" 200 (accept); and
 * The corresponding message currently exists on the host and can be retrieved.
 
-A host verifies that a message header is stored given a SHA-256 digest if and only if:
-* The provided digest exactly matches the SHA-256 digest computed over a message header bytes that was previously accepted by the host, i.e. for which the host responded with "REJECT or ACCEPT CODE" 11 (accept header); and
-* The corresponding message header currently exists on the host and can be retrieved.
+OR
 
-_NOTE_ Messages or message headers MAY subsequently be deleted or become unavailable after verification.
+* The provided digest exactly matches the SHA-256 digest computed over message bytes with a specific batch of _add to_ recipients included and add to flag set the host previously accepted, i.e. for which the host responded with "REJECT or ACCEPT CODE" 11 (additional recipients received); and
+* The corresponding message currently exists on the host and can be retrieved.
+
+_NOTE_ Multiple messages with _add to_ may arrive for the same _pid_ over time, each carrying a different batch of additional recipients. The host MUST record the _add to_ recipients from each individually accepted message (code 11) so that the exact message bytes can be reconstructed for hash verification. Computing the hash requires reconstructing the message with the specific _add to_ batch that was present in the accepted message, not all _add to_ recipients accumulated across batches.
 
 
 ## Domain Resolution
@@ -568,7 +580,7 @@ Before opening the second connection to send CHALLENGE, the receiving host MUST 
 
 ### Notes on Domain Resolution
 
-Various alternatives were considered before arriving at using the `_fmsg` subdomain method. For instance an MX record combined with a WKS record on the domain would align with original intent of RFC 974 allowing message exchange services to be located for a domain along with WKS specifying the protocol. However the intent of MX records has been superceded and is now assumed to be SMTP and WKS is obsolote. Using a TXT record as SPF does was considered too, but that leads to a growing problem of proliferation of TXT records. So the `_fmsg` subdomain method was chosen as it allows the receiver to verify that the originating host of a message is explicitly authorized by the owning domain. Also, because the incoming IP address and sender's domain (the from address) will be known to the receiving host, only one domain lookup is needed.
+Various alternatives were considered before arriving at using the `_fmsg` subdomain method. For instance an MX record combined with a WKS record on the domain would align with original intent of RFC 974 allowing message exchange services to be located for a domain along with WKS specifying the protocol. However the intent of MX records has been superceded and is now assumed to be SMTP and WKS is obsolote. Using a TXT record as SPF does was considered too, but that leads to a growing problem of proliferation of TXT records. So the `_fmsg` subdomain method was chosen as the way for the receiver to verify that the originating host of a message is explicitly authorised by the owning domain. Also, because the incoming IP address and sender's domain (the _from_ address) will be known to the receiving host, only one domain lookup is needed.
 
 ### Practical Concerns
 
@@ -618,7 +630,7 @@ An attacker who has captured a valid message off the wire could attempt to re-de
 
 **Safeguards:**
 * The automatic challenge is the primary defence against replay: a replaying attacker cannot produce a valid CHALLENGE RESPONSE without possessing the original message in full and being resident at the authorised sender IP.
-* Even without a challenge, hosts SHOULD maintain a record of recently accepted message hashes and reject duplicates (REJECT code 10).
+* Even without a challenge, hosts SHOULD maintain a record of recently accepted message hashes and reject duplicates (REJECT code 10 for all recipients, or per-recipient code 103).
 * The time validity window (MAX_MESSAGE_AGE, MAX_TIME_SKEW) limits how long a captured message remains deliverable.
 
 ### Sender Enumeration
@@ -626,7 +638,7 @@ An attacker who has captured a valid message off the wire could attempt to re-de
 An attacker could craft messages addressed to many candidate recipient names to discover which addresses exist on a host, using REJECT code 100 (user unknown) vs 200 (accept) as an oracle.
 
 **Safeguards:**
-* Hosts MAY respond with REJECT code 103 (user undisclosed) for all per-user rejections, as the specification already permits. This prevents the attacker from distinguishing between unknown, full, and not-accepting addresses.
+* Hosts MAY respond with REJECT code 105 (user undisclosed) for all per-user rejections, as the specification already permits. This prevents the attacker from distinguishing between unknown, full, and not-accepting addresses.
 * Hosts SHOULD rate limit incoming messages from any single source IP or domain.
 
 ### Resource Exhaustion via Storage
