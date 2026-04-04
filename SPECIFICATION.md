@@ -289,7 +289,7 @@ For reference the current IANA list of Media Types is located [here](https://www
 Each attachment header consists of four fields: flags, type, filename and size:
 
 | name     | type                   | comment                                                                                            |
-|----------|------------------------|----------------------------------------------------------------------------------------------------||
+|----------|------------------------|----------------------------------------------------------------------------------------------------|
 | flags    | uint8                  | Bit field. See attachment flags below.                                                             |
 | type     | uint8 + [ASCII string] | Either a common type, see [Common Media Types](#common-media-types), or a US-ASCII encoded Media Type: RFC 6838. Encoding determined by this attachment's own _common type_ flag. |
 | filename | string                 | UTF-8 prefixed by uint8 size.                                                                      |
@@ -298,7 +298,7 @@ Each attachment header consists of four fields: flags, type, filename and size:
 #### Attachment Flags
 
 | bit index | name        | description                                                                                                                        |
-|----------:|-------------|------------------------------------------------------------------------------------------------------------------------------------||
+|----------:|-------------|------------------------------------------------------------------------------------------------------------------------------------|
 | 0         | common type | Indicates this attachment's type field is just a uint8 value and Media Type can be looked up per [Common Media Types](#common-media-types). |
 | 1         | deflate     | Attachment data is compressed using the zlib structure (defined in RFC 1950), with the deflate compression algorithm (defined in RFC 1951). |
 | 2 — 7     | TBD         | Unused, reserved for future use                                                                                                    |
