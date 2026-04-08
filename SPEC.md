@@ -1,5 +1,7 @@
 # fmsg — Concise Implementation Specification
 
+_NOTE_ This is a distilled version of the full specification attempting to capture all neccssary information such that implementations following should be correct. More context may be needed at times to explain the logic, please refer to the full [fmsg SPECIFICATION](https://github.com/markmnl/fmsg/blob/main/SPECIFICATION.md).
+
 All integers are little-endian. "case-insensitive" means Unicode default case folding on UTF-8 strings. "TERMINATE" means tear down all connections with the remote host immediately.
 
 ---
@@ -26,14 +28,14 @@ All fields are read sequentially. `[ ]` = conditionally present.
 | 8 | time | float64 | POSIX epoch, stamped by sending host. |
 | 9 | [topic] | uint8 length + UTF-8 | Present iff pid is NOT present. Length may be 0. |
 | 10 | type | uint8 + [US-ASCII string] | If flag bit 2 (common type) set: uint8 is a Common Media Type ID (see §4). Otherwise: uint8 is length of subsequent ASCII Media Type string. |
-| 11 | size | uint32 | Byte length of data field. |
+| 11 | size | uint32 | Byte length of data on the wire (after compression, if zlib-deflate set). |
 | 12 | attachment headers | uint8 count + [headers] | Count may be 0. Each header: see §5. |
 | 13 | data | bytes | Exactly _size_ bytes. |
 | 14 | [attachments data] | bytes | Concatenated attachment payloads, sizes defined by headers. |
 
 **Message header** = fields 1–12. **Message header hash** = SHA-256(message header). **Message hash** = SHA-256(entire message, fields 1–14).
 
-All hashes MUST be computed over **decompressed** data when the deflate flag is set.
+The hash MUST be computed over the full message bytes: message header fields exactly as transmitted, followed by message data and any attachments data. When the zlib-deflate flag is set for message data or an attachment's data, that data MUST be decompressed prior to inclusion in the hash computation.
 
 **Sender** = _from_ when _has add to_ not set; _add to from_ when set.
 
@@ -48,7 +50,7 @@ All hashes MUST be computed over **decompressed** data when the deflate flag is 
 | 2 | common type | type field is a 1-byte Common Media Type ID instead of length-prefixed string. |
 | 3 | important | Sender flags message as important. |
 | 4 | no reply | Sender will discard any reply. |
-| 5 | deflate | Message data compressed with zlib/deflate (RFC 1950/1951). |
+| 5 | zlib-deflate | Message data compressed with zlib/deflate (RFC 1950/1951). |
 | 6–7 | reserved | Must be 0. |
 
 ## 4. Common Media Types
@@ -98,10 +100,10 @@ Each attachment header, in order:
 
 | Field | Type | Notes |
 |-------|------|-------|
-| flags | uint8 | Bit 0 = common type (same lookup as §4). Bit 1 = deflate. Bits 2–7 reserved. |
+| flags | uint8 | Bit 0 = common type (same lookup as §4). Bit 1 = zlib-deflate. Bits 2–7 reserved. |
 | type | uint8 + [ASCII string] | Same encoding rule as message type, using this attachment's own common type flag. |
 | filename | uint8 length + UTF-8 | < 256 bytes. Unicode letters/numbers, plus `-` `_` ` ` `.` non-consecutively, not at start/end. Unique per message (case-insensitive). |
-| size | uint32 | Byte length of this attachment's data. |
+| size | uint32 | Byte length of this attachment's data on the wire (after compression, if zlib-deflate set). |
 
 Attachment data payloads follow all headers, concatenated in order.
 
@@ -134,8 +136,9 @@ Single-value codes (sent as first/only byte):
 | 8 | future time | Timestamp too far in future. |
 | 9 | time travel | Timestamp before parent's timestamp. |
 | 10 | duplicate | Already received for all recipients. |
-| 11 | accept add to | Add-to accepted; parent already stored. Stop. |
+| 11 | accept add to | Add-to accepted; parent already stored; no _add to_ recipients on this host. Stop. |
 | 64 | continue | Header accepted; send data. |
+| 65 | skip data | Add-to accepted; parent already stored; _add to_ recipients on this host. Skip data, per-recipient codes follow. |
 
 Per-recipient codes (one byte per recipient on this host, in message order):
 
@@ -173,16 +176,17 @@ One message per connection. Two TCP connections used: Connection 1 (message tran
 Host A delivers iff _from_ or _add to from_ belongs to Host A's domain. For each unique recipient domain:
 
 1. Resolve recipient domain IPs via `_fmsg.<domain>`. Connect to first responsive IP (Connection 1). Retry with backoff if unreachable.
-2. Register the message header hash in an outgoing record (for matching challenges).
+2. Register the message header hash and Host B's IP in an outgoing record (for matching challenges).
 3. Transmit the message header on Connection 1.
 4. Wait for response. During this wait, be ready to handle a CHALLENGE on Connection 2 (see §10.5).
 5. Read one byte from Connection 1:
    - **1–10**: Rejected for all recipients. Record and close.
    - **11**: Accept add-to (only valid when _has add to_ set). Record and close.
    - **64**: Continue — transmit data + attachment data (exact declared sizes).
+   - **65**: Skip data (only valid when _has add to_ set). Do NOT transmit data.
    - **Other**: TERMINATE.
-6. After transmitting data, read one byte per recipient on this host (in message field order: _to_ then _add to_). Each byte is a per-recipient response code.
-7. Record results. Remove message header hash from outgoing record. Close Connection 1.
+6. After transmitting data (code 64) or immediately (code 65), read one byte per recipient on this host (in message field order: _to_ then _add to_). Each byte is a per-recipient response code.
+7. Record results. Remove Host B's IP from outgoing record; remove entry if no IPs remain. Close Connection 1.
 
 ### 10.3 Receiving — Header Exchange (Host B perspective)
 
@@ -211,14 +215,16 @@ Host A delivers iff _from_ or _add to from_ belongs to Host A's domain. For each
    - **add-to set** (adding recipients):
      - pid MUST also be set. Fail → respond code 1, close.
      - Check if parent stored (§11):
-       - **Stored**: check time travel (code 9 if fail). Record add-to fields. Respond 11 (accept add to), close.
+       - **Stored**: check time travel (code 9 if fail).
+         - If any _add to_ recipient belongs to Host B's domain → respond 65 (skip data), then per-recipient codes per §10.4.
+         - Otherwise → record add-to fields, respond 11 (accept add to), close.
        - **Not stored**: respond 64 (continue) — treat as full message delivery.
 
 ### 10.4 Receiving — Data Download and Per-Recipient Response
 
 1. If challenge was completed, use the message hash from the challenge response to check for duplicates across all recipients on Host B. If duplicate for all → respond code 10, close.
-2. Download data + attachments (exactly declared sizes).
-3. If challenge was completed, verify computed message hash matches the challenge response hash. Mismatch → TERMINATE.
+2. If code 65 was sent, skip to step 4 (data already stored). Otherwise download data + attachments (exactly declared sizes).
+3. If challenge was completed, verify computed message hash matches the challenge response hash. For code 65, compute from received header + stored data. Mismatch → TERMINATE.
 4. For each recipient on Host B's domain (in _to_ order, then _add to_ order), send one response byte:
    - Already received → 103 (or 105).
    - Unknown address → 100 (or 105).
@@ -240,12 +246,12 @@ The challenge is optional (Receiving Host's discretion). It runs on a separate C
    - 1–127 → incoming message, handle normally.
    - 129–255 → CHALLENGE, continue.
    - Other → TERMINATE connection.
-2. Read 32-byte header hash. Match against outgoing message record. No match → TERMINATE.
+2. Read 32-byte header hash. Match against outgoing record by header hash AND challenger's IP. No match → TERMINATE.
 3. Send CHALLENGE RESPONSE: 32-byte SHA-256 of entire message.
 
 **Host B receives** the 32-byte message hash from Host A. Both close Connection 2. Exchange continues on Connection 1.
 
-Host A MUST maintain a thread-safe record of outgoing message header hashes to match challenges.
+Host A MUST maintain a record of outgoing messages keyed by message header hash, including each Receiving Host's IP. Used to match challenges and verify the challenger's IP. Create before transmission; remove a host's IP on completion/abort; remove the entry when no IPs remain.
 
 ## 11. Verifying Message Stored
 
@@ -255,7 +261,7 @@ A message is verified as stored iff:
 
 For accept-add-to (code 11) messages, the hash is computed by combining the add-to message header with the original message's data and attachment data.
 
-Each add-to batch produces a distinct hash. Only the exact batch that was accepted matches.
+Each add-to batch produces a distinct hash. Only the exact batch that had an accepted response (200 or 11) matches.
 
 ## 12. Adding Recipients
 
