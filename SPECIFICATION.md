@@ -1,5 +1,13 @@
 # fmsg Specification
 
+## Revision History
+
+| Version | Date       | Author       | Summary                   |
+|---------|------------|--------------|---------------------------|
+| v0.1.0  | 2026-04-09 | Mark Mennell | Initial draft             |
+
+## Contents
+
 - [Terminology](#terminology)
     - [Terms](#terms)
 - [Overview](#overview)
@@ -37,7 +45,6 @@
     - [Sender Enumeration](#sender-enumeration)
     - [Resource Exhaustion via Storage](#resource-exhaustion-via-storage)
     - [Monitoring and Logging](#monitoring-and-logging)
-
 
 
 ## Terminology
@@ -672,7 +679,7 @@ An attacker who has captured a valid message off the wire could attempt to re-de
 **Safeguards:**
 * The automatic challenge is the primary defence against replay: a replaying attacker cannot produce a valid CHALLENGE RESPONSE without possessing the original message in full and being resident at the authorised sender IP.
 * Even without a challenge, hosts SHOULD maintain a record of recently accepted messages and reject duplicates (REJECT code 10 for all recipients, or per-recipient code 103).
-* The time validity window (MAX_MESSAGE_AGE, MAX_TIME_SKEW) limits how long a captured message remains deliverable.
+* The time validity window (MAX_MESSAGE_AGE + MAX_TIME_SKEW) limits how long a captured message remains deliverable.
 
 ### Sender Enumeration
 
@@ -688,7 +695,7 @@ An attacker could send a high volume of valid messages or very large messages to
 
 **Safeguards:**
 * Operators SHOULD configure MAX_SIZE to a value appropriate for their deployment.
-* Implementations SHOULD support per-user quotas on message count and total storage. When quotas are exceeded the host responds REJECT code 101 (user full).
+* Implementations SHOULD support per-user quotas on message count and total storage including over periods, e.g. daily. When quotas are exceeded the host responds REJECT code 101 (user full).
 * Implementations SHOULD support global storage thresholds. When critically low the host responds REJECT code 5 (insufficient resources) to all incoming messages.
 
 ### Monitoring and Logging
@@ -698,7 +705,7 @@ Hosts SHOULD record the following for each message exchange to support detection
 * Timestamp
 * Originating IP address
 * When a message exchange was TERMINATED along with the reason why
-* Domain from the _from_ and _add to from_ fields
+* Domain from: _from_ or _add to from_ if exists
 * REJECT or ACCEPT response codes sent
 * Whether a CHALLENGE was issued and whether it succeeded
 
