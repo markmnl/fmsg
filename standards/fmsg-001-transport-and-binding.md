@@ -17,22 +17,22 @@ Implementations MUST support TLS 1.2 or higher and SHOULD prefer TLS 1.3.
 
 ### Certificates
 
-Hosts MUST present valid X.509 certificates. Clients MUST validate certificates using standard PKI rules, including hostname verification against fmsg.<domain>.
+Hosts MUST present valid X.509 certificates. Clients MUST validate certificates using standard PKI rules, including hostname verification against `fmsg.<domain>`.
 
 Connections MUST be closed on any validation failure.
 
-TLS identity MUST match the resolved fmsg.<domain> hostname.
+TLS identity MUST match the resolved `fmsg.<domain>` hostname.
 
-Clients MUST set SNI to fmsg.<domain>.
+Clients MUST set SNI to `fmsg.<domain>`.
 
 TLS compression MUST NOT be used. Implementations SHOULD prefer modern AEAD cipher suites with forward secrecy.
 
 
 ## Session Establishment
 
-1. Resolve fmsg.<domain> via DNS per Domain Resolution in the specification.
+1. Resolve `fmsg.<domain>` via DNS per Domain Resolution in the specification.
 2. Connect to resolved IP on port 4930
-3. Perform TLS handshake with SNI fmsg.<domain>
+3. Perform TLS handshake with SNI `fmsg.<domain>`
 4. Validate certificate
 5. Proceed with fmsg protocol
 

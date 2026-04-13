@@ -5,7 +5,7 @@
 | Version | Date       | Author       | Summary                   |
 |---------|------------|--------------|---------------------------|
 | v0.1.0  | 2026-04-09 | Mark Mennell | Initial draft             |
-| v0.2.0  | 2026-04-13 | Mark Mennell | DNS subdomain changed to fmsg.<domain>  |
+| v0.2.0  | 2026-04-13 | Mark Mennell | DNS subdomain changed to `fmsg.<domain>`  |
 
 ## Contents
 
@@ -667,7 +667,7 @@ A malicious host could forge the _from_ address in a message to contain a victim
 
 ### DNS Spoofing and Cache Poisoning
 
-If an attacker can poison DNS responses for `fmsg.<domain>`, they can redirect messages to a host they control or cause a legitimate host to accept messages from an unauthorised IP.
+If an attacker can poison DNS responses for ``fmsg.<domain>``, they can redirect messages to a host they control or cause a legitimate host to accept messages from an unauthorised IP.
 
 **Safeguards:**
 * Hosts SHOULD perform DNSSEC validation for all `fmsg` lookups. If DNSSEC validation fails the connection MUST be terminated as specified in [Domain Resolution](#domain-resolution).

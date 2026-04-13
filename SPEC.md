@@ -153,7 +153,7 @@ Per-recipient codes (one byte per recipient on this host, in message order):
 
 ## 9. Domain Resolution
 
-Resolve `fmsg.<domain>` for A/AAAA records. The sender's domain is:
+Resolve ``fmsg.<domain>`` for A/AAAA records. The sender's domain is:
 - The domain of _add to from_ when _has add to_ is set.
 - The domain of _from_ otherwise.
 
@@ -175,7 +175,7 @@ One message per connection. Two TCP connections used: Connection 1 (message tran
 
 Host A delivers iff _from_ or _add to from_ belongs to Host A's domain. For each unique recipient domain:
 
-1. Resolve recipient domain IPs via `fmsg.<domain>`. Connect to first responsive IP (Connection 1). Retry with backoff if unreachable.
+1. Resolve recipient domain IPs via ``fmsg.<domain>``. Connect to first responsive IP (Connection 1). Retry with backoff if unreachable.
 2. Register the message header hash and Host B's IP in an outgoing record (for matching challenges).
 3. Transmit the message header on Connection 1.
 4. Wait for response. During this wait, be ready to handle a CHALLENGE on Connection 2 (see §10.5).

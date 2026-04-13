@@ -16,7 +16,7 @@ GET `/addr/{address}`
 {
     "name": "jsmith",
     "address": "@jsmith@example.com",
-    "displayName" "John Smith",
+    "displayName": "John Smith",
     "acceptingNew": true,
 
     "limitRecvSizeTotal": -1,
