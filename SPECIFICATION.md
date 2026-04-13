@@ -5,6 +5,7 @@
 | Version | Date       | Author       | Summary                   |
 |---------|------------|--------------|---------------------------|
 | v0.1.0  | 2026-04-09 | Mark Mennell | Initial draft             |
+| v0.2.0  | 2026-04-13 | Mark Mennell | DNS subdomain changed to fmsg.<domain>  |
 
 ## Contents
 
