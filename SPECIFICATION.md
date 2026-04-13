@@ -418,7 +418,7 @@ Other codes 100 and above are per recipient in the same order as recipients for 
 
 ## Protocol
 
-A message is sent from the sender's host to each unique recipient host (i.e. each domain only once even if multiple recipients at the same domain). Sending a message either succeeds or fails per recipient of the host for the domain being sent to. During the sending from one host to another several steps are performed depicted in the below diagram. Two connection-orientated, reliable, in-order and duplex transports are required to perform the full flow. Transmission Control Protocol (TCP) is an obvious choice, on top of which Transport Layer Security (TLS) may meet your encryption needs. This specification is independent of transport mechanisms which are instead defined standards such as: [Domain Resolution](#domain-resolution).
+A message is sent from the sender's host to each unique recipient host (i.e. each domain only once even if multiple recipients at the same domain). Sending a message either succeeds or fails per recipient of the host for the domain being sent to. During the sending from one host to another several steps are performed depicted in the below diagram. Two connection-orientated, reliable, in-order and duplex transports are required to perform the full flow. Transmission Control Protocol (TCP) is an obvious choice, on top of which Transport Layer Security (TLS) may meet your encryption needs. This specification is independent of transport mechanisms which are instead defined standards such as: [FMSG-001 TCP+TLS Transport and Binding Standard](#../fmsg-001-transport-and-binding.md).
 
 <p align="center">
 <picture>
