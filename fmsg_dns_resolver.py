@@ -4,23 +4,23 @@ fmsg DNS Resolver Module
 This module provides functionality to resolve fmsg host IP addresses for a given
 domain name, as specified in the domain resolution section of the fmsg specification.
 
-According to the spec, the fmsg host domain is `_fmsg.<domain>`. For example,
-for the address `@B@example.edu`, the fmsg host is at `_fmsg.example.edu`.
+According to the spec, the fmsg host domain is `fmsg.<domain>`. For example,
+for the address `@B@example.edu`, the fmsg host is at `fmsg.example.edu`.
 """
 
 import socket
 from typing import List, Optional
 
 
-def resolve_fmsg_host(domain: str, address_family: Optional[int] = None) -> List[str]:
+def resolvefmsg_host(domain: str, address_family: Optional[int] = None) -> List[str]:
     """
     Resolve the IP address(es) for an fmsg host given a domain name.
 
-    The fmsg host domain is the subdomain `_fmsg` of the domain name.
-    For example, for `example.com`, the fmsg host is at `_fmsg.example.com`.
+    The fmsg host domain is the subdomain `fmsg` of the domain name.
+    For example, for `example.com`, the fmsg host is at `fmsg.example.com`.
 
     Args:
-        domain: The domain name (e.g., "example.com"). Should not include the `_fmsg` prefix.
+        domain: The domain name (e.g., "example.com"). Should not include the `fmsg` prefix.
         address_family: The socket address family to resolve. Can be socket.AF_INET
                        for IPv4 only, socket.AF_INET6 for IPv6 only, or None (default)
                        to resolve both IPv4 and IPv6 addresses.
@@ -32,16 +32,16 @@ def resolve_fmsg_host(domain: str, address_family: Optional[int] = None) -> List
         socket.gaierror: If the domain cannot be resolved.
 
     Examples:
-        >>> resolve_fmsg_host("example.com")
+        >>> resolvefmsg_host("example.com")
         ['93.184.216.34']
 
-        >>> resolve_fmsg_host("example.com", socket.AF_INET6)
+        >>> resolvefmsg_host("example.com", socket.AF_INET6)
         ['2606:2800:220:1:248:1893:25c8:1946']
 
-        >>> resolve_fmsg_host("fmsg.org", socket.AF_INET)
+        >>> resolvefmsg_host("fmsg.org", socket.AF_INET)
         ['104.21.82.45']
     """
-    fmsg_domain = f"_fmsg.{domain}"
+    fmsg_domain = f"fmsg.{domain}"
 
     if address_family is None:
         # Resolve both IPv4 and IPv6
@@ -68,7 +68,7 @@ def verify_originating_ip(domain: str, originating_ip: str) -> bool:
     Otherwise, the connection MUST be terminated before challenging.
 
     Args:
-        domain: The domain name of the sender (without `_fmsg` prefix).
+        domain: The domain name of the sender (without `fmsg` prefix).
         originating_ip: The IP address the connection originated from.
 
     Returns:
@@ -88,7 +88,7 @@ def verify_originating_ip(domain: str, originating_ip: str) -> bool:
         address_family = socket.AF_INET
 
     try:
-        resolved_ips = resolve_fmsg_host(domain, address_family)
+        resolved_ips = resolvefmsg_host(domain, address_family)
         return originating_ip in resolved_ips
     except socket.gaierror:
         return False
@@ -99,15 +99,15 @@ if __name__ == "__main__":
     print("Resolving fmsg host for fmsg.io...")
     domain = "fmsg.io"
     try:
-        ips = resolve_fmsg_host(domain)
+        ips = resolvefmsg_host(domain)
     except socket.gaierror as e:
-        print(f"DNS resolution failed for _fmsg.{domain}: {e}")
-        print(f"\nNote: The _fmsg.{domain} domain may not exist. This is expected for domains that haven't set up fmsg hosting.")
+        print(f"DNS resolution failed for fmsg.{domain}: {e}")
+        print(f"\nNote: The fmsg.{domain} domain may not exist. This is expected for domains that haven't set up fmsg hosting.")
     else:
         if not ips:
-            print(f"No IP addresses found for _fmsg.{domain}")
+            print(f"No IP addresses found for fmsg.{domain}")
         else:
-            print(f"Resolved IP addresses for _fmsg.{domain}:")
+            print(f"Resolved IP addresses for fmsg.{domain}:")
             for ip in ips:
                 print(f"  - {ip}")
 
