@@ -4,7 +4,7 @@ fmsg DNS Resolver Module
 This module provides functionality to resolve fmsg host IP addresses for a given
 domain name, as specified in the domain resolution section of the fmsg specification.
 
-According to the spec, the fmsg host domain is `fmsg.<domain>`. For example,
+According to the spec, the fmsg host domain is ``fmsg.<domain>``. For example,
 for the address `@B@example.edu`, the fmsg host is at `fmsg.example.edu`.
 """
 
@@ -12,7 +12,7 @@ import socket
 from typing import List, Optional
 
 
-def resolvefmsg_host(domain: str, address_family: Optional[int] = None) -> List[str]:
+def resolve_fmsg_host (domain: str, address_family: Optional[int] = None) -> List[str]:
     """
     Resolve the IP address(es) for an fmsg host given a domain name.
 
@@ -32,13 +32,13 @@ def resolvefmsg_host(domain: str, address_family: Optional[int] = None) -> List[
         socket.gaierror: If the domain cannot be resolved.
 
     Examples:
-        >>> resolvefmsg_host("example.com")
+        >>> resolve_fmsg_host ("example.com")
         ['93.184.216.34']
 
-        >>> resolvefmsg_host("example.com", socket.AF_INET6)
+        >>> resolve_fmsg_host ("example.com", socket.AF_INET6)
         ['2606:2800:220:1:248:1893:25c8:1946']
 
-        >>> resolvefmsg_host("fmsg.org", socket.AF_INET)
+        >>> resolve_fmsg_host ("fmsg.org", socket.AF_INET)
         ['104.21.82.45']
     """
     fmsg_domain = f"fmsg.{domain}"
@@ -88,7 +88,7 @@ def verify_originating_ip(domain: str, originating_ip: str) -> bool:
         address_family = socket.AF_INET
 
     try:
-        resolved_ips = resolvefmsg_host(domain, address_family)
+        resolved_ips = resolve_fmsg_host (domain, address_family)
         return originating_ip in resolved_ips
     except socket.gaierror:
         return False
@@ -99,7 +99,7 @@ if __name__ == "__main__":
     print("Resolving fmsg host for fmsg.io...")
     domain = "fmsg.io"
     try:
-        ips = resolvefmsg_host(domain)
+        ips = resolve_fmsg_host (domain)
     except socket.gaierror as e:
         print(f"DNS resolution failed for fmsg.{domain}: {e}")
         print(f"\nNote: The fmsg.{domain} domain may not exist. This is expected for domains that haven't set up fmsg hosting.")

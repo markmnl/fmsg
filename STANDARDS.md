@@ -1,8 +1,8 @@
 # fmsg Standards
 
-The fmsg specification only describes host-to-host communication protocol semantics and message definition. Implementors need to agree on transport, port bindings, encyption etc. to interoperate. Futher, other functionality such as retrieval of messages, user identity and access management,  is undefined by the specification. So a full fmsg setup includes other components which could vary between deployments and use-case. For instance an enterprise identity management system could be integrated on one host, and a custom user management system on another host.
+The fmsg specification only describes host-to-host communication protocol semantics and message definitions. Implementors need to agree on transport, port bindings, encryption etc. to interoperate. Further, other functionality such as retrieval of messages, user identity and access management,  is undefined by the specification. So a full fmsg setup includes other components which could vary between deployments and use-case. For instance an enterprise identity management system could be integrated on one host, and a custom user management system on another host.
 
-This page indexes common standards for such services augmenting a fmsg host.
+This page indexes common standards for a fmsg host to follow and services augmenting a host.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="pics/setup-example-dark-transparent.png">
