@@ -418,7 +418,7 @@ Other codes 100 and above are per recipient in the same order as recipients for 
 
 ## Protocol
 
-A message is sent from the sender's host to each unique recipient host (i.e. each domain only once even if multiple recipients at the same domain). Sending a message either succeeds or fails per recipient of the host for the domain being sent to. During the sending from one host to another several steps are performed depicted in the below diagram. Two connection-orientated, reliable, in-order and duplex transports are required to perform the full flow. Transmission Control Protocol (TCP) is an obvious choice, on top of which Transport Layer Security (TLS) may meet your encryption needs.
+A message is sent from the sender's host to each unique recipient host (i.e. each domain only once even if multiple recipients at the same domain). Sending a message either succeeds or fails per recipient of the host for the domain being sent to. During the sending from one host to another several steps are performed depicted in the below diagram. Two connection-orientated, reliable, in-order and duplex transports are required to perform the full flow. Transmission Control Protocol (TCP) is an obvious choice, on top of which Transport Layer Security (TLS) may meet your encryption needs. This specification is independent of transport mechanisms which are instead defined standards such as: [FMSG-001 TCP+TLS Transport and Binding Standard](#../fmsg-001-transport-and-binding.md).
 
 <p align="center">
 <picture>
@@ -471,7 +471,7 @@ The following variables corresponding to host defined configuration are used in 
         4. There must be at least one recipient in _to_ or _add to_ for Host B (example.edu domain).
         5. _type_ number when _common type_ [Flag](#flags) is set, exists in [Common Media Type](#common-media-types) mapping.
         6. Each attachment _type_ number, when that attachment's _common type_ flag is set, exists in [Common Media Type](#common-media-types) mapping.
-    2. Receiving Host B MUST perform a DNS lookup on the _fmsg subdomain of the senders domain to verify that the IP address of the incoming connection is in those authorised by the sending domain. If the incoming IP address is not in the authorised set, Host B MUST TERMINATE the message exchange. See [Domain Resolution](#domain-resolution) for more.
+    2. Receiving Host B MUST perform a DNS lookup on the fmsg subdomain of the senders domain to verify that the IP address of the incoming connection is in those authorised by the sending domain. If the incoming IP address is not in the authorised set, Host B MUST TERMINATE the message exchange. See [Domain Resolution](#domain-resolution) for more.
         * If the _has add to_ flag bit set the sender's domain is the domain part of the _add to from_ address.
         * Otherwise, the sender's domain is the domain part of the _from_ address.
     3. If _size_ plus all _attachment size_ is greater than MAX_SIZE, Host B MUST respond REJECT code 4 (too big) then close the connection completing the message exchange.
@@ -620,15 +620,15 @@ _NOTE II_ Multiple messages with _add to_ may arrive for the same _pid_ over tim
 
 ## Domain Resolution
 
-Hosts MUST obtain and verify authorised IP addresses by resolving the subdomain `_fmsg` of the domain name in an fmsg address and evaluating the resulting A and AAAA records (including those obtained via CNAME aliasing). For example if `@alice@example.com` is sending a message to `@bob@example.edu`, Alice's authorised fmsg host IP addresses are obtained by resolving `_fmsg.example.com`, and Bob's from `_fmsg.example.edu`.
+Hosts MUST obtain and verify authorised IP addresses by resolving the subdomain `fmsg` of the domain name in an fmsg address and evaluating the resulting A and AAAA records (including those obtained via CNAME aliasing). For example if `@alice@example.com` is sending a message to `@bob@example.edu`, Alice's authorised fmsg host IP addresses are obtained by resolving `fmsg.example.com`, and Bob's from `fmsg.example.edu`.
 
-Sending and receiving hosts SHOULD perform DNSSEC validation for _fmsg lookups when supported. If DNSSEC validation fails, the connection MUST be terminated.
+Sending and receiving hosts SHOULD perform DNSSEC validation for fmsg lookups when supported. If DNSSEC validation fails, the connection MUST be terminated.
 
-_NB_ Before opening the second connection to send CHALLENGE, the Receiving Host MUST have independently resolved the senders authorised IP set from the `_fmsg` subdomain and verified the originating IP address of the incoming connection is in that set. This would have been done in [Protocol Steps](#protocol-steps) 1.4.2. If verification fails the connection MUST be terminated without challenging. This ensures the fmsg host sending a message is listed by the senders domain and prevents orchestrating a denial-of-service style attack by falsifying an address to trigger many fmsg hosts challenging an unsuspecting host.
+_NB_ Before opening the second connection to send CHALLENGE, the Receiving Host MUST have independently resolved the senders authorised IP set from the `fmsg` subdomain and verified the originating IP address of the incoming connection is in that set. This would have been done in [Protocol Steps](#protocol-steps) 1.4.2. If verification fails the connection MUST be terminated without challenging. This ensures the fmsg host sending a message is listed by the senders domain and prevents orchestrating a denial-of-service style attack by falsifying an address to trigger many fmsg hosts challenging an unsuspecting host.
 
 ### Notes on Domain Resolution
 
-Various alternatives were considered before arriving at using the `_fmsg` subdomain method. For instance an MX record combined with a WKS record on the domain would align with original intent of RFC 974 allowing message exchange services to be located for a domain along with WKS specifying the protocol. However the intent of MX records has been superseded and is now assumed to be SMTP and WKS is obsolete. Using a TXT record as SPF does was considered too, but that leads to a growing problem of proliferation of TXT records. So the `_fmsg` subdomain method was chosen as the way for the receiver to verify that the originating host of a message is explicitly authorised by the owning domain. Also, because the incoming IP address and sender's domain will be known to the receiving host, only one domain lookup is needed.
+Various alternatives were considered before arriving at using the `fmsg` subdomain method. For instance an MX record combined with a WKS record on the domain would align with original intent of RFC 974 allowing message exchange services to be located for a domain along with WKS specifying the protocol. However the intent of MX records has been superseded and is now assumed to be SMTP and WKS is obsolete. Using a TXT record as SPF does was considered too, but that leads to a growing problem of proliferation of TXT records. A SRV record could have worked but port is not required plus the extra domain lookup after resolving a SRV record, to lookup the actual host, adds latency which goes against fmsg concern about instant messaging. So the `fmsg` subdomain method was chosen as the way for the receiver to verify that the originating host of a message is explicitly authorised by the owning domain. Also, because the incoming IP address and sender's domain will be known to the receiving host, only one domain lookup is needed.
 
 ### Practical Concerns
 
@@ -666,11 +666,11 @@ A malicious host could forge the _from_ address in a message to contain a victim
 
 ### DNS Spoofing and Cache Poisoning
 
-If an attacker can poison DNS responses for `_fmsg.<domain>`, they can redirect messages to a host they control or cause a legitimate host to accept messages from an unauthorised IP.
+If an attacker can poison DNS responses for `fmsg.<domain>`, they can redirect messages to a host they control or cause a legitimate host to accept messages from an unauthorised IP.
 
 **Safeguards:**
-* Hosts SHOULD perform DNSSEC validation for all `_fmsg` lookups. If DNSSEC validation fails the connection MUST be terminated as specified in [Domain Resolution](#domain-resolution).
-* Hosts SHOULD use trusted resolvers and minimise DNS cache TTLs for `_fmsg` records to reduce the window of exposure to poisoned entries.
+* Hosts SHOULD perform DNSSEC validation for all `fmsg` lookups. If DNSSEC validation fails the connection MUST be terminated as specified in [Domain Resolution](#domain-resolution).
+* Hosts SHOULD use trusted resolvers and minimise DNS cache TTLs for `fmsg` records to reduce the window of exposure to poisoned entries.
 
 ### Message Replay
 

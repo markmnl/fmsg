@@ -1,6 +1,6 @@
 # fmsg Standards
 
-fmsg itself only describes host-to-host communication – leaving other functionality such as retrieval of messages, user identity and access management, undefined. So a full fmsg setup includes other components which would vary between deployments and use-case. For instance an enterprise identity management system could be integrated on one host, and a custom user management system on another host.
+The fmsg specification only describes host-to-host communication protocol semantics and message definition. Implementors need to agree on transport, port bindings, encyption etc. to interoperate. Futher, other functionality such as retrieval of messages, user identity and access management,  is undefined by the specification. So a full fmsg setup includes other components which could vary between deployments and use-case. For instance an enterprise identity management system could be integrated on one host, and a custom user management system on another host.
 
 This page indexes common standards for such services augmenting a fmsg host.
 
@@ -19,8 +19,8 @@ Each standard is prefixed with a unique identifer following the format: "FMSG-##
 
 | Standard  | Short Description                                      |
 |-----------|--------------------------------------------------------|
-| [FMSG-001](standards/fmsg-001-ports.md) | Standard fmsg IP ports |
-| [FMSG-002](standards/fmsg-002-id.md) | HTTP API spec for recipient lookup and associated size and count limits |
+| [FMSG-001](standards/fmsg-001-transport-and-binding.md) | TCP+TLS Transport and Binding Standard |
+| [FMSG-002](standards/fmsg-002-id.md) | HTTP API spec for recipient lookup and quota limits |
 | [FMSG-003](standards/fmsg-003-webapi.md) | HTTP API spec client to perform CRUD operations on messages for a specific address |
 
 
