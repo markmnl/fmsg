@@ -23,7 +23,7 @@ Implementations SHOULD negotiate ALPN protocol identifier `fmsg/1`.
 
 ### Certificates
 
-Hosts MUST present valid X.509 certificates issued by a trusted Certificate Authority. Self-signed certificates MUST NOT be accepted.
+Hosts MUST present valid X.509 certificates. Certificates MUST be issued by a Certificate Authority trusted by the connecting party. Self-signed certificates MUST NOT be accepted unless explicitly configured as trusted by the implementation.
 
 The TLS server's certificate MUST match the `fmsg.<domain>` hostname of the **server's** domain:
 - **Connection 1** (Sending Host → Receiving Host): the server is the Receiving Host, certificate and SNI MUST use `fmsg.<recipient_domain>`.
