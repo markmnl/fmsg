@@ -194,11 +194,11 @@ On the wire messages are encoded thus:
 ### Notes on Adding Recipients
 
 Adding recipients is achieved by sending a whole new distinct message, that is an exact duplicate of the message to which recipients are being added, except:
-    * The _has add to_ flag bit is set
-    * _pid_ references the message which recipients are being added to.
-    * _add to from_ exists and is the address of the participant in the previous message adding the additional recipients, i.e. the sender.
-    * _add to_ exists and is addresses of the new recipients being added.
-    * _time_ is the POSIX epoch time of this new message with added recipients was ready for sending.
+* The _has add to_ flag bit is set
+* _pid_ references the message which recipients are being added to.
+* _add to from_ exists and is the address of the participant in the previous message adding the additional recipients, i.e. the sender.
+* _add to_ exists and is addresses of the new recipients being added.
+* _time_ is the POSIX epoch time of this new message with added recipients was ready for sending.
 
 
 ### Notes on Time
@@ -419,7 +419,7 @@ Other codes 100 and above are per recipient in the same order as recipients for 
 
 ## Protocol
 
-A message is sent from the sender's host to each unique recipient host (i.e. each domain only once even if multiple recipients at the same domain). Sending a message either succeeds or fails per recipient of the host for the domain being sent to. During the sending from one host to another several steps are performed depicted in the below diagram. Two connection-orientated, reliable, in-order and duplex transports are required to perform the full flow. Transmission Control Protocol (TCP) is an obvious choice, on top of which Transport Layer Security (TLS) may meet your encryption needs. This specification is independent of transport mechanisms which are instead defined as standards such as: [FMSG-001 TCP+TLS Transport and Binding Standard](../standards/fmsg-001-transport-and-binding.md).
+A message is sent from the sender's host to each unique recipient host (i.e. each domain only once even if multiple recipients at the same domain). Sending a message either succeeds or fails per recipient of the host for the domain being sent to. During the sending from one host to another several steps are performed depicted in the below diagram. Two connection-orientated, reliable, in-order and duplex transports are required to perform the full flow. Transmission Control Protocol (TCP) is an obvious choice, on top of which Transport Layer Security (TLS) may meet your encryption needs. This specification is independent of transport mechanisms which are instead defined as standards such as: [FMSG-001 TCP+TLS Transport and Binding Standard](/markmnl/fmsg/blob/main/standards/fmsg-001-transport-and-binding.md).
 
 <p align="center">
 <picture>
@@ -480,12 +480,11 @@ The following variables corresponding to host defined configuration are used in 
         1. If DELTA is greater than MAX_MESSAGE_AGE, Host B MUST respond REJECT code 7 (too old) then close the connection completing the message exchange.
         2. If DELTA is negative and absolute DELTA is greater than MAX_TIME_SKEW, Host B MUST respond REJECT code 8 (future time) then close the connection completing the message exchange.
     5. The _pid_ field requirements depends on whether this message includes additional recipients determined by the _has add to_ flag.
-        1. If neither _pid_ nor _add to_ exist, the message is the first in a thread, Host B responds with "ACCEPT or REJECT CODE" 64 (continue) and the message exchange continues.
+        1. If neither _pid_ nor _add to_ exist, the message is the first in a thread, continue.
         2. If _pid_ exists and _add to_ does not.
             1. The message _pid_ refers to MUST be verified to be stored already on Host B per [Verifying Message Stored](#verifying-message-stored); otherwise Host B MUST respond with REJECT code 6 (parent not found) completing the message exchange.
             2. The stored message for _pid_'s _time_ minus MAX_TIME_SKEW MUST be before _time_ on the incoming message header; otherwise Host B MUST respond with REJECT code 9 (time travel) completing the message exchange.
             3. _from_ MUST have been a participant in the stored message referred to by _pid_; otherwise Host B MUST respond with REJECT code 1 (invalid) completing the message exchange.
-            4. Host B responds with "ACCEPT or REJECT CODE" 64 (continue) and the message exchange continues.
             
             _NOTE_ Verifying Message Stored checks the host has the parent message, not that every recipient still has it in their message store. Implementations MAY consider restoring the parent message to a recipient's message store if that _recipient_ no longer has the message, so that the incoming reply has proper thread context for all recipients.
         3. Else _add to_ exists;
@@ -494,15 +493,8 @@ The following variables corresponding to host defined configuration are used in 
             3. If original message referred to by _pid_ is verified to be stored AND;
                 1. The stored message for _pid_'s _time_ minus MAX_TIME_SKEW MUST be before _time_ on the incoming message header; otherwise Host B MUST respond with REJECT code 9 (time travel).
                 2. If none of the _add to_ recipients are for Host B:
-                    1. At this stage Host B has been informed additional recipients have been added to a message it has previously accepted. Host B MUST record these new fields: _add to from_, _add to_ recipients and _time_, along with the fact code 11 was sent in response, such that the message hash can be faithfully computed with and without this batch of additional recipients as per [Verifying Message Stored](#verifying-message-stored). This is because either the original message or message with the just added recipients could be referred to by subsequent messages. Host B MUST then respond with ACCEPT code 11 (accept add to) then close the connection completing the message exchange.
-            
-                3. If any of the _add to_ recipients are for Host B:
-                    1. Host B MUST respond with "ACCEPT or REJECT CODE" 65 (skip data) and message exchange continues. Host B MUST keep aware of this reponse needed in step 3.2 below.
-                    
-                    _NOTE_ Host B has verfied it already has message referred to by _pid_ which means this message is an exact duplicate except for (_add to from_, _add to_, time and possibly _topic_)
-
+                    1. At this stage Host B has been informed additional recipients have been added to a message it has previously accepted. Host B MUST record these new fields: _add to from_, _add to_ recipients and _time_, along with the fact code 11 was sent in response, such that the message hash can be faithfully computed with and without this batch of additional recipients as per [Verifying Message Stored](#verifying-message-stored). This is because either the original message or message with the just added recipients could be referred to by subsequent messages. 
             4. Otherwise (original message has not been found, possible because Host B was never a participant of the message, or the message referenced by _pid_ is no longer held);
-                    1. Host B responds with "ACCEPT or REJECT CODE" 64 (continue) and the message exchange continues.
 
 
 #### 2. The Automatic Challenge
@@ -516,7 +508,7 @@ For example, a host MAY implement different challenge modes of operation such as
 3. HAS_NOT_PARTICIPATED, recipient host will send a CHALLENGE when _pid_ does not exist or none of the linked messages in the thread following each message's _pid_ are from a recipient on Host B's domain.
 4. DIFFERENT_DOMAIN, recipient host will always send a CHALLENGE during the message exchange if the sender (i.e. _add to from_ if _has add to_ flag set, otherwise _from_) belongs to a different domain.
 
-To issue a CHALLENGE a Receiving Host follows these steps:
+If Host B decides To issue a CHALLENGE, then it follows these steps:
 
 1. Before continuing to download the remaining data on Connection 1, Host B MUST initiate a separate new connection (Connection 2) back to Host A using the same incoming IP address of Connection 1.
 2. Host B sends a CHALLENGE to Host A, supplying the message header hash of the message header received on Connection 1.
@@ -539,14 +531,22 @@ Challenging is particularly IMPORTANT for messages with _add to_ recipients for 
 Ultimately, whether to challenge or not is at the discretion of the receiving host.
 
 
-#### 3. Integrity Verification, Per-Recipient Response and Disposition
+#### 3. Continue, Per-Recipient Response and Disposition
 
-1. Host B performs some checks before continuing to download the remaining message being transmitted on Connection 1.
+1. Iff _add to_ exists and message was verified to be stored in step 1.4.5.3.2 above:
+    1. If any of the _add to_ recipients are for Host B:
+        1. Host B MUST respond with "ACCEPT or REJECT CODE" 65 (skip data) and message exchange continues.
+        
+        _NOTE_ Host B has verfied it already has message referred to by _pid_ which means this message is an exact duplicate except for (_add to from_, _add to_ and time)
+    2. Otherwise none of the recipients were found to be for Host B;
+        1. Host B MUST then respond with ACCEPT code 11 (accept add to) then close the connection completing the message exchange.
+2. Otherwise, Host B responds with "ACCEPT or REJECT CODE" 64 (continue) and the message exchange continues.
+3. Host B performs some checks before continuing to download the remaining message being transmitted on Connection 1.
     1. If the CHALLENGE, CHALLENGE-RESP exchange was completed, the message hash received in the CHALLENGE-RESP SHOULD be used to check if the message is already stored for **all** recipients on Host B per [Verifying Message Stored](#verifying-message-stored).
         1. If the message is found to be already stored for all recipients on Host B, Host B MUST respond REJECT code 10 (duplicate) then close the connection completing the message exchange.
-2. If Host B responded earlier with "ACCEPT or REJECT CODE" 65 (skip data), Host B MUST NOT read any further data from Connection 1. Otherwise, Host B continues downloading the exact remaining bytes i.e. the sum of message _size_ plus any attachments _size_.
-3. If the CHALLENGE, CHALLENGE-RESP exchange was completed, the message hash received in the CHALLENGE-RESP MUST exactly match the computed message hash per [Computing Message Hash](#computing-message-hash); otherwise Host B MUST TERMINATE the message exchange.
-4. Host B transmits an "ACCEPT or REJECT RESPONSE" code to Host A for each individual recipient belonging to Host B.
+4. If Host B responded earlier with "ACCEPT or REJECT CODE" 65 (skip data), Host B MUST NOT read any further data from Connection 1. Otherwise, Host B continues downloading the exact number of remaining bytes i.e. the sum of message _size_ plus any attachments _size_.
+5. If the CHALLENGE, CHALLENGE-RESP exchange was completed, the message hash received in the CHALLENGE-RESP MUST exactly match the computed message hash per [Computing Message Hash](#computing-message-hash); otherwise Host B MUST TERMINATE the message exchange.
+6. Host B transmits an "ACCEPT or REJECT RESPONSE" code to Host A for each individual recipient belonging to Host B.
     1. Host B iterates through each address for its domain (example.edu) in the order they appear in _to_ then in _add to_ (if any). Note for any REJECT code specific to a user, 105 (user undisclosed) MAY be used instead — so Host B does not have to disclose the reason message was not accepted for that address. For each recipient:
         1. Host B looks up implementation specific data for the recipient address such as quotas and whether the address is accepting new messages.
         2. If the message has already been received for this recipient, Host B MUST respond either REJECT code 103 (user duplicate) OR REJECT code 105 (user undisclosed).
@@ -555,7 +555,7 @@ Ultimately, whether to challenge or not is at the discretion of the receiving ho
         5. Else if the address is not accepting new messages, Host B MUST respond either REJECT code 102 (user not accepting) OR REJECT code 105 (user undisclosed).
         6. Otherwise, Host B MUST respond ACCEPT code 200 (accepted) for the recipient address 
     2. Host A MUST record the "ACCEPT or REJECT RESPONSE" code received per recipient for Host B's domain.
-5. Host A and Host B close Connection 1, completing the message exchange.
+7. Host A and Host B close Connection 1, completing the message exchange.
 
 _NOTE_ When recipients for Host B are added using the _add to_ functionality to a message Host B previously accepted, those previous recipients for Host B (that still have the message) would respond REJECT code 103 (user duplicate), or code 105 (user undisclosed). Implementations SHOULD keep the original accept response code 200 to more accuratly reflect that status of the delivery to that recipient. Implementation MAY choose record the additional response codes as well.
 
