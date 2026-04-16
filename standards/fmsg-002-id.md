@@ -1,10 +1,10 @@
-# fmsg Id Standard
+# FMSG-002 Id Standard
 
-fmsg Id standard describes an HTTP API for a fmsg host to lookup the identity of a participant to:
+FMSG-002 Id Standard describes an HTTP API for a fmsg host to lookup the identity of a participant to:
 
 1. Verify the user indeed exists
 2. Check user is accepting messages
-3. Get user's daily and total message limits and actuals
+3. Get user's daily and total message count and data limits, and actuals.
 4. Get user metadata such as display name and any host specific tags
 
 
