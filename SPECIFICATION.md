@@ -7,6 +7,7 @@
 | v0.1.0  | 2026-04-09 | Mark Mennell | Initial draft             |
 | v0.2.0  | 2026-04-13 | Mark Mennell | DNS subdomain changed to `fmsg.<domain>`  |
 | v0.3.0  | 2026-04-15 | Mark Mennell | Receiver's protocol steps, non-reject codes sent only after optional challenge  |
+| v0.3.1  | 2026-04-16 | Mark Mennell | Duplicate detection before continue response  |
 
 ## Contents
 
@@ -541,10 +542,11 @@ Ultimately, whether to challenge or not is at the discretion of the receiving ho
         1. Host B MUST then respond with ACCEPT code 11 (accept add to) then close the connection completing the message exchange.
 
         _NOTE_ At this stage Host B has been informed additional recipients have been added to a message it has previously accepted. Host B MUST record these new fields: _add to from_, _add to_ recipients and _time_, along with the fact code 11 was sent in response, such that the message hash can be faithfully computed with and without this batch of additional recipients as per [Verifying Message Stored](#verifying-message-stored). This is because either the original message or message with the just added recipients could be referred to by subsequent messages. 
-2. Otherwise, Host B responds with "ACCEPT or REJECT CODE" 64 (continue) and the message exchange continues.
-3. Host B performs some checks before continuing to download the remaining message being transmitted on Connection 1.
-    1. If the CHALLENGE, CHALLENGE-RESP exchange was completed, the message hash received in the CHALLENGE-RESP SHOULD be used to check if the message is already stored for **all** recipients on Host B per [Verifying Message Stored](#verifying-message-stored).
-        1. If the message is found to be already stored for all recipients on Host B, Host B MUST respond REJECT code 10 (duplicate) then close the connection completing the message exchange.
+2. If the CHALLENGE, CHALLENGE-RESP exchange was completed, the message hash received in the CHALLENGE-RESP SHOULD be used to check if the message is already stored for **all** recipients on Host B per [Verifying Message Stored](#verifying-message-stored).
+    1. If the message is found to be already stored for all recipients on Host B, Host B MUST respond REJECT code 10 (duplicate) then close the connection completing the message exchange.
+
+    _NOTE_ If only some recipients still had the message stored continuing the message exchange allows restoring the message to those without the message.
+3. Otherwise, Host B responds with "ACCEPT or REJECT CODE" 64 (continue) and the message exchange continues.
 4. If Host B responded earlier with "ACCEPT or REJECT CODE" 65 (skip data), Host B MUST NOT read any further data from Connection 1. Otherwise, Host B continues downloading the exact number of remaining bytes i.e. the sum of message _size_ plus any attachments _size_.
 5. If the CHALLENGE, CHALLENGE-RESP exchange was completed, the message hash received in the CHALLENGE-RESP MUST exactly match the computed message hash per [Computing Message Hash](#computing-message-hash); otherwise Host B MUST TERMINATE the message exchange.
 6. Host B transmits an "ACCEPT or REJECT RESPONSE" code to Host A for each individual recipient belonging to Host B.
@@ -558,7 +560,7 @@ Ultimately, whether to challenge or not is at the discretion of the receiving ho
     2. Host A MUST record the "ACCEPT or REJECT RESPONSE" code received per recipient for Host B's domain.
 7. Host A and Host B close Connection 1, completing the message exchange.
 
-_NOTE_ When recipients for Host B are added using the _add to_ functionality to a message Host B previously accepted, those previous recipients for Host B (that still have the message) would respond REJECT code 103 (user duplicate), or code 105 (user undisclosed). Implementations SHOULD keep the original accept response code 200 to more accuratly reflect that status of the delivery to that recipient. Implementation MAY choose record the additional response codes as well.
+_NOTE_ When recipients for Host B are added using the _add to_ functionality to a message Host B previously accepted, those previous recipients for Host B (that still have the message) would respond REJECT code 103 (user duplicate), or code 105 (user undisclosed). Implementations SHOULD keep the original accept response code 200 to more accuratly reflect that status of the delivery to that recipient. Implementations MAY choose to record the additional response code as well.
 
 #### 4. Sending a Message
 
