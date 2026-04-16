@@ -223,8 +223,8 @@ Host A delivers iff _from_ or _add to from_ belongs to Host A's domain. For each
 1. If _add to_ set and parent verified stored in step 7:
    - If any _add to_ recipient belongs to Host B's domain → respond 65 (skip data).
    - Otherwise → record add-to fields, respond 11 (accept add to), close.
-2. Otherwise → respond 64 (continue).
-3. If challenge was completed, use the message hash from the challenge response to check for duplicates across all recipients on Host B. If duplicate for all → respond code 10, close.
+2. If challenge was completed, use the message hash from the challenge response to check for duplicates across all recipients on Host B. If duplicate for all → respond code 10, close.
+3. Otherwise → respond 64 (continue).
 4. If code 65 was sent, skip to step 6 (data already stored). Otherwise download data + attachments (exactly declared sizes).
 5. If challenge was completed, verify computed message hash matches the challenge response hash. For code 65, compute from received header + stored data. Mismatch → TERMINATE.
 6. For each recipient on Host B's domain (in _to_ order, then _add to_ order), send one response byte:
