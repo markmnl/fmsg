@@ -46,8 +46,8 @@ POST /addr/sent
 
 ```json
 {
-    "address": "@mark@example.com",
-    "timestamp": 123.456,
+    "address": "@alice@example.com",
+    "timestamp": 1776482588.5446732,
     "size": 456
 }
 ```
