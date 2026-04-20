@@ -49,7 +49,7 @@ To be fair there are some self-hosted options such as Zulip, Rocket.Chat and Mat
    <picture>
       <source media="(prefers-color-scheme: dark)" srcset="flow-dark.png">
       <source media="(prefers-color-scheme: light)" srcset="flow-light.png">
-      <img alt="fmsg protocol flow diagram" src="../pics/flow-dark.png">
+      <img alt="fmsg protocol flow diagram" src="/markmnl/fmsg/pics/flow-dark.png">
    </picture>
 <p>
 
