@@ -3,7 +3,7 @@
 
 <div style="float: right; margin: 1em;">
    <picture>
-      <img alt="An fmsg address" src="https://github.com/markmnl/fmsg/blob/main/pics/address.png">
+      <img alt="An fmsg address" src="https://raw.githubusercontent.com/markmnl/fmsg/main/pics/address.png">
    </picture>
 </div>
 
@@ -77,7 +77,7 @@ To quote the spec:
 
 <p align="center">
    <picture>
-      <img alt="fmsg protocol flow diagram" src="https://github.com/markmnl/fmsg/blob/main/pics/flow-light.png">
+      <img alt="fmsg protocol flow diagram" src="https://raw.githubusercontent.com/markmnl/fmsg/main/pics/flow-light.png">
    </picture>
 </p>
 
