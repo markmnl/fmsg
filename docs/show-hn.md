@@ -36,7 +36,7 @@ _fmsg is just messages_, to receive a message someone has to send it you. Group 
 
 # How
 
-Those paying attention may be wondering if fmsg allows unsolicited messages (a feature not a bug), how is it going to deal with spam?! Spam will still be a problem but the protocol design has sender verification and message integrity built-in. So from the get go you get what you would get if you setup email with SPF, DKIM, DMARC – highlighting the complexity of productionizing email today. fmsg achieves this using a novel [automatic challenge](https://github.com/markmnl/fmsg/blob/docs/SPECIFICATION.md#2-the-automatic-challenge) back to the sender during sending after receiving the header and verifying that's acceptable first. Also the DAG that builds as threads grow can prove previous participation providing a signal to spam filtering..
+Those paying attention may be wondering if fmsg allows unsolicited messages (a feature not a bug), how is it going to deal with spam?! Spam will still be a problem but the protocol design has sender verification and message integrity built-in. So from the get go you get what you would get if you setup email with SPF, DKIM, DMARC – highlighting the complexity of productionizing email today. fmsg achieves this using a novel [automatic challenge](https://github.com/markmnl/fmsg/blob/main/SPECIFICATION.md#2-the-automatic-challenge) back to the sender during sending after receiving the header and verifying that's acceptable first. Also the DAG that builds as threads grow can prove previous participation providing a signal to spam filtering..
 
 ## Messages
 
