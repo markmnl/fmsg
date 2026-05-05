@@ -29,13 +29,14 @@ All fields are read sequentially. `[ ]` = conditionally present.
 | 9 | [topic] | uint8 length + UTF-8 | Present iff pid is NOT present. Length may be 0. |
 | 10 | type | uint8 + [US-ASCII string] | If flag bit 2 (common type) set: uint8 is a Common Media Type ID (see §4). Otherwise: uint8 is length of subsequent ASCII Media Type string. |
 | 11 | size | uint32 | Byte length of data on the wire (after compression, if zlib-deflate set). |
-| 12 | attachment headers | uint8 count + [headers] | Count may be 0. Each header: see §5. |
-| 13 | data | bytes | Exactly _size_ bytes. |
-| 14 | [attachments data] | bytes | Concatenated attachment payloads, sizes defined by headers. |
+| 12 | [expanded size] | uint32 | Decompressed byte length. Present iff zlib-deflate set. |
+| 13 | attachment headers | uint8 count + [headers] | Count may be 0. Each header: see §5. |
+| 14 | data | bytes | Exactly _size_ bytes. |
+| 15 | [attachments data] | bytes | Concatenated attachment payloads, sizes defined by headers. |
 
-**Message header** = fields 1–12. **Message header hash** = SHA-256(message header). **Message hash** = SHA-256(entire message, fields 1–14).
+**Message header** = fields 1–13. **Message header hash** = SHA-256(message header). **Message hash** = SHA-256(entire message, fields 1–15).
 
-The hash MUST be computed over the full message bytes: message header fields exactly as transmitted, followed by message data and any attachments data. When the zlib-deflate flag is set for message data or an attachment's data, that data MUST be decompressed prior to inclusion in the hash computation.
+The hash MUST be computed over the full message bytes: message header fields exactly as transmitted, followed by message data and any attachments data. When the zlib-deflate flag is set for message data or an attachment's data, that data MUST be decompressed prior to inclusion in the hash computation and MUST exactly match the corresponding _expanded size_; mismatch means invalid → TERMINATE.
 
 **Sender** = _from_ when _has add to_ not set; _add to from_ when set.
 
@@ -50,7 +51,7 @@ The hash MUST be computed over the full message bytes: message header fields exa
 | 2 | common type | type field is a 1-byte Common Media Type ID instead of length-prefixed string. |
 | 3 | important | Sender flags message as important. |
 | 4 | no reply | Sender will discard any reply. |
-| 5 | zlib-deflate | Message data compressed with zlib/deflate (RFC 1950/1951). |
+| 5 | zlib-deflate | Message data compressed with zlib/deflate (RFC 1950/1951); _expanded size_ field present. |
 | 6–7 | reserved | Must be 0. |
 
 ## 4. Common Media Types
@@ -104,6 +105,7 @@ Each attachment header, in order:
 | type | uint8 + [ASCII string] | Same encoding rule as message type, using this attachment's own common type flag. |
 | filename | uint8 length + UTF-8 | < 256 bytes. Unicode letters/numbers, plus `-` `_` ` ` `.` non-consecutively, not at start/end. Unique per message (case-insensitive). |
 | size | uint32 | Byte length of this attachment's data on the wire (after compression, if zlib-deflate set). |
+| [expanded size] | uint32 | Decompressed byte length. Present iff this attachment's zlib-deflate flag set. |
 
 Attachment data payloads follow all headers, concatenated in order.
 
@@ -129,7 +131,7 @@ Single-value codes (sent as first/only byte):
 | 1 | invalid | Message header fails validation. |
 | 2 | unsupported version | Version not supported. |
 | 3 | undisclosed | No reason given. |
-| 4 | too big | Exceeds MAX_SIZE. |
+| 4 | too big | Exceeds MAX_SIZE or MAX_EXPANDED_SIZE. |
 | 5 | insufficient resources | e.g. disk full. |
 | 6 | parent not found | pid references unknown message. |
 | 7 | too old | Timestamp too far in past. |
@@ -167,7 +169,8 @@ One message per connection. Two TCP connections used: Connection 1 (message tran
 
 | Variable | Description |
 |----------|-------------|
-| MAX_SIZE | Max total bytes of data + attachment data. |
+| MAX_SIZE | Max total bytes of data + attachment data on the wire. |
+| MAX_EXPANDED_SIZE | Max total bytes after decompression; SHOULD normally equal MAX_SIZE. |
 | MAX_MESSAGE_AGE | Max seconds a message time may be in the past. |
 | MAX_TIME_SKEW | Max seconds a message time may be in the future. |
 
@@ -200,8 +203,9 @@ Host A delivers iff _from_ or _add to from_ belongs to Host A's domain. For each
    - If _has add to_: _add to from_ exists and is in _from_ or _to_; _add to_ has ≥ 1 distinct address.
    - ≥ 1 recipient in _to_ or _add to_ belongs to Host B's domain.
    - Common type IDs (message and attachment) are mapped.
+   - _expanded size_ fields are present iff the corresponding zlib-deflate flag is set.
 4. DNS-verify sender IP: resolve `fmsg.<sender domain>`, check Connection 1 source IP is in result set. Fail → TERMINATE.
-5. If _size_ + attachment sizes > MAX_SIZE → respond code 4, close.
+5. If _size_ + attachment sizes > MAX_SIZE, or total expanded size > MAX_EXPANDED_SIZE → respond code 4, close. Total expanded size uses _expanded size_ for compressed parts and _size_ for uncompressed parts.
 6. Compute DELTA = now − _time_:
    - DELTA > MAX_MESSAGE_AGE → respond code 7, close.
    - DELTA < −MAX_TIME_SKEW → respond code 8, close.
@@ -225,7 +229,7 @@ Host A delivers iff _from_ or _add to from_ belongs to Host A's domain. For each
    - Otherwise → record add-to fields, respond 11 (accept add to), close.
 2. If challenge was completed, use the message hash from the challenge response to check for duplicates across all recipients on Host B. If duplicate for all → respond code 10, close.
 3. Otherwise → respond 64 (continue).
-4. If code 65 was sent, skip to step 6 (data already stored). Otherwise download data + attachments (exactly declared sizes).
+4. If code 65 was sent, skip to step 6 (data already stored). Otherwise download data + attachments (exactly declared on-wire sizes). For each zlib-deflate part, decompress and verify output byte length exactly equals _expanded size_; failure or mismatch means invalid → TERMINATE.
 5. If challenge was completed, verify computed message hash matches the challenge response hash. For code 65, compute from received header + stored data. Mismatch → TERMINATE.
 6. For each recipient on Host B's domain (in _to_ order, then _add to_ order), send one response byte:
    - Already received → 103 (or 105).
@@ -277,7 +281,8 @@ An add-to message is a duplicate of the original message with these differences:
 
 ## 13. Security Requirements
 
-- Enforce MAX_SIZE before downloading data.
+- Enforce MAX_SIZE and MAX_EXPANDED_SIZE before downloading data.
+- For zlib-deflate parts, bound decompression and require output length to exactly match _expanded size_; mismatch means invalid → TERMINATE.
 - Enforce per-connection and per-IP rate limits.
 - Apply idle/slow-connection timeouts.
 - Verify sender IP via DNS BEFORE issuing any challenge.
