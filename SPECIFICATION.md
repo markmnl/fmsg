@@ -8,6 +8,7 @@
 | v0.2.0  | 2026-04-13 | Mark Mennell | DNS subdomain changed to `fmsg.<domain>`  |
 | v0.3.0  | 2026-04-15 | Mark Mennell | Receiver's protocol steps, non-reject codes sent only after optional challenge  |
 | v0.3.1  | 2026-04-16 | Mark Mennell | Duplicate detection before continue response  |
+| v0.3.2  | 2026-05-05 | Mark Mennell | Expanded size on message and attachments data  |
 
 ## Contents
 
