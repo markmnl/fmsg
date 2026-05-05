@@ -181,6 +181,7 @@ On the wire messages are encoded thus:
 | [topic]             | uint8 + UTF-8 string                 | UTF-8 free text title of the first message in a thread. Only present if _pid_ is not set. Prefixed by uint8 size which may be 0.                                |
 | type                | uint8 + [US-ASCII string]            | Either a common type, see [Common Media Types](#common-media-types), or a US-ASCII encoded Media Type: RFC 6838.                                                |
 | size                | uint32                               | Size of data in bytes, 0 or greater. Data may be compressed if _zlib-deflate_ header bit is set, _size_ is number of bytes in message transmitted over the wire i.e. after any compression applied. |
+| [expanded size]     | uint32                               | Size of data in bytes after decompression. Present if and only if the _zlib-deflate_ flag bit is set.                                                           |
 | attachment headers  | uint8 + [list of attachment headers] | See [attachment](#attachment) header definition. Prefixed by uint8 count of attachments of which there may be 0.                                                |
 | data                | byte array                           | The message body of type defined in type field and size in the size field                                                                                       |
 | [attachments data]  | byte array(s)                        | Sequential sequence of octet boundaries of which are defined by attachment headers size(s), if any.                                                             |
@@ -305,7 +306,7 @@ For reference the current IANA list of Media Types is located [here](https://www
 
 ### Attachment
 
-Each attachment header consists of four fields: flags, type, filename and size:
+Each attachment header consists of flags, type, filename, size, and conditional expanded size fields:
 
 | name     | type                   | comment                                                                                            |
 |----------|------------------------|----------------------------------------------------------------------------------------------------|
@@ -313,6 +314,7 @@ Each attachment header consists of four fields: flags, type, filename and size:
 | type     | uint8 + [ASCII string] | Either a common type, see [Common Media Types](#common-media-types), or a US-ASCII encoded Media Type: RFC 6838. Encoding determined by this attachment's own _common type_ flag. |
 | filename | string                 | UTF-8 prefixed by uint8 size.                                                                      |
 | size     | uint32                 | Size of attachment data in bytes, after compression applied if corresponding zlib-deflate attachment flag is set. uint32 is the max theoretical size, but hosts can/should accept less.     |
+| [expanded size] | uint32            | Size of attachment data in bytes after decompression. Present if and only if this attachment's _zlib-deflate_ flag bit is set. |
 
 #### Attachment Flags
 
@@ -334,7 +336,7 @@ Attachment data
 
 | name     | type       | comment                                                                                            |
 |----------|------------|----------------------------------------------------------------------------------------------------|
-| data     | byte array | Sequence of octets located after all attachment headers, boundaries of each attachment are defined by corresponding size in attachment header(s) |
+| data     | byte array | Sequence of octets located after all attachment headers, boundaries of each attachment are defined by corresponding on-wire size in attachment header(s) |
 
 
 ### Address
@@ -397,7 +399,7 @@ Other codes 100 and above are per recipient in the same order as recipients for 
 | 1    | invalid               | the message header fails verification checks, i.e. not in spec          |
 | 2    | unsupported version   | the version is not supported by the receiving host                      |
 | 3    | undisclosed           | no reason is given                                                      |
-| 4    | too big               | total size exceeds host's maximum permitted size of messages            |
+| 4    | too big               | total size or expanded size exceeds host's maximum permitted size of messages |
 | 5    | insufficient resources | such as disk space to store the message                                |
 | 6    | parent not found      | parent referenced by pid SHA-256 not found and is required              |
 | 7    | too old               | timestamp is too far in the past for this host to accept                |
@@ -445,7 +447,8 @@ The following variables corresponding to host defined configuration are used in 
 
 | Variable           | Example Value | Description                        |
 |--------------------|--------------|-------------------------------------|
-| MAX_SIZE           | 1048576      | Maximum allowed message data and attachment data size in bytes       |
+| MAX_SIZE           | 1048576      | Maximum allowed message data and attachment data size in bytes as transmitted over the wire       |
+| MAX_EXPANDED_SIZE  | 1048576      | Maximum allowed message data and attachment data size in bytes after decompression. Implementations SHOULD normally set this to MAX_SIZE       |
 | MAX_MESSAGE_AGE    | 700000       | Maximum age since message _time_ field for message to be accepted (seconds)      |
 | MAX_TIME_SKEW      | 20           | Maximum tolerance for message _time_ field to be ahead of current time (seconds)   |
 
@@ -474,14 +477,17 @@ The following variables corresponding to host defined configuration are used in 
         4. There must be at least one recipient in _to_ or _add to_ for Host B (example.edu domain).
         5. _type_ number when _common type_ [Flag](#flags) is set, exists in [Common Media Type](#common-media-types) mapping.
         6. Each attachment _type_ number, when that attachment's _common type_ flag is set, exists in [Common Media Type](#common-media-types) mapping.
+        7. The message _expanded size_ field MUST exist if and only if the message _zlib-deflate_ flag bit is set.
+        8. Each attachment _expanded size_ field MUST exist if and only if that attachment's _zlib-deflate_ flag bit is set.
     2. Receiving Host B MUST perform a DNS lookup on the fmsg subdomain of the senders domain to verify that the IP address of the incoming connection is in those authorised by the sending domain. If the incoming IP address is not in the authorised set, Host B MUST TERMINATE the message exchange. See [Domain Resolution](#domain-resolution) for more.
         * If the _has add to_ flag bit set the sender's domain is the domain part of the _add to from_ address.
         * Otherwise, the sender's domain is the domain part of the _from_ address.
     3. If _size_ plus all _attachment size_ is greater than MAX_SIZE, Host B MUST respond REJECT code 4 (too big) then close the connection completing the message exchange.
-    4. Current POSIX epoch time minus message _time_ gives DELTA — representing seconds since message sent (to senders host for sending on).
+    4. If the total expanded size is greater than MAX_EXPANDED_SIZE, Host B MUST respond REJECT code 4 (too big) then close the connection completing the message exchange. The total expanded size is the message _expanded size_ when present, otherwise message _size_, plus each attachment's _expanded size_ when present, otherwise that attachment's _size_.
+    5. Current POSIX epoch time minus message _time_ gives DELTA — representing seconds since message sent (to senders host for sending on).
         1. If DELTA is greater than MAX_MESSAGE_AGE, Host B MUST respond REJECT code 7 (too old) then close the connection completing the message exchange.
         2. If DELTA is negative and absolute DELTA is greater than MAX_TIME_SKEW, Host B MUST respond REJECT code 8 (future time) then close the connection completing the message exchange.
-    5. The _pid_ field requirements depends on whether this message includes additional recipients determined by the _has add to_ flag.
+    6. The _pid_ field requirements depends on whether this message includes additional recipients determined by the _has add to_ flag.
         1. If neither _pid_ nor _add to_ exist, the message is the first in a thread, continue.
         2. If _pid_ exists and _add to_ does not.
             1. The message _pid_ refers to MUST be verified to be stored already on Host B per [Verifying Message Stored](#verifying-message-stored); otherwise Host B MUST respond with REJECT code 6 (parent not found) completing the message exchange.
@@ -533,7 +539,7 @@ Ultimately, whether to challenge or not is at the discretion of the receiving ho
 
 #### 3. Continue, Per-Recipient Response and Disposition
 
-1. Iff _add to_ exists and message was verified to be stored in step 1.4.5.3.2 above:
+1. Iff _add to_ exists and message was verified to be stored in step 1.4.6.3.2 above:
     1. If any of the _add to_ recipients are for Host B:
         1. Host B MUST respond with "ACCEPT or REJECT CODE" 65 (skip data) and message exchange continues.
         
@@ -547,7 +553,7 @@ Ultimately, whether to challenge or not is at the discretion of the receiving ho
 
     _NOTE_ If only some recipients still had the message stored continuing the message exchange allows restoring the message to those without the message.
 3. Otherwise, Host B responds with "ACCEPT or REJECT CODE" 64 (continue) and the message exchange continues.
-4. If Host B responded earlier with "ACCEPT or REJECT CODE" 65 (skip data), Host B MUST NOT read any further data from Connection 1. Otherwise, Host B continues downloading the exact number of remaining bytes i.e. the sum of message _size_ plus any attachments _size_.
+4. If Host B responded earlier with "ACCEPT or REJECT CODE" 65 (skip data), Host B MUST NOT read any further data from Connection 1. Otherwise, Host B continues downloading the exact number of remaining bytes i.e. the sum of message _size_ plus any attachments _size_. For each message or attachment data part with the corresponding _zlib-deflate_ flag bit set, Host B MUST decompress the part and the decompressed byte count MUST exactly match that part's _expanded size_. If decompression fails, produces more bytes than _expanded size_, produces fewer bytes than _expanded size_, or otherwise does not exactly match _expanded size_, the message is invalid and Host B MUST TERMINATE the message exchange.
 5. If the CHALLENGE, CHALLENGE-RESP exchange was completed, the message hash received in the CHALLENGE-RESP MUST exactly match the computed message hash per [Computing Message Hash](#computing-message-hash); otherwise Host B MUST TERMINATE the message exchange.
 6. Host B transmits an "ACCEPT or REJECT RESPONSE" code to Host A for each individual recipient belonging to Host B.
     1. Host B iterates through each address for its domain (example.edu) in the order they appear in _to_ then in _add to_ (if any). Note for any REJECT code specific to a user, 105 (user undisclosed) MAY be used instead — so Host B does not have to disclose the reason message was not accepted for that address. For each recipient:
@@ -573,7 +579,7 @@ A Sending Host (Host A) delivers a message if and only if _from_ or _add to from
     4. Host A SHOULD continue retrying delivery until a maximum delivery window has elapsed, after which the message MAY be considered undeliverable for the affected recipients. Implementations MAY provide a mechanism for clients or operators to manually trigger or influence retry behaviour.
 3. Before transmitting, Host A MUST register the _message hash_ computed per [Computing Message Hash](#computing-message-hash) of the outgoing message, and the IP address being used for Host B, both keyed on the _message header_ hash. So that incoming [CHALLENGE](#challenge) requests on Connection 2 can be matched to this message per [Handling a Challenge](#handling-a-challenge).
 4. Host A transmits the message header to Host B on Connection 1, encoding all fields in the order defined in [Message](#message):
-    1. _version_, _flags_, [_pid_], _from_, _to_, [_add to from_], [_add to_], _time_, [_topic_], _type_, _size_ and _attachment headers_.
+    1. _version_, _flags_, [_pid_], _from_, _to_, [_add to from_], [_add to_], _time_, [_topic_], _type_, _size_, [_expanded size_] and _attachment headers_.
 5. Host A waits for Host B's response. During this time Host B may open Connection 2 to issue a CHALLENGE which Host A MUST handle per [Handling a Challenge](#handling-a-challenge).
 6. Host A reads the first byte from Host B on Connection 1 which represents a "REJECT or ACCEPT RESPONSE" code.
     1. If code is 1 through 10, the message being sent has been rejected for all recipients belonging to Host B. Host A MUST record the response then close Connection 1 completing the message exchange.
@@ -609,7 +615,7 @@ _NOTE_ A Sending Host MUST maintain a record of outgoing messages keyed by messa
 
 ### Computing Message Hash
 
-The hash MUST be computed over the full message bytes, comprising the message header fields exactly as transmitted, followed by the message data and any attachments data. When the corresponding zlib-deflate flag is set for message data or each attachment's data, the data MUST be decompressed prior to inclusion in the hash computation.
+The hash MUST be computed over the full message bytes, comprising the message header fields exactly as transmitted, followed by the message data and any attachments data. When the corresponding zlib-deflate flag is set for message data or each attachment's data, the data MUST be decompressed prior to inclusion in the hash computation. The decompressed byte count for each zlib-deflate part MUST exactly match the corresponding _expanded size_ field before the computed hash can be considered valid; otherwise the message is invalid and the message exchange MUST be TERMINATED.
 
 
 ### Verifying Message Stored
@@ -657,7 +663,8 @@ An attacker can open many TCP connections to a host without sending valid messag
 A sender may begin transmitting a message header declaring a small size then either send data indefinitely, or send data extremely slowly ("slowloris" style), tying up resources.
 
 **Safeguards:**
-* Hosts MUST enforce the declared _size_ plus _attachment sizes_ and MUST NOT read beyond the expected total. MAX_SIZE provides an upper bound that should be checked before downloading any data.
+* Hosts MUST enforce the declared _size_ plus _attachment sizes_ and MUST NOT read beyond the expected total. MAX_SIZE provides an upper bound on transmitted data that should be checked before downloading any data.
+* Hosts MUST enforce MAX_EXPANDED_SIZE before downloading any data by summing each uncompressed part's _size_ and each compressed part's _expanded size_. For zlib-deflate parts, hosts MUST bound decompression output and terminate the message exchange if the decompressed byte count does not exactly match _expanded size_. Implementations SHOULD NOT buffer unbounded decompressed data solely to validate size or compute hashes.
 * Hosts SHOULD enforce minimum data-rate thresholds. A connection where the transfer rate drops below a configurable floor for a sustained period SHOULD be terminated.
 
 ### Challenge Reflection and Amplification
@@ -698,8 +705,8 @@ An attacker could craft messages addressed to many candidate recipient names to 
 An attacker could send a high volume of valid messages or very large messages to fill storage on the receiving host, preventing legitimate messages from being accepted.
 
 **Safeguards:**
-* Operators SHOULD configure MAX_SIZE to a value appropriate for their deployment.
-* Implementations SHOULD support per-user quotas on message count and total storage including over periods, e.g. daily. When quotas are exceeded the host responds REJECT code 101 (user full).
+* Operators SHOULD configure MAX_SIZE and MAX_EXPANDED_SIZE to values appropriate for their deployment. MAX_EXPANDED_SIZE SHOULD normally be set to MAX_SIZE.
+* Implementations SHOULD support per-user quotas on message count and total storage including over periods, e.g. daily. For compressed data, quotas SHOULD account for decompressed size. When quotas are exceeded the host responds REJECT code 101 (user full).
 * Implementations SHOULD support global storage thresholds. When critically low the host responds REJECT code 5 (insufficient resources) to all incoming messages.
 
 ### Monitoring and Logging
