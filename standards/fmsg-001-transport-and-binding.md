@@ -10,11 +10,10 @@ fmsg TCP+TLS MUST use TCP port 4930 for both outgoing and incoming connections. 
 
 ## TLS Requirements
 
-All connections MUST use TLS. Plain TCP is forbidden. Implementations MUST reject TLS versions below 1.2 and SHOULD prefer the highest mutually supported version.
+All connections MUST use TLS 1.3 or higher. Plain TCP is forbidden. Implementations MUST reject TLS versions below 1.3 and SHOULD prefer the highest mutually supported version.
 
 Implementations MUST support at minimum:
 - TLS 1.3: `TLS_AES_128_GCM_SHA256`
-- TLS 1.2: `TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256`
 
 TLS compression MUST NOT be used.
 
