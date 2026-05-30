@@ -9,6 +9,7 @@
 | v0.3.0  | 2026-04-15 | Mark Mennell | Receiver's protocol steps, non-reject codes sent only after optional challenge  |
 | v0.3.1  | 2026-04-16 | Mark Mennell | Duplicate detection before continue response  |
 | v0.3.2  | 2026-05-05 | Mark Mennell | Expanded size on message and attachments data  |
+| v0.4.0  | 2026-05-30 | Mark Mennell & Claude Opus 4.8 | Notify original sender (_from_) of added recipients via _add to_; an _add to_ message's _pid_ MUST reference a message without _add to_ fields  |
 
 ## Contents
 
@@ -199,10 +200,12 @@ On the wire messages are encoded thus:
 
 Adding recipients is achieved by sending a whole new distinct message, that is an exact duplicate of the message to which recipients are being added, except:
 * The _has add to_ flag bit is set
-* _pid_ references the message which recipients are being added to.
+* _pid_ references the message which recipients are being added to. That message MUST NOT itself have _add to_ fields (its _has add to_ flag MUST NOT be set) — recipients are added to a message's original form, never to a previous _add to_ of it. The referenced message MAY be the first in a thread or a reply.
 * _add to from_ exists and is the address of the participant in the previous message adding the additional recipients, i.e. the sender.
 * _add to_ exists and is addresses of the new recipients being added.
 * _time_ is the POSIX epoch time of this new message with added recipients was ready for sending.
+
+In addition to delivery to the new and existing recipient hosts, the add-to message is also delivered to the original sender's host — i.e. the host of the _from_ address — so the original sender is notified that recipients were added, even though _from_ is not a [recipient](#terms). Having originated the message, that host already holds it and so records the new fields and responds ACCEPT code 11 (accept add to) exactly as any other existing participant host does. See [Sending a Message](#4-sending-a-message). (When the _from_ address shares a domain with the _add to from_ sender, no extra delivery is required because the sending host is already the original sender's host.)
 
 
 ### Notes on Time
@@ -407,7 +410,7 @@ Other codes 100 and above are per recipient in the same order as recipients for 
 | 8    | future time           | timestamp is too far in the future for this host to accept              |
 | 9    | time travel           | timestamp is before parent timestamp                                    |
 | 10   | duplicate             | message has already been received for all recipients on this host       |
-| 11   | accept add to         | additional recipients received, discontinue                             |
+| 11   | accept add to         | additional recipients received (also used to notify the original sender), discontinue |
 |      |                       |                                                                         |
 | 64   | continue              | header received, continue message transmission                          |
 | 65   | skip data             | header received, skip sending message and attachment data               |
@@ -424,7 +427,7 @@ Other codes 100 and above are per recipient in the same order as recipients for 
 
 ## Protocol
 
-A message is sent from the sender's host to each unique recipient host (i.e. each domain only once even if multiple recipients at the same domain). Sending a message either succeeds or fails per recipient of the host for the domain being sent to. During the sending from one host to another several steps are performed depicted in the below diagram. Two connection-orientated, reliable, in-order and duplex transports are required to perform the full flow. Transmission Control Protocol (TCP) is an obvious choice, on top of which Transport Layer Security (TLS) may meet your encryption needs. This specification is independent of transport mechanisms which are instead defined as standards such as: [FMSG-001 TCP+TLS Transport and Binding Standard](https://github.com/markmnl/fmsg/blob/main/standards/fmsg-001-transport-and-binding.md).
+A message is sent from the sender's host to each unique recipient host (i.e. each domain only once even if multiple recipients at the same domain). Sending a message either succeeds or fails per recipient of the host for the domain being sent to. When the _has add to_ flag is set the message is additionally sent to the original sender's host — the host of the _from_ address — to notify the original sender that recipients were added; effectively the message is sent to each unique [participant](#terms) host. Domains are deduplicated, so the original sender's host receives the message only once and only if its domain is not already covered as a recipient domain or as the sending (_add to from_) domain. During the sending from one host to another several steps are performed depicted in the below diagram. Two connection-orientated, reliable, in-order and duplex transports are required to perform the full flow. Transmission Control Protocol (TCP) is an obvious choice, on top of which Transport Layer Security (TLS) may meet your encryption needs. This specification is independent of transport mechanisms which are instead defined as standards such as: [FMSG-001 TCP+TLS Transport and Binding Standard](https://github.com/markmnl/fmsg/blob/main/standards/fmsg-001-transport-and-binding.md).
 
 <p align="center">
 <picture>
@@ -475,7 +478,7 @@ The following variables corresponding to host defined configuration are used in 
 
             _NOTE I_ _add to_ requires _add to from_ to be a participant of the original message, so recipients only in _add to_ cannot add recipients.
             _NOTE II_ _add to_ recipients could possibly overlap with those in _to_. This allows original recipients in _to_ who may no longer have their message to be added causing the message to be sent to them again this time as an additional recipient. The protocol also allows re-sending any message without necessarily using _add to_ but that does require recipients to have the thread of messages referenced by following _pid_ prior.
-        4. There must be at least one recipient in _to_ or _add to_ for Host B (example.edu domain).
+        4. There must be at least one recipient in _to_ or _add to_ for Host B (example.edu domain); OR, when the _has add to_ flag bit is set, Host B is the domain of the original sender (the _from_ address) being notified of the added recipients. The latter case allows the add-to message to be accepted by the original sender's host purely for notification even though _from_ is not a recipient.
         5. _type_ number when _common type_ [Flag](#flags) is set, exists in [Common Media Type](#common-media-types) mapping.
         6. Each attachment _type_ number, when that attachment's _common type_ flag is set, exists in [Common Media Type](#common-media-types) mapping.
         7. The message _expanded size_ field MUST exist if and only if the message _zlib-deflate_ flag bit is set.
@@ -496,12 +499,17 @@ The following variables corresponding to host defined configuration are used in 
             3. _from_ MUST have been a participant in the stored message referred to by _pid_; otherwise Host B MUST respond with REJECT code 1 (invalid) completing the message exchange.
             
             _NOTE_ Verifying Message Stored checks the host has the parent message, not that every recipient still has it in their message store. Implementations MAY consider restoring the parent message to a recipient's message store if that _recipient_ no longer has the message, so that the incoming reply has proper thread context for all recipients.
+
+            _NOTE_ A reply (this branch — _pid_ set, _add to_ not set) MAY reference a message that has _add to_ fields, so recipients added to a thread via _add to_ can themselves reply. This is deliberately unlike an _add to_ message, whose _pid_ MUST reference a message without _add to_ fields (see the _add to_ branch below).
         3. Else _add to_ exists;
             1. _pid_ field MUST exist too, otherwise Host B MUST respond REJECT code 1 (invalid) and close the connection completing the message exchange.
             2. [Verifying Message Stored](#verifying-message-stored) is performed for message referred to by _pid_;
             3. If original message referred to by _pid_ is verified to be stored AND;
-                1. The stored message for _pid_'s _time_ minus MAX_TIME_SKEW MUST be before _time_ on the incoming message header; otherwise Host B MUST respond with REJECT code 9 (time travel).
+                1. The message referred to by _pid_ MUST NOT itself have _add to_ fields (e.g. a message Host B accepted with code 11, or itself originated, that carries _add to_ fields); recipients may only be added to the original (non-_add to_) form of a message. Otherwise Host B MUST respond with REJECT code 1 (invalid). (A reply MAY reference an _add to_ message; an _add to_ MUST NOT.)
+                2. The stored message for _pid_'s _time_ minus MAX_TIME_SKEW MUST be before _time_ on the incoming message header; otherwise Host B MUST respond with REJECT code 9 (time travel).
             4. Otherwise (original message has not been found, possible because Host B was never a participant of the message, or the message referenced by _pid_ is no longer held);
+
+                _NOTE_ When Host B is the original sender's host being notified (i.e. Host B is the domain of _from_ and has no _to_ or _add to_ recipient of its own), it originated the message referenced by _pid_ and therefore verifies it as stored per [Verifying Message Stored](#verifying-message-stored) — proceeding to the code 11 response in step 3. If that host no longer holds the parent, it MUST respond REJECT code 6 (parent not found): the notification cannot be threaded and there is no recipient data to deliver.
 
 
 #### 2. The Automatic Challenge
@@ -548,7 +556,7 @@ Ultimately, whether to challenge or not is at the discretion of the receiving ho
     2. Otherwise none of the recipients were found to be for Host B;
         1. Host B MUST then respond with ACCEPT code 11 (accept add to) then close the connection completing the message exchange.
 
-        _NOTE_ At this stage Host B has been informed additional recipients have been added to a message it has previously accepted. Host B MUST record these new fields: _add to from_, _add to_ recipients and _time_, along with the fact code 11 was sent in response, such that the message hash can be faithfully computed with and without this batch of additional recipients as per [Verifying Message Stored](#verifying-message-stored). This is because either the original message or message with the just added recipients could be referred to by subsequent messages. 
+        _NOTE_ At this stage Host B has been informed additional recipients have been added to a message it has previously accepted, or that it originated (the original sender's host being notified). Host B MUST record these new fields: _add to from_, _add to_ recipients and _time_, along with the fact code 11 was sent in response, such that the message hash can be faithfully computed with and without this batch of additional recipients as per [Verifying Message Stored](#verifying-message-stored). This is because either the original message or message with the just added recipients could be referred to by subsequent messages. This same branch notifies the original sender: when Host B is the _from_ host with no _to_ or _add to_ recipient of its own, none of the recipients are for Host B, so it responds code 11 and records the added recipients. 
 2. If the CHALLENGE, CHALLENGE-RESP exchange was completed, the message hash received in the CHALLENGE-RESP SHOULD be used to check if the message is already stored for **all** recipients on Host B per [Verifying Message Stored](#verifying-message-stored).
     1. If the message is found to be already stored for all recipients on Host B, Host B MUST respond REJECT code 10 (duplicate) then close the connection completing the message exchange.
 
@@ -571,7 +579,7 @@ _NOTE_ When recipients for Host B are added using the _add to_ functionality to 
 
 #### 4. Sending a Message
 
-A Sending Host (Host A) delivers a message if and only if _from_ or _add to from_ belongs to Host A's domain. The message is sent to each unique recipient domain exactly once, regardless of how many recipients share that domain. This section describes the steps Host A performs for each recipient domain. If multiple recipient domains exist, Host A performs these steps independently for each domain without regard to the others.
+A Sending Host (Host A) delivers a message if and only if _from_ or _add to from_ belongs to Host A's domain. The message is sent to each unique recipient domain exactly once, regardless of how many recipients share that domain. When the _has add to_ flag bit is set, Host A MUST additionally send the message to the domain of the original sender (the _from_ address) to notify the original sender of the added recipients, deduplicated by domain — that is, only when the _from_ domain is not already a recipient domain and is not the sending (_add to from_) domain. This section describes the steps Host A performs for each such domain. If multiple domains exist, Host A performs these steps independently for each domain without regard to the others; an unreachable original-sender domain therefore never blocks delivery to the new recipients. For the original sender's domain Host A expects ACCEPT code 11 (accept add to) in response — or REJECT code 6 (parent not found) if that host no longer holds the parent — which it records like any other per-domain response.
 
 2. Host A resolves the authorised IP addresses via [Domain Resolution](#domain-resolution) for Host B.
     1. Host A initiates a connection (Connection 1) to the first authorised IP address for the Receiving Host (Host B).
@@ -622,8 +630,10 @@ The hash MUST be computed over the full message bytes, comprising the message he
 ### Verifying Message Stored
 
 A host verifies that a message is stored given a SHA-256 digest if:
-* The provided digest exactly matches the SHA-256 digest computed per [Computing Message Hash](#computing-message-hash) of a message that was previously accepted, i.e. for which the host responded with "REJECT or ACCEPT CODE" 200 (accept) to at least one recipient, OR "REJECT or ACCEPT CODE" 11 (accept add to).
+* The provided digest exactly matches the SHA-256 digest computed per [Computing Message Hash](#computing-message-hash) of a message that was previously accepted, i.e. for which the host responded with "REJECT or ACCEPT CODE" 200 (accept) to at least one recipient, OR "REJECT or ACCEPT CODE" 11 (accept add to), OR which the host itself originated (sent on behalf of one of its own addresses in _from_ or _add to from_).
 * The corresponding message currently exists on the host and can be retrieved.
+
+_NOTE_ The originating clause is what lets the original sender's host satisfy this check when it receives an _add to_ message notifying it of added recipients (see [Sending a Message](#4-sending-a-message)); the host originated the message referred to by _pid_ and still holds it, so it can record the added recipients and respond ACCEPT code 11.
 
 _NOTE I_ When a host accepted with "REJECT or ACCEPT CODE" 11 (accept add to), computing the hash requires constructing a message by combining the message header accepted (that has the add to fields) with the message and attachment data from the parent message referred to by _pid_.
 _NOTE II_ Multiple messages with _add to_ may arrive for the same _pid_ over time, each carrying a different batch of additional recipients. Only the specific batch of _add to_ recipients, i.e. the message that was accepted, can be used for comparison.

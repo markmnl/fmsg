@@ -176,7 +176,7 @@ One message per connection. Two TCP connections used: Connection 1 (message tran
 
 ### 10.2 Sending (Host A perspective)
 
-Host A delivers iff _from_ or _add to from_ belongs to Host A's domain. For each unique recipient domain:
+Host A delivers iff _from_ or _add to from_ belongs to Host A's domain. The message is sent to each unique recipient domain; when _has add to_ is set it is ALSO sent to the original sender's domain (the domain of _from_), deduplicated — i.e. only when that domain is not already a recipient domain and not the sending (_add to from_) domain — so the original sender is notified of the added recipients. For each such unique domain:
 
 1. Resolve recipient domain IPs via ``fmsg.<domain>``. Connect to first responsive IP (Connection 1). Retry with backoff if unreachable.
 2. Register the message header hash and Host B's IP in an outgoing record (for matching challenges).
@@ -201,7 +201,7 @@ Host A delivers iff _from_ or _add to from_ belongs to Host A's domain. For each
 3. Validate (all must pass, else respond code 1 invalid and close):
    - _to_ has ≥ 1 distinct address.
    - If _has add to_: _add to from_ exists and is in _from_ or _to_; _add to_ has ≥ 1 distinct address.
-   - ≥ 1 recipient in _to_ or _add to_ belongs to Host B's domain.
+   - ≥ 1 recipient in _to_ or _add to_ belongs to Host B's domain; OR, when _has add to_ is set, Host B is the original sender's domain (the domain of _from_) being notified — the add-to may be accepted for notification even with no local recipient.
    - Common type IDs (message and attachment) are mapped.
    - _expanded size_ fields are present iff the corresponding zlib-deflate flag is set.
 4. DNS-verify sender IP: resolve `fmsg.<sender domain>`, check Connection 1 source IP is in result set. Fail → TERMINATE.
@@ -215,10 +215,11 @@ Host A delivers iff _from_ or _add to from_ belongs to Host A's domain. For each
      - Verify parent stored (§11). Not found → respond code 6, close.
      - Parent time − MAX_TIME_SKEW must be before incoming time. Fail → respond code 9, close.
      - _from_ must be a participant of the parent. Fail → respond code 1, close.
+     - The parent MAY itself be an _add to_ message, so recipients added via _add to_ can reply.
    - **add-to set** (adding recipients):
      - pid MUST also be set. Fail → respond code 1, close.
      - Check if parent stored (§11):
-       - **Stored**: check time travel (code 9 if fail).
+       - **Stored**: parent MUST NOT itself have _add to_ fields (e.g. not a code-11 or originated _add to_ variant) → code 1 if it does; then check time travel (code 9 if fail).
        - **Not stored**: treat as full message delivery.
 8. Optionally issue a CHALLENGE on Connection 2 (see §10.5).
 
@@ -226,7 +227,7 @@ Host A delivers iff _from_ or _add to from_ belongs to Host A's domain. For each
 
 1. If _add to_ set and parent verified stored in step 7:
    - If any _add to_ recipient belongs to Host B's domain → respond 65 (skip data).
-   - Otherwise → record add-to fields, respond 11 (accept add to), close.
+   - Otherwise → record add-to fields, respond 11 (accept add to), close. This branch also notifies the original sender: when Host B is the _from_ host with no local _to_/_add to_ recipient, it has no add-to recipient of its own, so it responds 11. The _from_ host satisfies "parent verified stored" because it originated the parent (§11); if it no longer holds the parent → respond code 6 (parent not found).
 2. If challenge was completed, use the message hash from the challenge response to check for duplicates across all recipients on Host B. If duplicate for all → respond code 10, close.
 3. Otherwise → respond 64 (continue).
 4. If code 65 was sent, skip to step 6 (data already stored). Otherwise download data + attachments (exactly declared on-wire sizes). For each zlib-deflate part, decompress and verify output byte length exactly equals _expanded size_; failure or mismatch means invalid → TERMINATE.
@@ -262,8 +263,10 @@ Host A MUST maintain a record of outgoing messages keyed by message header hash,
 ## 11. Verifying Message Stored
 
 A message is verified as stored iff:
-- A SHA-256 digest matches a previously accepted message (code 200 or 11).
+- A SHA-256 digest matches a previously accepted message (code 200 or 11), or a message the host itself originated (sent on behalf of one of its own _from_ / _add to from_ addresses).
 - That message currently exists and is retrievable.
+
+The originating clause lets the original sender's host verify the parent when notified of added recipients via an _add to_ message (§10.4).
 
 For accept-add-to (code 11) messages, the hash is computed by combining the add-to message header with the original message's data and attachment data.
 
@@ -273,11 +276,13 @@ Each add-to batch produces a distinct hash. Only the exact batch that had an acc
 
 An add-to message is a duplicate of the original message with these differences:
 - Flag bit 1 (_has add to_) set.
-- _pid_ = hash of the message being added to.
+- _pid_ = hash of the message being added to, which MUST NOT itself have _add to_ fields (i.e. not a previous _add to_; a thread-start or reply is fine).
 - _add to from_ = participant initiating the add (must be in original _from_ or _to_).
 - _add to_ = new recipient addresses.
 - _time_ = new timestamp.
 - _topic_ is NOT present (pid is set).
+
+The add-to message is delivered to the new and existing recipient hosts AND to the original sender's host (the domain of _from_) to notify the original sender that recipients were added, even though _from_ is not a recipient. The original sender's host originated the message so already holds it, records the new fields, and responds code 11 (accept add to) — see §10.2 and §10.4.
 
 ## 13. Security Requirements
 
