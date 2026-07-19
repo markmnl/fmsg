@@ -5,11 +5,11 @@
 This repository serves as a host and index for fmsg related documents listed below, including the white paper, specification and standards.
 
 
-| Document                                  | Short Description |
-|-------------------------------------------|-------------------|
-| [IMPLEMENTATIONS.md](IMPLEMENTATIONS.md)  | List of fmsg implementations including ancillary services, APIs and apps. |
-| [SPECIFICATION.md](SPECIFICATION.md)      | Core fmsg specification describing message communication between fmsg hosts. |
-| [STANDARDS.md](STANDARDS.md)              | Common standards surrounding fmsg setups such as API contracts.  |
-| [WHITE_PAPER.pdf](WHITE_PAPER.pdf)        | Paper introducing fmsg including motivations and overview.  |
+| Document                                      | Short Description |
+|-----------------------------------------------|-------------------|
+| [IMPLEMENTATIONS.md](IMPLEMENTATIONS.md)      | List of fmsg implementations including ancillary services, APIs and apps. |
+| [SPECIFICATION.md](SPECIFICATION.md)          | Core fmsg specification describing message communication between fmsg hosts. |
+| [STANDARDS.md](STANDARDS.md)                  | Common standards surrounding fmsg setups such as API contracts.  |
+| [FMSG_WHITE_PAPER.pdf](FMSG_WHITE_PAPER.pdf)  | Paper introducing fmsg including motivations and overview.  |
 
 
