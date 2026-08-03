@@ -138,7 +138,7 @@ Single-value codes (sent as first/only byte):
 | 8 | future time | Timestamp too far in future. |
 | 9 | time travel | Timestamp before parent's timestamp. |
 | 10 | duplicate | Already received for all recipients. |
-| 11 | accept add to | Add-to accepted; parent already stored; no _add to_ recipients on this host. Stop. |
+| 11 | accept add to | Add-to accepted; parent already stored; no _add to_ recipients on this host (including notification-only participant domains). Stop. |
 | 64 | continue | Header accepted; send data. |
 | 65 | skip data | Add-to accepted; parent already stored; _add to_ recipients on this host. Skip data, per-recipient codes follow. |
 
@@ -176,7 +176,11 @@ One message per connection. Two TCP connections used: Connection 1 (message tran
 
 ### 10.2 Sending (Host A perspective)
 
-Host A delivers iff _from_ or _add to from_ belongs to Host A's domain. For each unique recipient domain:
+Host A delivers iff _from_ or _add to from_ belongs to Host A's domain.
+
+When _has add to_ is NOT set: perform the steps below for each unique recipient domain.
+
+When _has add to_ IS set: perform the steps below for each unique participant domain — the domains of _from_ and of every address in _to_ and _add to_. _from_'s domain is omitted when _from_ is the _add to from_ (the adder is the original sender, whose host is Host A). Domains having no address in this message's _to_ or _add to_ are **notification-only**: the exchange completes at the single response code in step 5 (code 11 on success, or code 6 when the domain's host does not hold the parent) and never reaches step 6.
 
 1. Resolve recipient domain IPs via ``fmsg.<domain>``. Connect to first responsive IP (Connection 1). Retry with backoff if unreachable.
 2. Register the message header hash and Host B's IP in an outgoing record (for matching challenges).
@@ -201,7 +205,7 @@ Host A delivers iff _from_ or _add to from_ belongs to Host A's domain. For each
 3. Validate (all must pass, else respond code 1 invalid and close):
    - _to_ has ≥ 1 distinct address.
    - If _has add to_: _add to from_ exists and is in _from_ or _to_; _add to_ has ≥ 1 distinct address.
-   - ≥ 1 recipient in _to_ or _add to_ belongs to Host B's domain.
+   - If _has add to_ not set: ≥ 1 recipient in _to_ belongs to Host B's domain. If _has add to_ set: ≥ 1 participant (_from_, _to_, _add to from_ or _add to_) belongs to Host B's domain.
    - Common type IDs (message and attachment) are mapped.
    - _expanded size_ fields are present iff the corresponding zlib-deflate flag is set.
 4. DNS-verify sender IP: resolve `fmsg.<sender domain>`, check Connection 1 source IP is in result set. Fail → TERMINATE.
@@ -219,14 +223,15 @@ Host A delivers iff _from_ or _add to from_ belongs to Host A's domain. For each
      - pid MUST also be set. Fail → respond code 1, close.
      - Check if parent stored (§11):
        - **Stored**: check time travel (code 9 if fail).
-       - **Not stored**: treat as full message delivery.
+       - **Not stored**: if ≥ 1 recipient in _to_ or _add to_ belongs to Host B's domain, treat as full message delivery. Otherwise (Host B hosts only non-recipient participants) respond code 6 (parent not found), close.
 8. Optionally issue a CHALLENGE on Connection 2 (see §10.5).
 
 ### 10.4 Receiving — ACCEPT Response, Data Download and Per-Recipient Response
 
 1. If _add to_ set and parent verified stored in step 7:
+   - If Host B has already recorded this exact add-to batch (§11) → respond code 10 (duplicate), close.
    - If any _add to_ recipient belongs to Host B's domain → respond 65 (skip data).
-   - Otherwise → record add-to fields, respond 11 (accept add to), close.
+   - Otherwise → record the add-to batch (_add to from_, _add to_, _time_) per §11, respond 11 (accept add to), close. This is the path notification-only participant domains take.
 2. If challenge was completed, use the message hash from the challenge response to check for duplicates across all recipients on Host B. If duplicate for all → respond code 10, close.
 3. Otherwise → respond 64 (continue).
 4. If code 65 was sent, skip to step 6 (data already stored). Otherwise download data + attachments (exactly declared on-wire sizes). For each zlib-deflate part, decompress and verify output byte length exactly equals _expanded size_; failure or mismatch means invalid → TERMINATE.
@@ -278,6 +283,10 @@ An add-to message is a duplicate of the original message with these differences:
 - _add to_ = new recipient addresses.
 - _time_ = new timestamp.
 - _topic_ is NOT present (pid is set).
+
+An add-to message MUST be sent to every participant domain per §10.2, so all participants of the message being added to — including the original sender, when not themselves the _add to from_ — learn of the added recipients, not only the domains hosting the new recipients. This is required because a subsequent reply may reference this add-to message via _pid_, and a host can only accept a reply whose parent it holds.
+
+Add-to batches do not chain: recipients are always added to the original message; an add-to message's _pid_ MUST NOT reference another add-to message. A message therefore has 0 or more add-to batches, each independently referencing it.
 
 ## 13. Security Requirements
 

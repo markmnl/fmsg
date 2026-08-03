@@ -9,6 +9,7 @@
 | v0.3.0  | 2026-04-15 | Mark Mennell | Receiver's protocol steps, non-reject codes sent only after optional challenge  |
 | v0.3.1  | 2026-04-16 | Mark Mennell | Duplicate detection before continue response  |
 | v0.3.2  | 2026-05-05 | Mark Mennell | Expanded size on message and attachments data  |
+| v0.4.0  | 2026-08-02 | Mark Mennell | Add-to messages delivered to all participant domains; notification-only delivery completes at code 11  |
 
 ## Contents
 
@@ -204,6 +205,10 @@ Adding recipients is achieved by sending a whole new distinct message, that is a
 * _add to_ exists and is addresses of the new recipients being added.
 * _time_ is the POSIX epoch time of this new message with added recipients was ready for sending.
 
+An add-to message MUST be sent to every participant domain, not only the unique domains of the message's recipients, so that all participants of the message being added to — including the original sender, when not themselves the _add to from_ — learn of the added recipients. This is required because a subsequent reply may reference the add-to message via _pid_, and a host can only accept a reply whose parent it holds. See [4. Sending a Message](#4-sending-a-message).
+
+Add-to batches do not chain: recipients are always added to the original message; an add-to message's _pid_ MUST NOT reference another add-to message. A message therefore has 0 or more add-to batches, each independently referencing it.
+
 
 ### Notes on Time
 
@@ -382,7 +387,7 @@ A challenge response is the next 32 bytes received in reply to challenge request
 
 A code less than 11 indicates rejection for all recipients belonging to the Receiving Host's domain and will be the only value.
 
-Code 11 is acceptance for a message header with additional recipients, and the Receiving Host has verified it already has the rest of the message stored.
+Code 11 is acceptance for a message header with additional recipients, and the Receiving Host has verified it already has the rest of the message stored. Code 11 is also the successful response of a notification-only delivery — when a participant domain hosting no address in the message's _to_ or _add to_ fields is informed that recipients were added, see [4. Sending a Message](#4-sending-a-message).
 
 Code 64 indicates to the sender the receiving host has found the message header acceptable and transmission of the message data and any attachment data should proceed.
 
@@ -475,7 +480,7 @@ The following variables corresponding to host defined configuration are used in 
 
             _NOTE I_ _add to_ requires _add to from_ to be a participant of the original message, so recipients only in _add to_ cannot add recipients.
             _NOTE II_ _add to_ recipients could possibly overlap with those in _to_. This allows original recipients in _to_ who may no longer have their message to be added causing the message to be sent to them again this time as an additional recipient. The protocol also allows re-sending any message without necessarily using _add to_ but that does require recipients to have the thread of messages referenced by following _pid_ prior.
-        4. There must be at least one recipient in _to_ or _add to_ for Host B (example.edu domain).
+        4. If the _has add to_ flag bit is not set, there must be at least one recipient in _to_ for Host B (example.edu domain). If the _has add to_ flag bit is set, there must be at least one participant (_from_, _to_, _add to from_ or _add to_) for Host B.
         5. _type_ number when _common type_ [Flag](#flags) is set, exists in [Common Media Type](#common-media-types) mapping.
         6. Each attachment _type_ number, when that attachment's _common type_ flag is set, exists in [Common Media Type](#common-media-types) mapping.
         7. The message _expanded size_ field MUST exist if and only if the message _zlib-deflate_ flag bit is set.
@@ -501,7 +506,9 @@ The following variables corresponding to host defined configuration are used in 
             2. [Verifying Message Stored](#verifying-message-stored) is performed for message referred to by _pid_;
             3. If original message referred to by _pid_ is verified to be stored AND;
                 1. The stored message for _pid_'s _time_ minus MAX_TIME_SKEW MUST be before _time_ on the incoming message header; otherwise Host B MUST respond with REJECT code 9 (time travel).
-            4. Otherwise (original message has not been found, possible because Host B was never a participant of the message, or the message referenced by _pid_ is no longer held);
+            4. Otherwise (original message has not been found, possible because Host B was never a participant of the message, or the message referenced by _pid_ is no longer held):
+                1. If at least one recipient in _to_ or _add to_ belongs to Host B, the message is treated as a full message delivery.
+                2. Otherwise Host B hosts only non-recipient participants of the message; Host B MUST respond REJECT code 6 (parent not found) then close the connection completing the message exchange.
 
 
 #### 2. The Automatic Challenge
@@ -535,20 +542,23 @@ A HAS_NOT_PARTICIPATED challenge mode could be a useful middle ground where the 
 
 Challenging is particularly IMPORTANT for messages with _add to_ recipients for Host B's domain. In that case, Host B may not have the parent message referenced by _pid_ and therefore cannot verify it is stored — bypassing a check that normally provides thread integrity and an anti-spam signal. Without a challenge, such messages are effectively indistinguishable from unsolicited messages arriving for the first time.
 
+Notification-only deliveries remain challengeable in the same way: an add-to message is a complete message header and the Sending Host holds the full message, so it can answer a CHALLENGE with the full message hash.
+
 Ultimately, whether to challenge or not is at the discretion of the receiving host.
 
 
 #### 3. Continue, Per-Recipient Response and Disposition
 
 1. Iff _add to_ exists and message was verified to be stored in step 1.4.6.3.2 above:
-    1. If any of the _add to_ recipients are for Host B:
+    1. If Host B has already recorded this exact add-to batch, i.e. the message hash for this batch matches a stored batch per [Verifying Message Stored](#verifying-message-stored), Host B MUST respond REJECT code 10 (duplicate) then close the connection completing the message exchange.
+    2. If any of the _add to_ recipients are for Host B:
         1. Host B MUST respond with "ACCEPT or REJECT CODE" 65 (skip data) and message exchange continues.
         
         _NOTE_ Host B has verfied it already has message referred to by _pid_ which means this message is an exact duplicate except for (_add to from_, _add to_ and time)
-    2. Otherwise none of the recipients were found to be for Host B;
+    3. Otherwise none of the recipients were found to be for Host B;
         1. Host B MUST then respond with ACCEPT code 11 (accept add to) then close the connection completing the message exchange.
 
-        _NOTE_ At this stage Host B has been informed additional recipients have been added to a message it has previously accepted. Host B MUST record these new fields: _add to from_, _add to_ recipients and _time_, along with the fact code 11 was sent in response, such that the message hash can be faithfully computed with and without this batch of additional recipients as per [Verifying Message Stored](#verifying-message-stored). This is because either the original message or message with the just added recipients could be referred to by subsequent messages. 
+        _NOTE_ At this stage Host B has been informed additional recipients have been added to a message it has previously accepted. This is also the path taken by notification-only participant domains (e.g. the domain of _from_ when _from_ is not among the recipients), which are being informed that recipients were added. Host B MUST record these new fields: _add to from_, _add to_ recipients and _time_, along with the fact code 11 was sent in response, such that the message hash can be faithfully computed with and without this batch of additional recipients as per [Verifying Message Stored](#verifying-message-stored). This is because either the original message or message with the just added recipients could be referred to by subsequent messages. 
 2. If the CHALLENGE, CHALLENGE-RESP exchange was completed, the message hash received in the CHALLENGE-RESP SHOULD be used to check if the message is already stored for **all** recipients on Host B per [Verifying Message Stored](#verifying-message-stored).
     1. If the message is found to be already stored for all recipients on Host B, Host B MUST respond REJECT code 10 (duplicate) then close the connection completing the message exchange.
 
@@ -571,7 +581,7 @@ _NOTE_ When recipients for Host B are added using the _add to_ functionality to 
 
 #### 4. Sending a Message
 
-A Sending Host (Host A) delivers a message if and only if _from_ or _add to from_ belongs to Host A's domain. The message is sent to each unique recipient domain exactly once, regardless of how many recipients share that domain. This section describes the steps Host A performs for each recipient domain. If multiple recipient domains exist, Host A performs these steps independently for each domain without regard to the others.
+A Sending Host (Host A) delivers a message if and only if _from_ or _add to from_ belongs to Host A's domain. When the _has add to_ flag bit is not set, the message is sent to each unique recipient domain exactly once, regardless of how many recipients share that domain. When the _has add to_ flag bit is set, the message is sent exactly once to each unique participant domain — the domains of _from_ and of every address in _to_ and _add to_, omitting _from_'s domain when _from_ is the _add to from_ (the adder is the original sender, whose host is the Sending Host) — so that all participants of the message being added to learn of the added recipients, not only the domains hosting the new recipients. A participant domain having no address in the message's _to_ or _add to_ fields is notification-only: the message exchange completes at the single "REJECT or ACCEPT RESPONSE" code in step 6 (code 11 on success, or code 6 when Host B does not hold the parent) and no per-recipient codes are exchanged. This section describes the steps Host A performs for each domain. If multiple domains exist, Host A performs these steps independently for each domain without regard to the others.
 
 2. Host A resolves the authorised IP addresses via [Domain Resolution](#domain-resolution) for Host B.
     1. Host A initiates a connection (Connection 1) to the first authorised IP address for the Receiving Host (Host B).
