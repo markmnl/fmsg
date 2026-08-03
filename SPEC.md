@@ -182,7 +182,7 @@ Host A delivers iff _from_ or _add to from_ belongs to Host A's domain.
 
 When _has add to_ is NOT set: perform the steps below for each unique recipient domain.
 
-When _has add to_ IS set: perform the steps below for each unique **participant domain** — the domains of _from_ and of every address in _to_ and _add to_. Domains having no address in this message's _to_ or _add to_ are **notification-only**: the exchange completes at the single response code in step 5 (code 11 on success) and never reaches step 6. Host A MUST treat codes 1, 2 or 6 from a notification-only domain as a non-retryable notification failure (the remote host may implement an earlier revision of this specification, or no longer hold the parent message).
+When _has add to_ IS set: perform the steps below for each unique **participant domain** — the domains of _from_ and of every address in _to_ and _add to_. Domains having no address in this message's _to_ or _add to_ are **notification-only**: the exchange completes at the single response code in step 5 (code 11 on success, or code 6 when the domain's host does not hold the parent) and never reaches step 6.
 
 1. Resolve recipient domain IPs via ``fmsg.<domain>``. Connect to first responsive IP (Connection 1). Retry with backoff if unreachable.
 2. Register the message header hash and Host B's IP in an outgoing record (for matching challenges).
