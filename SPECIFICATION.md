@@ -10,6 +10,7 @@
 | v0.3.1  | 2026-04-16 | Mark Mennell | Duplicate detection before continue response  |
 | v0.3.2  | 2026-05-05 | Mark Mennell | Expanded size on message and attachments data  |
 | v0.4.0  | 2026-08-02 | Mark Mennell | Add-to messages delivered to all participant domains; notification-only delivery completes at code 11  |
+| v0.4.1  | 2026-08-03 | Mark Mennell | Hosts must retain stored messages in full, including complete recipient lists  |
 
 ## Contents
 
@@ -630,6 +631,8 @@ The hash MUST be computed over the full message bytes, comprising the message he
 
 
 ### Verifying Message Stored
+
+A host MUST retain each stored message in full and exactly as transmitted — including the complete _to_ and _add to_ recipient lists, not only recipients belonging to its own domain. Both the hash computation above and the participant checks in [Protocol Steps](#protocol-steps) step 1.4.6 depend on the message being reconstructible exactly as received.
 
 A host verifies that a message is stored given a SHA-256 digest if:
 * The provided digest exactly matches the SHA-256 digest computed per [Computing Message Hash](#computing-message-hash) of a message that was previously accepted, i.e. for which the host responded with "REJECT or ACCEPT CODE" 200 (accept) to at least one recipient, OR "REJECT or ACCEPT CODE" 11 (accept add to).

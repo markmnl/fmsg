@@ -270,6 +270,8 @@ A message is verified as stored iff:
 - A SHA-256 digest matches a previously accepted message (code 200 or 11).
 - That message currently exists and is retrievable.
 
+A host MUST retain each stored message in full and exactly as transmitted — including the complete _to_ and _add to_ recipient lists, not only recipients on its own domain — so the message hash can always be faithfully recomputed and participant checks (§10.3 step 7) evaluate against the true participant set.
+
 For accept-add-to (code 11) messages, the hash is computed by combining the add-to message header with the original message's data and attachment data.
 
 Each add-to batch produces a distinct hash. Only the exact batch that had an accepted response (200 or 11) matches.
