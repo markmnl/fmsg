@@ -81,8 +81,6 @@ _"message header hash"_ the SHA-256 digest of a message header.
 
 _"participants"_ all recipients plus _from_, plus _add to from_ (if exists)
 
-_"participant domains"_ the set of unique domains of all participants of a message
-
 _"recipient"_ an address in a message's _to_ or _add to_ fields
 
 _"recipients"_ the set of all addresses in a message's _to_ and _add to_ fields.
@@ -207,7 +205,7 @@ Adding recipients is achieved by sending a whole new distinct message, that is a
 * _add to_ exists and is addresses of the new recipients being added.
 * _time_ is the POSIX epoch time of this new message with added recipients was ready for sending.
 
-An add-to message MUST be sent to every participant domain, not only the unique domains of the message's recipients, so that all participants of the message being added to — including the original sender — learn of the added recipients. This is required because a subsequent reply may reference the add-to message via _pid_, and a host can only accept a reply whose parent it holds. See [4. Sending a Message](#4-sending-a-message).
+An add-to message MUST be sent to every participant domain, not only the unique domains of the message's recipients, so that all participants of the message being added to — including the original sender, when not themselves the _add to from_ — learn of the added recipients. This is required because a subsequent reply may reference the add-to message via _pid_, and a host can only accept a reply whose parent it holds. See [4. Sending a Message](#4-sending-a-message).
 
 Add-to batches do not chain: recipients are always added to the original message; an add-to message's _pid_ MUST NOT reference another add-to message. A message therefore has 0 or more add-to batches, each independently referencing it.
 
@@ -583,7 +581,7 @@ _NOTE_ When recipients for Host B are added using the _add to_ functionality to 
 
 #### 4. Sending a Message
 
-A Sending Host (Host A) delivers a message if and only if _from_ or _add to from_ belongs to Host A's domain. When the _has add to_ flag bit is not set, the message is sent to each unique recipient domain exactly once, regardless of how many recipients share that domain. When the _has add to_ flag bit is set, the message is sent exactly once to each unique participant domain — the domains of _from_ and of every address in _to_ and _add to_ — so that all participants of the message being added to learn of the added recipients, not only the domains hosting the new recipients. A participant domain having no address in the message's _to_ or _add to_ fields is notification-only: the message exchange completes at the single "REJECT or ACCEPT RESPONSE" code in step 6 (code 11 on success, or code 6 when Host B does not hold the parent) and no per-recipient codes are exchanged. This section describes the steps Host A performs for each domain. If multiple domains exist, Host A performs these steps independently for each domain without regard to the others.
+A Sending Host (Host A) delivers a message if and only if _from_ or _add to from_ belongs to Host A's domain. When the _has add to_ flag bit is not set, the message is sent to each unique recipient domain exactly once, regardless of how many recipients share that domain. When the _has add to_ flag bit is set, the message is sent exactly once to each unique participant domain — the domains of _from_ and of every address in _to_ and _add to_, omitting _from_'s domain when _from_ is the _add to from_ (the adder is the original sender, whose host is the Sending Host) — so that all participants of the message being added to learn of the added recipients, not only the domains hosting the new recipients. A participant domain having no address in the message's _to_ or _add to_ fields is notification-only: the message exchange completes at the single "REJECT or ACCEPT RESPONSE" code in step 6 (code 11 on success, or code 6 when Host B does not hold the parent) and no per-recipient codes are exchanged. This section describes the steps Host A performs for each domain. If multiple domains exist, Host A performs these steps independently for each domain without regard to the others.
 
 2. Host A resolves the authorised IP addresses via [Domain Resolution](#domain-resolution) for Host B.
     1. Host A initiates a connection (Connection 1) to the first authorised IP address for the Receiving Host (Host B).

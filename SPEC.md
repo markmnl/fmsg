@@ -42,8 +42,6 @@ The hash MUST be computed over the full message bytes: message header fields exa
 
 **Participants** = all addresses in _from_, _to_, _add to from_ (if any), _add to_ (if any).
 
-**Participant domains** = the set of unique domains of all participants of a message.
-
 ## 3. Flags (uint8 bit field)
 
 | Bit | Name | Description |
@@ -182,7 +180,7 @@ Host A delivers iff _from_ or _add to from_ belongs to Host A's domain.
 
 When _has add to_ is NOT set: perform the steps below for each unique recipient domain.
 
-When _has add to_ IS set: perform the steps below for each unique **participant domain** — the domains of _from_ and of every address in _to_ and _add to_. Domains having no address in this message's _to_ or _add to_ are **notification-only**: the exchange completes at the single response code in step 5 (code 11 on success, or code 6 when the domain's host does not hold the parent) and never reaches step 6.
+When _has add to_ IS set: perform the steps below for each unique participant domain — the domains of _from_ and of every address in _to_ and _add to_. _from_'s domain is omitted when _from_ is the _add to from_ (the adder is the original sender, whose host is Host A). Domains having no address in this message's _to_ or _add to_ are **notification-only**: the exchange completes at the single response code in step 5 (code 11 on success, or code 6 when the domain's host does not hold the parent) and never reaches step 6.
 
 1. Resolve recipient domain IPs via ``fmsg.<domain>``. Connect to first responsive IP (Connection 1). Retry with backoff if unreachable.
 2. Register the message header hash and Host B's IP in an outgoing record (for matching challenges).
@@ -286,7 +284,7 @@ An add-to message is a duplicate of the original message with these differences:
 - _time_ = new timestamp.
 - _topic_ is NOT present (pid is set).
 
-An add-to message MUST be sent to every participant domain per §10.2, so all participants of the message being added to — including the original sender — learn of the added recipients, not only the domains hosting the new recipients. This is required because a subsequent reply may reference this add-to message via _pid_, and a host can only accept a reply whose parent it holds.
+An add-to message MUST be sent to every participant domain per §10.2, so all participants of the message being added to — including the original sender, when not themselves the _add to from_ — learn of the added recipients, not only the domains hosting the new recipients. This is required because a subsequent reply may reference this add-to message via _pid_, and a host can only accept a reply whose parent it holds.
 
 Add-to batches do not chain: recipients are always added to the original message; an add-to message's _pid_ MUST NOT reference another add-to message. A message therefore has 0 or more add-to batches, each independently referencing it.
 
