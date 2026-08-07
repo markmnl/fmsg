@@ -21,6 +21,7 @@ Show HN Article <https://markmnl.github.io/fmsg/show-hn>
 | [FMSG-001](https://github.com/markmnl/fmsg/blob/main/standards/fmsg-001-transport-and-binding.md) | TCP+TLS Transport and Binding Standard |
 | [FMSG-002](https://github.com/markmnl/fmsg/blob/main/standards/fmsg-002-id.md) | HTTP API spec for recipient lookup and quota limits |
 | [FMSG-003](https://github.com/markmnl/fmsg/blob/main/standards/fmsg-003-webapi.md) | HTTP API spec for client to perform CRUD operations on messages for a specific address |
+| [FMSG-004](https://github.com/markmnl/fmsg/blob/main/standards/fmsg-004-a2a-binding.md) | A2A protocol binding over fmsg |
 
 
 # Host Implementations
@@ -38,4 +39,3 @@ Show HN Article <https://markmnl.github.io/fmsg/show-hn>
 | [fmsgid](https://github.com/markmnl/fmsgid)            | Implementation of the FMSG-002 Id Standard - HTTP API providing address and quota lookup |
 | [fmsg-webapi](https://github.com/markmnl/fmsg-webapi)  | Implementation of the FMSG-003 Web API Standard - HTTP API providing message sending and retrieval via an integrated fmsgd host |
 | [fmsg-cli](https://github.com/markmnl/fmsg-cli)        | Command line interface to fmsg Web API |
-

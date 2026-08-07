@@ -22,7 +22,7 @@ Each standard is prefixed with a unique identifer following the format: "FMSG-##
 | [FMSG-001](standards/fmsg-001-transport-and-binding.md) | TCP+TLS Transport and Binding Standard |
 | [FMSG-002](standards/fmsg-002-id.md) | HTTP API spec for recipient lookup and quota limits |
 | [FMSG-003](standards/fmsg-003-webapi.md) | HTTP API spec client to perform CRUD operations on messages for a specific address |
-
+| [FMSG-004](standards/fmsg-004-a2a-binding.md) | A2A protocol binding over fmsg |
 
 
 
