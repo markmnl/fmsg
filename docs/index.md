@@ -1,41 +1,84 @@
+<p class="landing-eyebrow">Open distributed messaging protocol</p>
+
 # fmsg
 
-GitHub: <https://github.com/markmnl/fmsg>
+<p class="landing-lead">
+  A binary message format and federated protocol for immutable, relational
+  messages that every participating host can verify.
+</p>
 
-Show HN Article <https://markmnl.github.io/fmsg/show-hn>
+fmsg addresses look like `@user@domain`. Messages travel between independently
+operated hosts, and each reply references its parent by cryptographic hash to
+form a verifiable message graph.
 
+<div class="document-actions landing-actions">
+  <a class="primary-action" href="SPECIFICATION/">Read the specification</a>
+  <a href="white-paper/">Read the white paper</a>
+  <a href="https://github.com/markmnl/fmsg">View source on GitHub</a>
+</div>
 
-# Documents
+## Core documents
 
-| Document                                  | Short Description |
-|-------------------------------------------|-------------------|
-| [SPECIFICATION.md](https://github.com/markmnl/fmsg/blob/main/SPECIFICATION.md) | Core fmsg specification describing message communication between fmsg hosts. |
-| [SPEC.md](https://github.com/markmnl/fmsg/blob/main/SPEC.md) | Concise version of the specification. |
-| [STANDARDS.md](https://github.com/markmnl/fmsg/blob/main/STANDARDS.md) | Common standards surrounding fmsg setups such as API contracts. |
+<div class="landing-grid">
+  <a class="landing-card" href="SPECIFICATION/">
+    <span class="landing-card-label">Normative</span>
+    <strong>Full specification</strong>
+    <span>The message definition, host protocol, domain resolution, and security considerations.</span>
+  </a>
+  <a class="landing-card" href="SPEC/">
+    <span class="landing-card-label">Implementation aid</span>
+    <strong>Concise specification</strong>
+    <span>A compact reference for implementers, derived from the full specification.</span>
+  </a>
+  <a class="landing-card" href="white-paper/">
+    <span class="landing-card-label">Introduction</span>
+    <strong>White paper</strong>
+    <span>The motivation, model, and design of fmsg at a higher level.</span>
+  </a>
+</div>
 
+## Standards
 
-# Standards
+The core specification defines messages and host-to-host protocol semantics.
+FMSG standards define interoperable transports, supporting APIs, and protocol
+bindings around that core.
 
-| Standard  | Short Description                                      |
-|-----------|--------------------------------------------------------|
-| [FMSG-001](https://github.com/markmnl/fmsg/blob/main/standards/fmsg-001-transport-and-binding.md) | TCP+TLS Transport and Binding Standard |
-| [FMSG-002](https://github.com/markmnl/fmsg/blob/main/standards/fmsg-002-id.md) | HTTP API spec for recipient lookup and quota limits |
-| [FMSG-003](https://github.com/markmnl/fmsg/blob/main/standards/fmsg-003-webapi.md) | HTTP API spec for client to perform CRUD operations on messages for a specific address |
-| [FMSG-004](https://github.com/markmnl/fmsg/blob/main/standards/fmsg-004-a2a-binding.md) | A2A protocol binding over fmsg |
+<div class="landing-grid standards-grid">
+  <a class="landing-card" href="standards/fmsg-001-transport-and-binding/">
+    <span class="landing-card-label">FMSG-001</span>
+    <strong>TCP+TLS transport</strong>
+    <span>Secure host-to-host transport, port binding, DNS, and connection requirements.</span>
+  </a>
+  <a class="landing-card" href="standards/fmsg-002-id/">
+    <span class="landing-card-label">FMSG-002</span>
+    <strong>Address API</strong>
+    <span>Address lookup, acceptance status, metadata, and quota reporting.</span>
+  </a>
+  <a class="landing-card" href="standards/fmsg-003-webapi/">
+    <span class="landing-card-label">FMSG-003</span>
+    <strong>Web API</strong>
+    <span>Authenticated HTTP and WebSocket access for fmsg clients.</span>
+  </a>
+  <a class="landing-card" href="standards/fmsg-004-a2a-binding/">
+    <span class="landing-card-label">FMSG-004 · Draft</span>
+    <strong>A2A binding</strong>
+    <span>An Agent2Agent protocol binding carried over fmsg messages.</span>
+  </a>
+</div>
 
+[Browse the standards overview](STANDARDS.md){ .section-link }
 
-# Host Implementations
+## Implementations
 
-| Implementation                                      | Description                  |
-|-----------------------------------------------------|------------------------------|
-| [fmsgd](https://github.com/markmnl/fmsgd)           | fmsg host written in Go!     |
+The open-source ecosystem includes a host daemon, client-facing Web API,
+address and quota service, command-line client, and a Docker Compose stack for
+running them together.
 
+[Explore fmsg implementations](IMPLEMENTATIONS.md){ .section-link }
 
-# Ancillary Service Implementations
+## Project
 
-| Implementation                                         | Description                          |
-|--------------------------------------------------------|--------------------------------------|
-| [fmsg-docker](https://github.com/markmnl/fmsg-docker)  | Docker compose all-in-one fmsg stack |
-| [fmsgid](https://github.com/markmnl/fmsgid)            | Implementation of the FMSG-002 Id Standard - HTTP API providing address and quota lookup |
-| [fmsg-webapi](https://github.com/markmnl/fmsg-webapi)  | Implementation of the FMSG-003 Web API Standard - HTTP API providing message sending and retrieval via an integrated fmsgd host |
-| [fmsg-cli](https://github.com/markmnl/fmsg-cli)        | Command line interface to fmsg Web API |
+fmsg is an open protocol developed in public. Read the
+[project background](show-hn.md), inspect the
+[source repository](https://github.com/markmnl/fmsg), or contribute through
+GitHub.
