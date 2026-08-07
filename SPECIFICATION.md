@@ -35,7 +35,7 @@
     - [Protocol Steps](#protocol-steps)
         - [1. Connection and Header Exchange](#1-connection-and-header-exchange)
         - [2. The Automatic Challenge](#2-the-automatic-challenge)
-        - [3. Integrity Verification, Per-Recipient Response and Disposition](#3-integrity-verification-per-recipient-response-and-disposition)
+        - [3. Continue, Per-Recipient Response and Disposition](#3-continue-per-recipient-response-and-disposition)
         - [4. Sending a Message](#4-sending-a-message)
     - [Handling a Challenge](#handling-a-challenge)
     - [Verifying Message Stored](#verifying-message-stored)
@@ -611,7 +611,7 @@ A Sending Host (Host A) delivers a message if and only if _from_ or _add to from
 A Sending Host MUST be listening for incoming connections on the same IP address it uses to send outgoing messages. While a message is being transmitted, the Receiving Host may open a connection back to the Sending Host to issue a [CHALLENGE](#challenge). The Sending Host, Host A, handles this as follows:
 
 1. Host A downloads the first byte 
-    1. If the value is less than 128 and a supported fmsg version — this is an incoming message and should be processed per [Connection and Header Exchange](#1-Connection-and-Header-Exchange).
+    1. If the value is less than 128 and a supported fmsg version — this is an incoming message and should be processed per [Connection and Header Exchange](#1-connection-and-header-exchange).
     2. If the value is greater than 128 and 256 minus the value is a supported fmsg version, this is a CHALLENGE we support, continue.
     3. Otherwise Host A MUST TERMINATE the connection.
 2. Host A downloads the next 32 bytes — the _header hash_ supplied by Host B.
