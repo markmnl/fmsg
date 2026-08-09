@@ -7,7 +7,7 @@ and is not an official binding of the A2A Project.
 
 | Revision | Date       | Summary       |
 |----------|------------|---------------|
-| v0.1.0   | 2026-08-06 | Initial draft |
+| v0.1.0   | 2026-08-09 | Initial threaded draft |
 
 This revision binds A2A protocol version 1.0 to fmsg wire protocol version 1.
 A future revision is required to support a breaking version of either protocol.
@@ -29,12 +29,42 @@ immutable message delivery between addresses. This standard maps A2A operations
 to request, response, and stream-event envelopes carried as fmsg messages.
 
 An A2A client sends each operation to the fmsg address advertised by an A2A
-server. The server returns a response as an fmsg reply whose `pid` references
-the request message. A2A task and context identifiers preserve application
-continuity; the fmsg parent hash provides transport correlation and integrity.
+server. The first operation is an fmsg thread root. Later operations may reply
+to earlier results so that task continuations form chains, related tasks branch
+from a context anchor, and task controls form side branches. A2A task and
+context identifiers remain authoritative for application continuity; fmsg
+parent hashes provide transport history, correlation, and integrity.
 
 This binding does not change the A2A data model, task state machine, Agent Card
 discovery rules, or extension semantics.
+
+## Introduction
+
+This section is non-normative.
+
+A2A and fmsg solve different parts of agent communication. A2A gives agents a
+shared vocabulary: start a task, continue it, report progress, return results,
+or cancel it. fmsg provides a way to deliver those operations between
+authenticated addresses using durable, store-and-forward, cryptographically
+linked messages.
+
+For example, an assistant can ask a research agent to investigate a question.
+The research agent creates an A2A task, the assistant adds a follow-up question,
+and the agent sends progress updates before returning its result. With this
+binding, the agents still speak standard A2A, but the exchange travels through
+fmsg addresses such as `@research-agent@example.com` instead of requiring this
+interaction to use another A2A transport.
+
+Using fmsg means an agent does not have to be online at the same moment as its
+peer. Requests can survive temporary outages, task continuations form
+verifiable fmsg chains, related tasks can branch from a shared context, and
+status checks or cancellations can appear as side branches without changing
+the A2A task itself.
+
+In short, A2A gives agents a shared language; fmsg gives their conversation a
+durable, federated, and verifiable delivery system. An adapter can therefore
+place fmsg underneath an existing A2A client or server without changing the
+application's task-handling code.
 
 ## Normative References
 
@@ -59,12 +89,20 @@ responses are addressed.
 
 **server address** is the fmsg address advertised by the A2A server.
 
-**request message** is the root fmsg message carrying one A2A request envelope.
+**request message** is an fmsg message carrying one A2A request envelope. It is
+either a thread root or a reply to a conversational result.
 
 **response message** is an fmsg reply carrying the single non-streaming result
 or error for a request.
 
 **event message** is an fmsg reply carrying one item of an A2A streaming result.
+
+**context anchor** is the first successful conversational response or event
+known to establish an A2A context for a client/server address pair.
+
+**task head** is the most recent successful conversational response or event
+known for an A2A task by one endpoint. Concurrent operations may create more
+than one valid branch from an earlier task head.
 
 **transport principal** is the fmsg sender address accepted by the receiving
 host after fmsg host and domain verification. This is distinct from an
@@ -165,15 +203,16 @@ be set. Each message MUST have exactly one recipient.
 
 A request message MUST:
 
-- have no `pid`, making it a root fmsg message;
 - have `from` equal to the client address;
 - have one `to` value equal to the server address;
-- have the `no reply` flag clear;
-- have a topic of `A2A <requestId>`; and
+- have the `no reply` flag clear; and
 - contain a request envelope.
 
-The topic carries no authority. A receiver MUST use the envelope `requestId`
-and MUST reject a message whose topic does not match it.
+A root request MUST have no `pid` and MUST have a topic of
+`A2A <requestId>`. A threaded request MUST have `pid` equal to the hash of the
+selected parent and MUST contain no topic. The topic carries no authority. A
+receiver MUST use the envelope `requestId` and MUST reject a root request whose
+topic does not match it or a threaded request that contains a topic.
 
 ### Response Message
 
@@ -186,16 +225,21 @@ A response message MUST:
 - contain a response envelope; and
 - use the same `requestId` and `operation` as the request.
 
-The `no reply` flag SHOULD be set because later A2A operations are independent
-root requests. A response is authoritative only when both its fmsg relationship
-and envelope correlation are valid.
+The `no reply` flag MUST be clear on a successful `SendMessage` response because
+it can become a context anchor or task head. It MAY be set on errors and on
+responses to non-conversational operations. A response is authoritative only
+when both its fmsg relationship and envelope correlation are valid.
 
 ### Event Message
 
 If streaming is supported, each event message MUST meet the response message
-requirements except that it contains an event envelope. Every event in a stream
-MUST use `pid` equal to the original request hash; events do not form an fmsg
-reply chain.
+requirements except that it contains an event envelope. Event sequence zero
+MUST use `pid` equal to the request hash. Every later event MUST use `pid` equal
+to the immediately preceding event hash, forming one fmsg reply chain. Every
+non-final event MUST have the `no reply` flag clear. The final event of
+`SendStreamingMessage` MUST also have it clear because it can become a task
+head. A final `SubscribeToTask` event MAY set it because subscriptions are side
+branches.
 
 ## Envelope
 
@@ -470,6 +514,45 @@ A client-side response timeout is also a transport error. Timing out does not
 cancel the remote operation. A caller wanting cancellation MUST subsequently
 send `CancelTask` when it has a task identifier.
 
+## Thread Topology
+
+A2A identifiers define application continuity and MUST be present wherever A2A
+requires them. The fmsg graph records how one address pair transported that
+continuity; it does not replace the A2A data model.
+
+A client that has a usable canonical parent MUST choose request parents as
+follows:
+
+- `SendMessage` and `SendStreamingMessage` carrying a `taskId` reply to a known
+  task head;
+- those operations carrying a `contextId` but no `taskId` reply to the stable
+  context anchor, allowing related tasks to branch;
+- `GetTask`, `CancelTask`, `SubscribeToTask`, and task push-notification
+  configuration operations reply to a known head of the named task;
+- `ListTasks` with a `contextId` replies to that context anchor; and
+- unscoped operations are roots.
+
+Control operations and `SubscribeToTask` are side branches. Their responses and
+events MUST NOT become the task head. A successful `SendMessage` response and
+each successful `SendStreamingMessage` event carrying a task ID MUST become the
+sender's known task head. The first such result observed for a context
+establishes its context anchor; the anchor MUST NOT subsequently move.
+
+An implementation can know only the portion of a graph available to its local
+fmsg account. If the canonical parent is unknown, deleted, has `no reply` set,
+or cannot be used, the client MUST send the operation as a detached root. A
+server MUST accept a valid detached root even when its payload names an existing
+task or context. This permits another authorized client address or an endpoint
+that lost local graph state to continue using the A2A identifiers.
+
+A threaded request parent MUST be a successful `SendMessage` response or
+`SendStreamingMessage` event sent by the selected server to the requesting
+client. Its A2A task or context identifier MUST match the scope of the new
+request. A server MUST reject a threaded request whose parent direction, media
+type, envelope kind, operation, or A2A identity does not meet these rules with
+`FMSG_A2A_CORRELATION_FAILED`. Receivers SHOULD accept an older valid task node
+because concurrent operations can legitimately branch from the same head.
+
 ## Correlation, Replay, and Idempotency
 
 The tuple `(server address, client address, requestId)` identifies one binding
@@ -484,8 +567,8 @@ envelope. It MUST exclude fmsg fields such as transmission time.
 If the tuple is received again:
 
 - with equivalent request content, the server MUST NOT execute the operation a
-  second time and SHOULD replay the stored response or events as new fmsg
-  replies whose `pid` references the newly received duplicate request; or
+  second time and SHOULD replay the stored response or events as a new fmsg
+  response or event chain rooted at the newly received duplicate request; or
 - with different content, the server MUST return
   `FMSG_A2A_REQUEST_ID_CONFLICT` and MUST NOT execute it.
 
@@ -495,7 +578,9 @@ The server MUST also apply A2A `messageId` idempotency semantics. A new binding
 
 A client MUST match a response or event by all of:
 
-- fmsg `pid` equal to the request message hash;
+- for a response or sequence-zero event, fmsg `pid` equal to the request
+  message hash;
+- for a later event, fmsg `pid` equal to the immediately preceding event hash;
 - fmsg `from` equal to the selected server address;
 - fmsg recipient equal to the original client address;
 - matching `requestId`; and
@@ -505,9 +590,10 @@ The client MUST ignore an exact duplicate response or event. Reuse of an event
 sequence number with different content is a correlation failure and MUST
 terminate the local stream.
 
-A2A `taskId` and `contextId` alone define A2A continuity between independent
-operations. Implementations MUST NOT infer either identifier from an fmsg `pid`
-or message hash.
+A2A `taskId` and `contextId` alone define A2A continuity. Implementations MUST
+NOT infer either identifier from an fmsg `pid` or message hash, and a detached
+root MUST NOT be interpreted as starting a new A2A task when its payload names
+an existing one.
 
 ## Authentication and Authorization
 
@@ -673,8 +759,8 @@ An implementation pair claiming interoperability SHOULD demonstrate:
 1. Agent Card selection and fmsg endpoint parsing.
 2. `SendMessage` returning a direct A2A `Message`.
 3. `SendMessage` returning a `Task`, followed by `GetTask`.
-4. Multi-turn interaction using `taskId` and `contextId` across independent fmsg
-   request threads.
+4. A task continuation forming an fmsg chain and a new task branching from the
+   stable context anchor.
 5. `ListTasks` pagination and authorization scoping.
 6. Successful and rejected `CancelTask` operations.
 7. A2A raw bytes encoded through ProtoJSON.
@@ -683,10 +769,12 @@ An implementation pair claiming interoperability SHOULD demonstrate:
 10. Duplicate `requestId` with changed content being rejected.
 11. A forged or mismatched fmsg `pid`, sender, request ID, or operation being
     rejected.
-12. If streaming is advertised, ordered events, duplicate events, a missing
-    event, and final-event handling.
-13. If push notifications are advertised, all configuration operations.
-14. If an extended Agent Card is advertised, authenticated retrieval and denial
+12. Detached-root continuation when local graph state is unavailable.
+13. A task control side branch that does not advance the task head.
+14. If streaming is advertised, chained ordered events, duplicate events, a
+    missing event, and final-event handling.
+15. If push notifications are advertised, all configuration operations.
+16. If an extended Agent Card is advertised, authenticated retrieval and denial
     to an unauthorized transport principal.
 
 ## Complete Example
@@ -756,7 +844,7 @@ The client `@assistant@example.net` sends a root fmsg message to
 ```
 
 The server sends an fmsg reply to `@assistant@example.net` with `pid` equal to
-the request hash and this data:
+the request hash, the `no reply` flag clear, and this data:
 
 ```json
 {
@@ -781,7 +869,10 @@ the request hash and this data:
 }
 ```
 
-Receipt of this response completes the binding exchange. Any later operation on
-a returned task would use a new request message and would correlate through its
-own request ID and fmsg reply, while retaining the A2A task and context IDs in
-its A2A payload.
+Receipt of this response completes the binding exchange and establishes the
+context anchor. A later `SendMessage` containing only that `contextId` replies
+to this response and can create a new task branch. If a response instead
+returned a task ID, a later `SendMessage` containing that `taskId` would reply
+to the latest known result for that task, extending its chain. Each new request
+still has its own request ID, and every A2A identifier remains explicit in its
+A2A payload.
