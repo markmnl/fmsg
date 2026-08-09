@@ -3,8 +3,8 @@
 # fmsg
 
 <p class="landing-lead">
-  A binary message format and federated protocol for immutable, relational
-  messages that every participating host can verify.
+  A binary message format and protocol for immutable, relational messages that
+  every host can verify.
 </p>
 
 fmsg addresses look like `@user@domain`. Messages travel between independently
