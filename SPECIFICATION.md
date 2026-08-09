@@ -478,7 +478,6 @@ The following variables corresponding to host defined configuration are used in 
         3. If the _has add to_ flag bit is set:
             1. _add to from_ MUST exist and _add to from_ MUST also be in _from_ or _to_.
             2. _add to_ MUST have at least one address and all addresses are distinct using case-insensitive comparison.
-
             _NOTE I_ _add to_ requires _add to from_ to be a participant of the original message, so recipients only in _add to_ cannot add recipients.
             _NOTE II_ _add to_ recipients could possibly overlap with those in _to_. This allows original recipients in _to_ who may no longer have their message to be added causing the message to be sent to them again this time as an additional recipient. The protocol also allows re-sending any message without necessarily using _add to_ but that does require recipients to have the thread of messages referenced by following _pid_ prior.
         4. If the _has add to_ flag bit is not set, there must be at least one recipient in _to_ for Host B (example.edu domain). If the _has add to_ flag bit is set, there must be at least one participant (_from_, _to_, _add to from_ or _add to_) for Host B.
@@ -500,7 +499,6 @@ The following variables corresponding to host defined configuration are used in 
             1. The message _pid_ refers to MUST be verified to be stored already on Host B per [Verifying Message Stored](#verifying-message-stored); otherwise Host B MUST respond with REJECT code 6 (parent not found) completing the message exchange.
             2. The stored message for _pid_'s _time_ minus MAX_TIME_SKEW MUST be before _time_ on the incoming message header; otherwise Host B MUST respond with REJECT code 9 (time travel) completing the message exchange.
             3. _from_ MUST have been a participant in the stored message referred to by _pid_; otherwise Host B MUST respond with REJECT code 1 (invalid) completing the message exchange.
-            
             _NOTE_ Verifying Message Stored checks the host has the parent message, not that every recipient still has it in their message store. Implementations MAY consider restoring the parent message to a recipient's message store if that _recipient_ no longer has the message, so that the incoming reply has proper thread context for all recipients.
         3. Else _add to_ exists;
             1. _pid_ field MUST exist too, otherwise Host B MUST respond REJECT code 1 (invalid) and close the connection completing the message exchange.
@@ -554,15 +552,12 @@ Ultimately, whether to challenge or not is at the discretion of the receiving ho
     1. If Host B has already recorded this exact add-to batch, i.e. the message hash for this batch matches a stored batch per [Verifying Message Stored](#verifying-message-stored), Host B MUST respond REJECT code 10 (duplicate) then close the connection completing the message exchange.
     2. If any of the _add to_ recipients are for Host B:
         1. Host B MUST respond with "ACCEPT or REJECT CODE" 65 (skip data) and message exchange continues.
-        
         _NOTE_ Host B has verfied it already has message referred to by _pid_ which means this message is an exact duplicate except for (_add to from_, _add to_ and time)
     3. Otherwise none of the recipients were found to be for Host B;
         1. Host B MUST then respond with ACCEPT code 11 (accept add to) then close the connection completing the message exchange.
-
-        _NOTE_ At this stage Host B has been informed additional recipients have been added to a message it has previously accepted. This is also the path taken by notification-only participant domains (e.g. the domain of _from_ when _from_ is not among the recipients), which are being informed that recipients were added. Host B MUST record these new fields: _add to from_, _add to_ recipients and _time_, along with the fact code 11 was sent in response, such that the message hash can be faithfully computed with and without this batch of additional recipients as per [Verifying Message Stored](#verifying-message-stored). This is because either the original message or message with the just added recipients could be referred to by subsequent messages. 
+        _NOTE_ At this stage Host B has been informed additional recipients have been added to a message it has previously accepted. This is also the path taken by notification-only participant domains (e.g. the domain of _from_ when _from_ is not among the recipients), which are being informed that recipients were added. Host B MUST record these new fields: _add to from_, _add to_ recipients and _time_, along with the fact code 11 was sent in response, such that the message hash can be faithfully computed with and without this batch of additional recipients as per [Verifying Message Stored](#verifying-message-stored). This is because either the original message or message with the just added recipients could be referred to by subsequent messages.
 2. If the CHALLENGE, CHALLENGE-RESP exchange was completed, the message hash received in the CHALLENGE-RESP SHOULD be used to check if the message is already stored for **all** recipients on Host B per [Verifying Message Stored](#verifying-message-stored).
     1. If the message is found to be already stored for all recipients on Host B, Host B MUST respond REJECT code 10 (duplicate) then close the connection completing the message exchange.
-
     _NOTE_ If only some recipients still had the message stored continuing the message exchange allows restoring the message to those without the message.
 3. Otherwise, Host B responds with "ACCEPT or REJECT CODE" 64 (continue) and the message exchange continues.
 4. If Host B responded earlier with "ACCEPT or REJECT CODE" 65 (skip data), Host B MUST NOT read any further data from Connection 1. Otherwise, Host B continues downloading the exact number of remaining bytes i.e. the sum of message _size_ plus any attachments _size_. For each message or attachment data part with the corresponding _zlib-deflate_ flag bit set, Host B MUST decompress the part and the decompressed byte count MUST exactly match that part's _expanded size_. If decompression fails, produces more bytes than _expanded size_, produces fewer bytes than _expanded size_, or otherwise does not exactly match _expanded size_, the message is invalid and Host B MUST TERMINATE the message exchange.
