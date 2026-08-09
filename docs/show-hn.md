@@ -14,6 +14,8 @@ A full RFC style specification is hosted in this repository here: [SPECIFICATION
 
 <div style="float: right; margin: 1em; max-width: 600px;">
    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="fmsg-docker-dark.png">
+      <source media="(prefers-color-scheme: light)" srcset="fmsg-docker-light.png">
       <img alt="fmsg-docker diagram" src="fmsg-docker-light.png">
    </picture>
 </div>
@@ -77,7 +79,9 @@ To quote the spec:
 
 <p align="center">
    <picture>
-      <img alt="fmsg protocol flow diagram" src="https://raw.githubusercontent.com/markmnl/fmsg/main/pics/flow-light.png">
+      <source media="(prefers-color-scheme: dark)" srcset="pics/flow-dark.png">
+      <source media="(prefers-color-scheme: light)" srcset="pics/flow-light.png">
+      <img alt="fmsg protocol flow diagram" src="pics/flow-light.png">
    </picture>
 </p>
 
