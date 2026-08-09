@@ -1,13 +1,17 @@
-/* Brand colours for Material (primary/accent = custom). */
+/* Brand greens for Material (primary/accent = custom).
+ *
+ * Light header: deep forest. Accent: mid green for links/CTAs.
+ * Dark header: near-black green. Accent: mint for contrast on slate.
+ */
 :root,
 [data-md-color-scheme="default"] {
-  --md-primary-fg-color: #102b3a;
-  --md-primary-fg-color--light: #185a7d;
-  --md-primary-fg-color--dark: #0a1c26;
+  --md-primary-fg-color: #1b4332;
+  --md-primary-fg-color--light: #2d6a4f;
+  --md-primary-fg-color--dark: #081c15;
   --md-primary-bg-color: #ffffff;
-  --md-accent-fg-color: #185a7d;
-  --md-accent-fg-color--transparent: rgba(24, 90, 125, 0.1);
-  --md-typeset-a-color: #185a7d;
+  --md-accent-fg-color: #2d6a4f;
+  --md-accent-fg-color--transparent: rgba(45, 106, 79, 0.12);
+  --md-typeset-a-color: #2d6a4f;
 
   /* Light theme: dark text on white */
   --md-default-fg-color: #16202a;
@@ -15,7 +19,7 @@
   --md-default-fg-color--lighter: #5d6975;
   --md-default-fg-color--lightest: #d9e0e6;
   --md-default-bg-color: #ffffff;
-  --md-default-bg-color--light: #f7f9fb;
+  --md-default-bg-color--light: #f6faf7;
   --md-default-bg-color--lighter: #ffffff;
   --md-default-bg-color--lightest: #ffffff;
   --md-code-bg-color: #f3f5f7;
@@ -25,21 +29,21 @@
 
   --fmsg-ink: #16202a;
   --fmsg-muted: #5d6975;
-  --fmsg-line: #d9e0e6;
+  --fmsg-line: #d5e0d9;
   --fmsg-paper: #ffffff;
-  --fmsg-accent: #185a7d;
+  --fmsg-accent: #2d6a4f;
   --fmsg-code: #f3f5f7;
 }
 
 /* Dark theme: light text on near-black */
 [data-md-color-scheme="slate"] {
-  --md-primary-fg-color: #0a1520;
-  --md-primary-fg-color--light: #185a7d;
-  --md-primary-fg-color--dark: #050a0f;
+  --md-primary-fg-color: #0d1f17;
+  --md-primary-fg-color--light: #2d6a4f;
+  --md-primary-fg-color--dark: #050f0a;
   --md-primary-bg-color: #e8edf1;
-  --md-accent-fg-color: #73b9dd;
-  --md-accent-fg-color--transparent: rgba(115, 185, 221, 0.12);
-  --md-typeset-a-color: #73b9dd;
+  --md-accent-fg-color: #95d5b2;
+  --md-accent-fg-color--transparent: rgba(149, 213, 178, 0.14);
+  --md-typeset-a-color: #95d5b2;
 
   --md-default-fg-color: #e8edf1;
   --md-default-fg-color--light: #b1bbc4;
@@ -60,7 +64,7 @@
   --fmsg-muted: #b1bbc4;
   --fmsg-line: #2a3540;
   --fmsg-paper: #0b1218;
-  --fmsg-accent: #73b9dd;
+  --fmsg-accent: #95d5b2;
   --fmsg-code: #121a22;
 }
 
@@ -186,7 +190,7 @@
 .landing-card:hover,
 .landing-card:focus {
   border-color: var(--fmsg-accent);
-  box-shadow: 0 6px 18px rgba(16, 43, 58, 0.08);
+  box-shadow: 0 6px 18px rgba(27, 67, 50, 0.1);
   color: var(--fmsg-ink) !important;
   transform: translateY(-2px);
 }
