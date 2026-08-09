@@ -1,10 +1,11 @@
 /**
  * Show the diagram asset that matches Material's active palette.
  *
- * After markdown fix-up, <source media="(prefers-color-scheme: …)"> points at
- * the asset meant for that *page* theme:
- *   light page → dark-ink art (readable on white)
- *   dark page  → light-ink art (readable on near-black)
+ * Dual <picture> sources are labeled with prefers-color-scheme light/dark.
+ * When both exist they map straight through:
+ *   light page  → light source
+ *   dark page   → dark source
+ * Single-image pictures are left unchanged.
  *
  * Browsers re-resolve <source media> from the OS preference even when Material's
  * toggle disagrees, so we rewrite each <picture> into a dual-<img> pair driven
@@ -21,42 +22,41 @@
     var img = picture.querySelector("img");
     var mediaDark = null;
     var mediaLight = null;
-    var namedDarkInk = null;
-    var namedLightInk = null;
+    var namedDark = null;
+    var namedLight = null;
     var i;
 
     for (i = 0; i < sources.length; i++) {
-      var media = (sources[i].getAttribute("media") || "").toLowerCase().replace(/\s+/g, "");
+      var media = (sources[i].getAttribute("media") || "")
+        .toLowerCase()
+        .replace(/\s+/g, "");
       var src = firstUrl(sources[i].getAttribute("srcset"));
       if (!src) continue;
       var file = src.split("/").pop().toLowerCase();
 
       if (media.indexOf("prefers-color-scheme:dark") !== -1) mediaDark = src;
-      else if (media.indexOf("prefers-color-scheme:light") !== -1) mediaLight = src;
+      else if (media.indexOf("prefers-color-scheme:light") !== -1)
+        mediaLight = src;
 
-      // Filename heuristics (ink colour), skipping ambiguous setup-example-light.png
-      if (file.indexOf("dark") !== -1) namedDarkInk = src;
-      if (file.indexOf("light") !== -1 && file.indexOf("transparent") !== -1) {
-        namedLightInk = src;
-      } else if (
-        file.indexOf("light") !== -1 &&
-        file.indexOf("setup-example-light.png") === -1
-      ) {
-        namedLightInk = src;
-      }
+      if (file.indexOf("dark") !== -1) namedDark = src;
+      if (file.indexOf("light") !== -1) namedLight = src;
     }
 
-    // Media tags are authoritative once markdown is correct.
-    var forLightPage =
-      mediaLight || namedDarkInk || (img && img.getAttribute("src"));
-    var forDarkPage = mediaDark || namedLightInk || forLightPage;
+    var lightSrc =
+      mediaLight || namedLight || (img && img.getAttribute("src"));
+    var darkSrc = mediaDark || namedDark || lightSrc;
 
-    return { forLightPage: forLightPage, forDarkPage: forDarkPage };
+    // Only build a dual pair when two distinct sources exist.
+    if (lightSrc && darkSrc && lightSrc !== darkSrc) {
+      return { forLightPage: lightSrc, forDarkPage: darkSrc };
+    }
+
+    var only = lightSrc || darkSrc || (img && img.getAttribute("src"));
+    return { forLightPage: only, forDarkPage: only };
   }
 
   function rewritePicture(picture) {
     if (picture.getAttribute("data-fmsg-scheme") === "done") return;
-    // Already rewritten wrapper
     if (
       picture.classList &&
       picture.classList.contains("fmsg-scheme-image")
@@ -103,17 +103,7 @@
   function watch() {
     apply();
     if (typeof MutationObserver === "undefined") return;
-    var obs = new MutationObserver(function (mutations) {
-      var i;
-      for (i = 0; i < mutations.length; i++) {
-        if (
-          mutations[i].type === "attributes" &&
-          mutations[i].attributeName === "data-md-color-scheme"
-        ) {
-          // CSS handles visibility; nothing else required.
-          continue;
-        }
-      }
+    var obs = new MutationObserver(function () {
       apply();
     });
     obs.observe(document.body, {

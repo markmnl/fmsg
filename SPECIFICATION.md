@@ -434,10 +434,9 @@ A message is sent from the sender's host to each unique recipient host (i.e. eac
 
 <p align="center">
 <picture>
-  <!-- Asset names describe ink colour: dark ink on light pages, light ink on dark pages. -->
-  <source media="(prefers-color-scheme: dark)" srcset="pics/flow-light.png">
-  <source media="(prefers-color-scheme: light)" srcset="pics/flow-dark.png">
-  <img alt="fmsg protocol flow diagram" src="pics/flow-dark.png">
+  <source media="(prefers-color-scheme: dark)" srcset="pics/flow-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="pics/flow-light.png">
+  <img alt="fmsg protocol flow diagram" src="pics/flow-light.png">
 </picture>
 </p>
 

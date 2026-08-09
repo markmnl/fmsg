@@ -14,10 +14,9 @@ A full RFC style specification is hosted in this repository here: [SPECIFICATION
 
 <div style="float: right; margin: 1em; max-width: 600px;">
    <picture>
-      <!-- dark-ink art on light pages; light-ink art on dark pages -->
-      <source media="(prefers-color-scheme: dark)" srcset="fmsg-docker-light.png">
-      <source media="(prefers-color-scheme: light)" srcset="fmsg-docker-dark.png">
-      <img alt="fmsg-docker diagram" src="fmsg-docker-dark.png">
+      <source media="(prefers-color-scheme: dark)" srcset="fmsg-docker-dark.png">
+      <source media="(prefers-color-scheme: light)" srcset="fmsg-docker-light.png">
+      <img alt="fmsg-docker diagram" src="fmsg-docker-light.png">
    </picture>
 </div>
 
@@ -80,9 +79,9 @@ To quote the spec:
 
 <p align="center">
    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="pics/flow-light.png">
-      <source media="(prefers-color-scheme: light)" srcset="pics/flow-dark.png">
-      <img alt="fmsg protocol flow diagram" src="pics/flow-dark.png">
+      <source media="(prefers-color-scheme: dark)" srcset="pics/flow-dark.png">
+      <source media="(prefers-color-scheme: light)" srcset="pics/flow-light.png">
+      <img alt="fmsg protocol flow diagram" src="pics/flow-light.png">
    </picture>
 </p>
 

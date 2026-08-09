@@ -273,10 +273,9 @@
 }
 
 /*
- * Dual theme images.
- * fmsg-for-light = dark-ink asset (readable on white)
- * fmsg-for-dark  = light-ink asset (readable on near-black)
- * Material: data-md-color-scheme = "default" | "slate"
+ * Dual theme images (Material data-md-color-scheme = default | slate).
+ * fmsg-for-light / fmsg-for-dark hold the pair after JS reverses labeled
+ * light/dark sources when both are present.
  */
 .md-typeset .fmsg-scheme-image {
   display: block;
