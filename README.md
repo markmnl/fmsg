@@ -4,7 +4,7 @@
 
 This repository serves as a host and index for fmsg related documents listed below, including the white paper, specification and standards.
 
-**Website:** [https://fmsg.org](https://fmsg.org) — built with MkDocs Material from this repo (see [`docs/README.md`](docs/README.md)). GitHub Pages **Source** must be **GitHub Actions** (not “Deploy from a branch” / `/docs`), or the custom domain will serve a broken Jekyll stub with widespread 404s.
+**Website:** [https://fmsg.org](https://fmsg.org) 
 
 
 | Document                                      | Short Description |
