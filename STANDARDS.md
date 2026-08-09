@@ -7,7 +7,7 @@ This page indexes common standards for a fmsg host to follow and services augmen
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="pics/setup-example-dark-transparent.png">
   <source media="(prefers-color-scheme: light)" srcset="pics/setup-example-light.png">
-  <img alt="example fmsg setup" src="pics/setup-example-dark-transparent.png">
+  <img alt="example fmsg setup" src="pics/setup-example-light.png">
 </picture>
 
 
