@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block extrahead %}
+  {{ super() }}
+  <meta name="theme-color" content="#102b3a">
+{% endblock %}
+
+{% block content %}
+  {% if page and page.is_homepage %}
+  <div class="homepage-title-tight">
+    {{ super() }}
+  </div>
+  {% else %}
+    {{ super() }}
+  {% endif %}
+{% endblock %}
