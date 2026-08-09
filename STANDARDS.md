@@ -5,7 +5,8 @@ The fmsg specification only describes host-to-host communication protocol semant
 This page indexes common standards for a fmsg host to follow and services augmenting a host.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="pics/setup-example-dark-transparent.png">
+  <!-- Dark pages need light-ink art; light pages use the light-theme diagram. -->
+  <source media="(prefers-color-scheme: dark)" srcset="pics/setup-example-light-transparent.png">
   <source media="(prefers-color-scheme: light)" srcset="pics/setup-example-light.png">
   <img alt="example fmsg setup" src="pics/setup-example-light.png">
 </picture>

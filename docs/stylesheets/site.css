@@ -1,5 +1,6 @@
 /* Brand colours for Material (primary/accent = custom). */
-:root {
+:root,
+[data-md-color-scheme="default"] {
   --md-primary-fg-color: #102b3a;
   --md-primary-fg-color--light: #185a7d;
   --md-primary-fg-color--dark: #0a1c26;
@@ -7,6 +8,20 @@
   --md-accent-fg-color: #185a7d;
   --md-accent-fg-color--transparent: rgba(24, 90, 125, 0.1);
   --md-typeset-a-color: #185a7d;
+
+  /* Light theme: dark text on white */
+  --md-default-fg-color: #16202a;
+  --md-default-fg-color--light: #3a4650;
+  --md-default-fg-color--lighter: #5d6975;
+  --md-default-fg-color--lightest: #d9e0e6;
+  --md-default-bg-color: #ffffff;
+  --md-default-bg-color--light: #f7f9fb;
+  --md-default-bg-color--lighter: #ffffff;
+  --md-default-bg-color--lightest: #ffffff;
+  --md-code-bg-color: #f3f5f7;
+  --md-code-fg-color: #16202a;
+  --md-typeset-color: #16202a;
+  --md-typeset-table-color: #16202a;
 
   --fmsg-ink: #16202a;
   --fmsg-muted: #5d6975;
@@ -16,31 +31,56 @@
   --fmsg-code: #f3f5f7;
 }
 
+/* Dark theme: light text on near-black */
 [data-md-color-scheme="slate"] {
-  --md-primary-fg-color: #0e2430;
+  --md-primary-fg-color: #0a1520;
   --md-primary-fg-color--light: #185a7d;
-  --md-primary-fg-color--dark: #07141c;
+  --md-primary-fg-color--dark: #050a0f;
+  --md-primary-bg-color: #e8edf1;
   --md-accent-fg-color: #73b9dd;
   --md-accent-fg-color--transparent: rgba(115, 185, 221, 0.12);
   --md-typeset-a-color: #73b9dd;
 
+  --md-default-fg-color: #e8edf1;
+  --md-default-fg-color--light: #b1bbc4;
+  --md-default-fg-color--lighter: #8a96a1;
+  --md-default-fg-color--lightest: #3a4650;
+  --md-default-bg-color: #0b1218;
+  --md-default-bg-color--light: #121a22;
+  --md-default-bg-color--lighter: #182028;
+  --md-default-bg-color--lightest: #222c35;
+  --md-code-bg-color: #121a22;
+  --md-code-fg-color: #e8edf1;
+  --md-typeset-color: #e8edf1;
+  --md-typeset-table-color: #e8edf1;
+  --md-footer-bg-color: #050a0f;
+  --md-footer-bg-color--dark: #000000;
+
   --fmsg-ink: #e8edf1;
   --fmsg-muted: #b1bbc4;
-  --fmsg-line: #3a4650;
-  --fmsg-paper: #182028;
+  --fmsg-line: #2a3540;
+  --fmsg-paper: #0b1218;
   --fmsg-accent: #73b9dd;
-  --fmsg-code: #222c35;
+  --fmsg-code: #121a22;
 }
 
 /* Slightly roomier reading column for long specifications. */
 .md-typeset {
   font-size: 0.78rem;
   line-height: 1.68;
+  color: var(--md-typeset-color);
 }
 
 .md-typeset h1 {
   font-weight: 700;
   letter-spacing: -0.025em;
+  color: var(--fmsg-ink);
+}
+
+.md-typeset h2,
+.md-typeset h3,
+.md-typeset h4 {
+  color: var(--fmsg-ink);
 }
 
 .md-typeset h2 {
@@ -49,22 +89,35 @@
 
 .md-typeset table:not([class]) {
   font-size: 0.72rem;
+  color: var(--fmsg-ink);
 }
 
 .md-typeset code {
   word-break: break-word;
 }
 
-/* Header brand */
-.md-header__button.md-logo img,
-.md-header__button.md-logo svg {
-  height: 1.6rem;
-  width: 1.6rem;
+/* Header: no logo icon; page title ALL CAPS */
+.md-header__button.md-logo {
+  display: none;
 }
 
 .md-header__title {
   font-weight: 700;
   letter-spacing: -0.02em;
+  margin-left: 0.4rem;
+}
+
+/* Active page title in the top bar (second topic slot). */
+.md-header__topic:nth-child(2) .md-ellipsis,
+.md-header__topic[data-md-component="header-topic"] .md-ellipsis {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.78em;
+}
+
+/* Drawer: also hide logo mark next to site name */
+.md-nav__button.md-logo {
+  display: none;
 }
 
 /* Left nav: clearer section labels (Specification, Standards, …). */
@@ -216,9 +269,10 @@
 }
 
 /*
- * Dual theme images (used when markup has both light and dark <img>s).
- * Material sets data-md-color-scheme to "default" (light) or "slate" (dark),
- * including after the header palette toggle — not only prefers-color-scheme.
+ * Dual theme images.
+ * fmsg-for-light = dark-ink asset (readable on white)
+ * fmsg-for-dark  = light-ink asset (readable on near-black)
+ * Material: data-md-color-scheme = "default" | "slate"
  */
 .md-typeset .fmsg-scheme-image {
   display: block;
@@ -227,17 +281,19 @@
 
 .md-typeset .fmsg-scheme-image img {
   margin: 0;
+  max-width: 100%;
+  height: auto;
 }
 
-.md-typeset .fmsg-scheme-image .fmsg-only-dark {
+.md-typeset .fmsg-scheme-image .fmsg-for-dark {
   display: none;
 }
 
-[data-md-color-scheme="slate"] .md-typeset .fmsg-scheme-image .fmsg-only-light {
+[data-md-color-scheme="slate"] .md-typeset .fmsg-scheme-image .fmsg-for-light {
   display: none;
 }
 
-[data-md-color-scheme="slate"] .md-typeset .fmsg-scheme-image .fmsg-only-dark {
+[data-md-color-scheme="slate"] .md-typeset .fmsg-scheme-image .fmsg-for-dark {
   display: inline-block;
 }
 
