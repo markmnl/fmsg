@@ -97,6 +97,9 @@ markdown_extensions:
 extra_css:
   - stylesheets/site.css
 
+extra_javascript:
+  - javascripts/scheme-images.js
+
 extra:
   generator: false
   social:

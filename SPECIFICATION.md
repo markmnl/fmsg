@@ -436,7 +436,7 @@ A message is sent from the sender's host to each unique recipient host (i.e. eac
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="pics/flow-dark.png">
   <source media="(prefers-color-scheme: light)" srcset="pics/flow-light.png">
-  <img alt="fmsg protocol flow diagram" src="pics/flow-dark.png">
+  <img alt="fmsg protocol flow diagram" src="pics/flow-light.png">
 </picture>
 </p>
 

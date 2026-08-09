@@ -215,6 +215,32 @@
   margin: 1rem 0;
 }
 
+/*
+ * Dual theme images (used when markup has both light and dark <img>s).
+ * Material sets data-md-color-scheme to "default" (light) or "slate" (dark),
+ * including after the header palette toggle — not only prefers-color-scheme.
+ */
+.md-typeset .fmsg-scheme-image {
+  display: block;
+  margin: 1rem 0;
+}
+
+.md-typeset .fmsg-scheme-image img {
+  margin: 0;
+}
+
+.md-typeset .fmsg-scheme-image .fmsg-only-dark {
+  display: none;
+}
+
+[data-md-color-scheme="slate"] .md-typeset .fmsg-scheme-image .fmsg-only-light {
+  display: none;
+}
+
+[data-md-color-scheme="slate"] .md-typeset .fmsg-scheme-image .fmsg-only-dark {
+  display: inline-block;
+}
+
 /* Homepage: larger title without competing with Material chrome. */
 .homepage-title-tight .md-typeset h1 {
   font-size: clamp(2.4rem, 7vw, 3.6rem);

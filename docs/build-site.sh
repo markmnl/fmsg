@@ -20,6 +20,7 @@ stage_sources() {
     cp "$md" "$source_dir"/
   done
   cp -R "$repository_dir/docs/stylesheets" "$source_dir/stylesheets"
+  cp -R "$repository_dir/docs/javascripts" "$source_dir/javascripts"
   cp -R "$repository_dir/docs/img" "$source_dir/img"
   cp "$repository_dir/docs/CNAME" "$source_dir/CNAME"
   # Prevent GitHub Pages from running Jekyll on the uploaded artifact.
@@ -41,8 +42,9 @@ stage_sources() {
   # copies so they continue to refer to the shared assets from generated pages.
   sed -i 's|srcset="pics/|srcset="../pics/|g; s|src="pics/|src="../pics/|g' \
     "$source_dir/SPECIFICATION.md" \
-    "$source_dir/STANDARDS.md"
-  sed -i 's|src="fmsg-docker-|src="../fmsg-docker-|g' \
+    "$source_dir/STANDARDS.md" \
+    "$source_dir/show-hn.md"
+  sed -i 's|srcset="fmsg-docker-|srcset="../fmsg-docker-|g; s|src="fmsg-docker-|src="../fmsg-docker-|g' \
     "$source_dir/show-hn.md"
 }
 
