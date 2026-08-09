@@ -1,7 +1,7 @@
 /* Brand greens for Material (primary/accent = custom).
  *
  * Light header: deep forest. Accent: mid green for links/CTAs.
- * Dark header: near-black green. Accent: mint for contrast on slate.
+ * Dark header: near-black green. Accent: soft mint (not neon) on pure black.
  */
 :root,
 [data-md-color-scheme="default"] {
@@ -33,45 +33,58 @@
   --fmsg-paper: #ffffff;
   --fmsg-accent: #2d6a4f;
   --fmsg-code: #f3f5f7;
+  --fmsg-btn-bg: #2d6a4f;
+  --fmsg-btn-fg: #ffffff;
 }
 
-/* Dark theme: light text on near-black */
+/* Dark theme: light text on pure black */
 [data-md-color-scheme="slate"] {
-  --md-primary-fg-color: #0d1f17;
+  --md-primary-fg-color: #000000;
   --md-primary-fg-color--light: #2d6a4f;
-  --md-primary-fg-color--dark: #050f0a;
+  --md-primary-fg-color--dark: #000000;
   --md-primary-bg-color: #e8edf1;
-  --md-accent-fg-color: #95d5b2;
-  --md-accent-fg-color--transparent: rgba(149, 213, 178, 0.14);
-  --md-typeset-a-color: #95d5b2;
+  --md-accent-fg-color: #74c69d;
+  --md-accent-fg-color--transparent: rgba(116, 198, 157, 0.12);
+  --md-typeset-a-color: #74c69d;
 
   --md-default-fg-color: #e8edf1;
   --md-default-fg-color--light: #b1bbc4;
   --md-default-fg-color--lighter: #8a96a1;
   --md-default-fg-color--lightest: #3a4650;
-  --md-default-bg-color: #0b1218;
-  --md-default-bg-color--light: #121a22;
-  --md-default-bg-color--lighter: #182028;
-  --md-default-bg-color--lightest: #222c35;
-  --md-code-bg-color: #121a22;
+  --md-default-bg-color: #000000;
+  --md-default-bg-color--light: #0a0a0a;
+  --md-default-bg-color--lighter: #111111;
+  --md-default-bg-color--lightest: #1a1a1a;
+  --md-code-bg-color: #0d0d0d;
   --md-code-fg-color: #e8edf1;
   --md-typeset-color: #e8edf1;
   --md-typeset-table-color: #e8edf1;
-  --md-footer-bg-color: #050a0f;
+  --md-footer-bg-color: #000000;
   --md-footer-bg-color--dark: #000000;
 
   --fmsg-ink: #e8edf1;
-  --fmsg-muted: #b1bbc4;
-  --fmsg-line: #2a3540;
-  --fmsg-paper: #0b1218;
-  --fmsg-accent: #95d5b2;
-  --fmsg-code: #121a22;
+  --fmsg-muted: #a0aab4;
+  --fmsg-line: #262626;
+  --fmsg-paper: #000000;
+  --fmsg-accent: #74c69d;
+  --fmsg-code: #0d0d0d;
+  /* Filled CTAs use a deeper green so they are not neon on black. */
+  --fmsg-btn-bg: #2d6a4f;
+  --fmsg-btn-fg: #f0f4f2;
 }
 
-/* Slightly roomier reading column for long specifications. */
+/*
+ * Material defaults to html { font-size: 125% }. Drop to 100% so chrome,
+ * nav, and body type scale down across the whole site.
+ */
+html {
+  font-size: 100%;
+}
+
+/* Body copy ~14.4px at the 16px root above. */
 .md-typeset {
-  font-size: 0.78rem;
-  line-height: 1.68;
+  font-size: 0.9rem;
+  line-height: 1.65;
   color: var(--md-typeset-color);
 }
 
@@ -92,7 +105,7 @@
 }
 
 .md-typeset table:not([class]) {
-  font-size: 0.72rem;
+  font-size: 0.82rem;
   color: var(--fmsg-ink);
 }
 
@@ -126,7 +139,7 @@
 
 /* Left nav: clearer section labels (Specification, Standards, …). */
 .md-nav__item--section > .md-nav__link {
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -141,7 +154,7 @@
 /* Landing page */
 .landing-eyebrow {
   color: var(--fmsg-accent);
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   font-weight: 750;
   letter-spacing: 0.12em;
   margin: 0 0 0.25rem;
@@ -150,10 +163,10 @@
 
 .md-typeset .landing-lead {
   color: var(--fmsg-ink);
-  font-size: clamp(1.15rem, 2.4vw, 1.45rem);
+  font-size: clamp(1rem, 2vw, 1.2rem);
   font-weight: 450;
   line-height: 1.45;
-  max-width: 46rem;
+  max-width: 42rem;
   margin: 0.4rem 0 0;
 }
 
@@ -197,20 +210,20 @@
 
 .landing-card-label {
   color: var(--fmsg-accent);
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: 750;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .landing-card strong {
-  font-size: 1.02rem;
+  font-size: 0.95rem;
   font-weight: 700;
 }
 
 .landing-card span:last-child {
   color: var(--fmsg-muted);
-  font-size: 0.9rem;
+  font-size: 0.82rem;
   line-height: 1.5;
 }
 
@@ -233,8 +246,9 @@
   border-radius: 0.3rem;
   color: var(--fmsg-accent) !important;
   display: inline-block;
+  font-size: 0.85rem;
   font-weight: 650;
-  padding: 0.6rem 0.95rem;
+  padding: 0.5rem 0.85rem;
   text-decoration: none !important;
 }
 
@@ -244,14 +258,14 @@
 }
 
 .document-actions .primary-action {
-  background: var(--fmsg-accent);
-  border-color: var(--fmsg-accent);
-  color: #fff !important;
+  background: var(--fmsg-btn-bg);
+  border-color: var(--fmsg-btn-bg);
+  color: var(--fmsg-btn-fg) !important;
 }
 
 .document-actions .primary-action:hover,
 .document-actions .primary-action:focus {
-  filter: brightness(1.05);
+  filter: brightness(1.08);
 }
 
 .pdf-viewer {
@@ -302,7 +316,7 @@
 
 /* Homepage: larger title without competing with Material chrome. */
 .homepage-title-tight .md-typeset h1 {
-  font-size: clamp(2.4rem, 7vw, 3.6rem);
+  font-size: clamp(2rem, 5.5vw, 2.85rem);
   letter-spacing: -0.035em;
   margin-bottom: 0.4rem;
 }
