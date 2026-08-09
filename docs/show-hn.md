@@ -12,7 +12,7 @@ I've been developing **fmsg** (thought of as “f-message”, always stylised lo
 
 A full RFC style specification is hosted in this repository here: [SPECIFICATION.md](https://github.com/markmnl/fmsg/blob/main/SPECIFICATION.md) and is nearing v1.0. (Hopefully one day fmsg can become an RFC – but that requires adoption first). Aside, while using AI agents to help with implementation I distilled the full specification to a concise version to use for context – which can be easier to follow: [SPEC.md](https://github.com/markmnl/fmsg/blob/main/SPEC.md) – this was remarkably successful and I wonder if "specification driven development", that old new thing, will be the way of the future, but I digress.. 
 
-<div style="float: right; margin: 1em; max-width: 600px;">
+<div style="float: right; margin: 1em; max-width: 24rem;">
    <picture>
       <source media="(prefers-color-scheme: dark)" srcset="fmsg-docker-dark.png">
       <source media="(prefers-color-scheme: light)" srcset="fmsg-docker-light.png">
