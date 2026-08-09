@@ -290,30 +290,17 @@ html {
  * Dual theme images (Material data-md-color-scheme = default | slate).
  * fmsg-for-light / fmsg-for-dark hold the pair after JS reverses labeled
  * light/dark sources when both are present.
- *
- * Cap display width well under native PNG width (flow ~749px, docker ~640px)
- * so 2× displays do not upsample 1× assets. Still shrinks further on narrow
- * viewports via min(100%, …).
  */
 .md-typeset .fmsg-scheme-image {
   display: block;
-  margin: 1rem auto; /* center when parent is full-width / <p align=center> */
-  max-width: min(100%, 24rem); /* ~384px */
+  margin: 1rem 0;
 }
 
-.md-typeset .fmsg-scheme-image img,
-.md-typeset picture img {
+.md-typeset .fmsg-scheme-image img {
   margin: 0;
-  max-width: min(100%, 24rem);
+  max-width: 100%;
   width: auto;
   height: auto;
-}
-
-/* Floated diagrams (show-hn) inherit the same cap. */
-.md-typeset [style*="float"] picture,
-.md-typeset [style*="float"] .fmsg-scheme-image {
-  max-width: min(100%, 24rem);
-  margin: 0;
 }
 
 .md-typeset .fmsg-scheme-image .fmsg-for-dark {
