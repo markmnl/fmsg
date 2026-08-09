@@ -38,6 +38,34 @@ parent hashes provide transport history, correlation, and integrity.
 This binding does not change the A2A data model, task state machine, Agent Card
 discovery rules, or extension semantics.
 
+## Introduction
+
+This section is non-normative.
+
+A2A and fmsg solve different parts of agent communication. A2A gives agents a
+shared vocabulary: start a task, continue it, report progress, return results,
+or cancel it. fmsg provides a way to deliver those operations between
+authenticated addresses using durable, store-and-forward, cryptographically
+linked messages.
+
+For example, an assistant can ask a research agent to investigate a question.
+The research agent creates an A2A task, the assistant adds a follow-up question,
+and the agent sends progress updates before returning its result. With this
+binding, the agents still speak standard A2A, but the exchange travels through
+fmsg addresses such as `@research-agent@example.com` instead of requiring this
+interaction to use another A2A transport.
+
+Using fmsg means an agent does not have to be online at the same moment as its
+peer. Requests can survive temporary outages, task continuations form
+verifiable fmsg chains, related tasks can branch from a shared context, and
+status checks or cancellations can appear as side branches without changing
+the A2A task itself.
+
+In short, A2A gives agents a shared language; fmsg gives their conversation a
+durable, federated, and verifiable delivery system. An adapter can therefore
+place fmsg underneath an existing A2A client or server without changing the
+application's task-handling code.
+
 ## Normative References
 
 - [A2A Protocol Specification 1.0](https://a2a-protocol.org/latest/specification/)
