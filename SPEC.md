@@ -137,7 +137,7 @@ Single-value codes (sent as first/only byte):
 | 7 | too old | Timestamp too far in past. |
 | 8 | future time | Timestamp too far in future. |
 | 9 | time travel | Timestamp before parent's timestamp. |
-| 10 | duplicate | Already received for all recipients, or this exact add-to batch already recorded. |
+| 10 | duplicate | Already received for all recipients, or an add-to batch with this message hash already recorded. |
 | 11 | accept add to | Add-to accepted; parent already stored; no _add to_ recipients on this host (including notification-only participant domains). Stop. |
 | 64 | continue | Header accepted; send data. |
 | 65 | skip data | Add-to accepted; parent already stored; _add to_ recipients on this host. Skip data, per-recipient codes follow. |
@@ -276,7 +276,7 @@ A host MUST retain each stored message in full and exactly as transmitted — in
 
 For accept-add-to (code 11) messages, the hash is computed by combining the add-to message header with the original message's data and attachment data.
 
-Each add-to batch produces a distinct hash. Only the exact batch that had an accepted response (200 or 11) matches.
+Each add-to batch produces a distinct hash — batch identity IS the batch message hash, which covers _time_: the same _add to_ addresses re-issued at a new _time_ are a distinct batch. Only the exact batch that had an accepted response (200 or 11) matches.
 
 ## 12. Adding Recipients
 
@@ -290,7 +290,11 @@ An add-to message is a duplicate of the original message with these differences:
 
 An add-to message MUST be sent to every participant domain per §10.2, so all participants of the message being added to — including the original sender, when not themselves the _add to from_ — learn of the added recipients, not only the domains hosting the new recipients. This is required because a subsequent reply may reference this add-to message via _pid_, and a host can only accept a reply whose parent it holds.
 
-Add-to batches do not chain: recipients are always added to the original message; an add-to message's _pid_ MUST NOT reference another add-to message. A message therefore has 0 or more add-to batches, each independently referencing it.
+Add-to batches do not chain: recipients are always added to the original message; an add-to message's _pid_ MUST NOT reference another add-to message. A message therefore has 0 or more add-to batches, each a sibling branch under the original — the thread evolves as a tree.
+
+Added recipients are participants of their add-to batch message only, not of the original: their replies MUST reference the batch message via _pid_ (referencing the original would fail the participant check, §10.3 step 7) and extend the batch's branch.
+
+A batch is identified by its message hash, which covers _time_ (§11): re-issuing the same _add to_ addresses at a new _time_ is a new, distinct batch — a new sibling branch — not a duplicate.
 
 ## 13. Security Requirements
 

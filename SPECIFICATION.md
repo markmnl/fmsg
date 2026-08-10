@@ -11,7 +11,7 @@
 | v0.3.2  | 2026-05-05 | Mark Mennell | Expanded size on message and attachments data  |
 | v0.4.0  | 2026-08-02 | Mark Mennell | Add-to messages delivered to all participant domains; notification-only delivery completes at code 11  |
 | v0.4.1  | 2026-08-03 | Mark Mennell | Hosts must retain stored messages in full, including complete recipient lists  |
-| v0.5.0  | 2026-08-10 | Mark Mennell | Consistency fixes: stored messages include those the host sent; exactly one header-response code; _add to_ addresses may not overlap _to_; add-to copies omit _topic_  |
+| v0.5.0  | 2026-08-10 | Mark Mennell | Consistency fixes: stored messages include those the host sent; exactly one header-response code; _add to_ addresses may not overlap _to_; add-to copies omit _topic_; add-to batches are sibling branches whose added recipients reply to the batch message; batch identity is the batch message hash  |
 
 ## Contents
 
@@ -212,7 +212,11 @@ Adding recipients is achieved by sending a whole new distinct message, that is a
 
 An add-to message MUST be sent to every participant domain, not only the unique domains of the message's recipients, so that all participants of the message being added to — including the original sender, when not themselves the _add to from_ — learn of the added recipients. This is required because a subsequent reply may reference the add-to message via _pid_, and a host can only accept a reply whose parent it holds. See [4. Sending a Message](#4-sending-a-message).
 
-Add-to batches do not chain: recipients are always added to the original message; an add-to message's _pid_ MUST NOT reference another add-to message. A message therefore has 0 or more add-to batches, each independently referencing it.
+Add-to batches do not chain: recipients are always added to the original message; an add-to message's _pid_ MUST NOT reference another add-to message. A message therefore has 0 or more add-to batches, each independently referencing it, and each batch forms its own sibling branch under the original message — the thread evolves as a tree rooted at the original.
+
+Recipients added in a batch are participants of that add-to batch message only, not of the original message. A reply from an added recipient MUST therefore reference the add-to batch message via _pid_ — referencing the original message directly would fail the participant rule in [Notes on Message Definition](#notes-on-message-definition), because the added recipient is not a participant of the original. Replies from added recipients thus extend the batch's branch of the thread.
+
+A batch is identified by its message hash (see [Computing Message Hash](#computing-message-hash)), which covers _time_. Re-issuing an add-to with the same _add to_ addresses at a new _time_ is a new, distinct batch — a new sibling branch — not a duplicate.
 
 
 ### Notes on Time
@@ -416,7 +420,7 @@ Other codes 100 and above are per recipient in the same order as recipients for 
 | 7    | too old               | timestamp is too far in the past for this host to accept                |
 | 8    | future time           | timestamp is too far in the future for this host to accept              |
 | 9    | time travel           | timestamp is before parent timestamp                                    |
-| 10   | duplicate             | message has already been received for all recipients on this host, or this exact add-to batch has already been recorded |
+| 10   | duplicate             | message has already been received for all recipients on this host, or an add-to batch with this message hash has already been recorded |
 | 11   | accept add to         | add-to batch recorded, no _add to_ recipients hosted here, discontinue  |
 |      |                       |                                                                         |
 | 64   | continue              | header received, continue message transmission                          |
@@ -638,7 +642,7 @@ A host verifies that a message is stored given a SHA-256 digest if:
 * The corresponding message currently exists on the host and can be retrieved.
 
 _NOTE I_ When a host accepted with "REJECT or ACCEPT CODE" 11 (accept add to), computing the hash requires constructing a message by combining the message header accepted (that has the add to fields) with the message and attachment data from the parent message referred to by _pid_.
-_NOTE II_ Multiple messages with _add to_ may arrive for the same _pid_ over time, each carrying a different batch of additional recipients. Only the specific batch of _add to_ recipients, i.e. the message that was accepted, can be used for comparison.
+_NOTE II_ Multiple messages with _add to_ may arrive for the same _pid_ over time, each carrying a batch of additional recipients. Only the specific batch that was accepted can be used for comparison. A batch's identity is its message hash, which covers _time_: two batches carrying the same _add to_ addresses but different _time_ values are distinct batches.
 
 
 ## Domain Resolution
