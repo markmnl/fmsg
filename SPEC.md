@@ -269,12 +269,12 @@ Host A MUST maintain a record of outgoing messages keyed by message header hash,
 ## 11. Verifying Message Stored
 
 A message is verified as stored iff:
-- A SHA-256 digest matches a message either previously accepted by the host (code 200 to ≥ 1 recipient, or code 11), or sent by the host (its _from_ / _add to from_ belongs to the host's domain and the host transmitted it or holds it for sending).
+- A SHA-256 digest matches a message either previously accepted by the host (code 200 to ≥ 1 recipient, or code 11), or sent by the host (its _from_ / _add to from_ belongs to the host's domain and the host transmitted it or holds it for sending — including each add-to batch it sent, since replies may reference a batch by its hash).
 - That message currently exists and is retrievable.
 
 A host MUST retain each stored message in full and exactly as transmitted — including the complete _to_ and _add to_ recipient lists, not only recipients on its own domain — so the message hash can always be faithfully recomputed and participant checks (§10.3 step 7) evaluate against the true participant set.
 
-For accept-add-to (code 11) messages, the hash is computed by combining the add-to message header with the original message's data and attachment data.
+An add-to message's data never crosses the wire when the host already holds the original (codes 11 and 65), and its sender likewise already holds it. Its hash is therefore computed by RECONSTRUCTION: the add-to header exactly as transmitted combined with the original message's data and attachment data. Every host holding a batch — accepted via 11 or 65, or sent by it — MUST be able to reconstruct it so replies referencing the batch hash can be verified; hosts on the 65 path MUST record the batch fields (_add to from_, _add to_, _time_) exactly as transmitted, as the 11 path already requires.
 
 Each add-to batch produces a distinct hash — batch identity IS the batch message hash, which covers _time_: the same _add to_ addresses re-issued at a new _time_ are a distinct batch. Only the exact batch that had an accepted response (200 or 11) matches.
 
