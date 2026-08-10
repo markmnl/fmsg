@@ -13,5 +13,7 @@
 | [fmsgid](https://github.com/markmnl/fmsgid)            | Implementation of the [fmsg Id Standard](standards/fmsg-002-id.md) - HTTP API providing address and qutoas lookup.     |
 | [fmsg-webapi](https://github.com/markmnl/fmsg-webapi)  | Implementation of the [fmsg Web API Standard](standards/fmsg-003-webapi.md) - HTTP API providing message sending and retrival via an integrated fmsgd host     |
 | [fmsg-cli](https://github.com/markmnl/fmsg-cli)        | Command line interface to fmsg Web API     |
+| [fmsg-groot](https://github.com/markmnl/fmsg-groot)    | Demo bot that replies “I am Groot” to every message |
+
 
  
