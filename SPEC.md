@@ -200,7 +200,7 @@ When _has add to_ IS set: perform the steps below for each unique participant do
 1. Read first byte on Connection 1:
    - 1–127 and supported → message version, continue.
    - 129–255 and (256 − value) supported → incoming CHALLENGE, handle per §10.5.
-   - Otherwise → respond code 2 (unsupported version), close.
+   - Otherwise, unsupported: value ≤ 128 → respond code 2 (unsupported version), close (the peer reads a response code first). Value > 128 → TERMINATE without responding (the challenger's next read is exactly a 32-byte hash; a code byte would be indistinguishable from it).
 2. Parse remaining header. If unparseable → TERMINATE.
 3. Validate (all must pass, else respond code 1 invalid and close):
    - _to_ has ≥ 1 distinct address.
@@ -258,7 +258,7 @@ The challenge is optional (Receiving Host's discretion). It runs on a separate C
 1. Read first byte on incoming connection:
    - 1–127 and supported → incoming message, handle normally.
    - 129–255 and (256 − value) supported → CHALLENGE, continue.
-   - Otherwise → respond code 2 (unsupported version), close.
+   - Otherwise, unsupported: value ≤ 128 → respond code 2 (unsupported version), close. Value > 128 → TERMINATE without responding (the challenger's next read is exactly a 32-byte hash; a code byte would be indistinguishable from it).
 2. Read 32-byte header hash. Match against outgoing record by header hash AND challenger's IP. No match → TERMINATE.
 3. Send CHALLENGE RESPONSE: 32-byte SHA-256 of entire message.
 

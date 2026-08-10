@@ -478,7 +478,7 @@ The following variables corresponding to host defined configuration are used in 
 3. Host B downloads the first byte 
     1. If the value is less than 128 and a supported fmsg version, continue.
     2. If the value is greater than 128 and 256 minus the value is a supported fmsg version — this is an incoming CHALLENGE and should be processed per [Handling a Challenge](#handling-a-challenge).
-    3. Otherwise Host B sends REJECT code 2 (unsupported version) on Connection 1 then closes the connection completing the message exchange.
+    3. Otherwise the version is unsupported. If the value is 128 or less, the peer is a sending host whose first read on this connection is a response code, so Host B sends REJECT code 2 (unsupported version) on Connection 1 then closes the connection completing the message exchange. If the value is greater than 128, the peer issued a CHALLENGE of an unsupported version and its next read is exactly the 32-byte CHALLENGE-RESPONSE hash — a response code written into that stream would be indistinguishable from the start of a hash — so Host B MUST TERMINATE the connection without responding.
 4. Host B downloads the remaining message header and parses the fields. If parsing fails because types cannot be decoded, Receiving Host MUST TERMINATE the message exchange.
     1. The following conditions MUST be met otherwise Host B MUST respond REJECT code 1 (invalid) and close the connection completing the message exchange:
         1. There must be at least one address in _to_.
@@ -614,7 +614,7 @@ A Sending Host MUST be listening for incoming connections on the same IP address
 1. Host A downloads the first byte 
     1. If the value is less than 128 and a supported fmsg version — this is an incoming message and should be processed per [Connection and Header Exchange](#1-connection-and-header-exchange).
     2. If the value is greater than 128 and 256 minus the value is a supported fmsg version, this is a CHALLENGE we support, continue.
-    3. Otherwise Host A sends REJECT code 2 (unsupported version) then closes the connection.
+    3. Otherwise the version is unsupported. If the value is 128 or less, the peer is a sending host whose first read is a response code, so Host A sends REJECT code 2 (unsupported version) then closes the connection. If the value is greater than 128, the peer issued a CHALLENGE of an unsupported version and its next read is exactly the 32-byte CHALLENGE-RESPONSE hash, so Host A MUST TERMINATE the connection without responding.
 2. Host A downloads the next 32 bytes — the _header hash_ supplied by Host B.
 3. Host A MUST verify the authenticity of the challenge by checking:
     1. The _header hash_ exactly matches a _message header hash_ of a message Host A is currently transmitting.
