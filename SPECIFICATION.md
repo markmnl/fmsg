@@ -11,6 +11,7 @@
 | v0.3.2  | 2026-05-05 | Mark Mennell | Expanded size on message and attachments data  |
 | v0.4.0  | 2026-08-02 | Mark Mennell | Add-to messages delivered to all participant domains; notification-only delivery completes at code 11  |
 | v0.4.1  | 2026-08-03 | Mark Mennell | Hosts must retain stored messages in full, including complete recipient lists  |
+| v0.5.0  | 2026-08-10 | Mark Mennell | Consistency fixes: stored messages include those the host sent; exactly one header-response code; _add to_ addresses may not overlap _to_; add-to copies omit _topic_; add-to batches are sibling branches whose added recipients reply to the batch message; batch identity is the batch message hash  |
 
 ## Contents
 
@@ -22,6 +23,7 @@
     - [Data Types](#data-types)
     - [Message](#message)
     - [Notes on Message Definition](#notes-on-message-definition)
+    - [Notes on Adding Recipients](#notes-on-adding-recipients)
     - [Notes on Time](#notes-on-time)
     - [Flags](#flags)
         - [Common Media Types](#common-media-types)
@@ -38,6 +40,7 @@
         - [3. Continue, Per-Recipient Response and Disposition](#3-continue-per-recipient-response-and-disposition)
         - [4. Sending a Message](#4-sending-a-message)
     - [Handling a Challenge](#handling-a-challenge)
+    - [Computing Message Hash](#computing-message-hash)
     - [Verifying Message Stored](#verifying-message-stored)
 - [Domain Resolution](#domain-resolution)
     - [Notes on Domain Resolution](#notes-on-domain-resolution)
@@ -74,7 +77,7 @@ _"host"_ is an fmsg implementation which can send and receive fmsg messages to a
 
 _"message"_ refers to an entire message described in [Message](#message) definition.
 
-_"message hash"_ the SHA-256 digest of a message.
+_"message hash"_ the SHA-256 digest of a message computed per [Computing Message Hash](#computing-message-hash).
 
 _"message header"_ refers to the fields up to and including the attachment headers field in a message.
 
@@ -201,14 +204,19 @@ On the wire messages are encoded thus:
 
 Adding recipients is achieved by sending a whole new distinct message, that is an exact duplicate of the message to which recipients are being added, except:
 * The _has add to_ flag bit is set
-* _pid_ references the message which recipients are being added to.
+* The _has pid_ flag bit is set and _pid_ references the message which recipients are being added to (replacing any _pid_ the original message had).
+* _topic_ is omitted if the original message had one, because _pid_ is now present and _topic_ only exists on a message without _pid_.
 * _add to from_ exists and is the address of the participant in the previous message adding the additional recipients, i.e. the sender.
-* _add to_ exists and is addresses of the new recipients being added.
+* _add to_ exists and is addresses of the new recipients being added, none of which may already be in _to_.
 * _time_ is the POSIX epoch time of this new message with added recipients was ready for sending.
 
 An add-to message MUST be sent to every participant domain, not only the unique domains of the message's recipients, so that all participants of the message being added to — including the original sender, when not themselves the _add to from_ — learn of the added recipients. This is required because a subsequent reply may reference the add-to message via _pid_, and a host can only accept a reply whose parent it holds. See [4. Sending a Message](#4-sending-a-message).
 
-Add-to batches do not chain: recipients are always added to the original message; an add-to message's _pid_ MUST NOT reference another add-to message. A message therefore has 0 or more add-to batches, each independently referencing it.
+Add-to batches do not chain: recipients are always added to the original message; an add-to message's _pid_ MUST NOT reference another add-to message. A message therefore has 0 or more add-to batches, each independently referencing it, and each batch forms its own sibling branch under the original message — the thread evolves as a tree rooted at the original.
+
+Recipients added in a batch are participants of that add-to batch message only, not of the original message. A reply from an added recipient MUST therefore reference the add-to batch message via _pid_ — referencing the original message directly would fail the participant rule in [Notes on Message Definition](#notes-on-message-definition), because the added recipient is not a participant of the original. Replies from added recipients thus extend the batch's branch of the thread.
+
+A batch is identified by its message hash (see [Computing Message Hash](#computing-message-hash)), which covers _time_. Re-issuing an add-to with the same _add to_ addresses at a new _time_ is a new, distinct batch — a new sibling branch — not a duplicate.
 
 
 ### Notes on Time
@@ -381,14 +389,14 @@ A challenge response is the next 32 bytes received in reply to challenge request
 
 | name     | type          | comment                                                              |
 |----------|---------------|----------------------------------------------------------------------|
-| msg hash | 32 byte array | SHA-256 digest of full message bytes.                                | 
+| msg hash | 32 byte array | SHA-256 digest of the message computed per [Computing Message Hash](#computing-message-hash). | 
 
 
 ### Reject or Accept Response
 
 A code less than 11 indicates rejection for all recipients belonging to the Receiving Host's domain and will be the only value.
 
-Code 11 is acceptance for a message header with additional recipients, and the Receiving Host has verified it already has the rest of the message stored. Code 11 is also the successful response of a notification-only delivery — when a participant domain hosting no address in the message's _to_ or _add to_ fields is informed that recipients were added, see [4. Sending a Message](#4-sending-a-message).
+Code 11 accepts an add-to message and completes the exchange: the Receiving Host already holds the rest of the message, so there is no need to send it again, and it hosts none of the _add to_ recipients, so no per-recipient codes follow. (The host holds the message data because its domain was a participant of the original message the add-to references via _pid_ — see [4. Sending a Message](#4-sending-a-message).) A host that does host _add to_ recipients responds 65 (skip data) instead.
 
 Code 64 indicates to the sender the receiving host has found the message header acceptable and transmission of the message data and any attachment data should proceed.
 
@@ -412,7 +420,7 @@ Other codes 100 and above are per recipient in the same order as recipients for 
 | 7    | too old               | timestamp is too far in the past for this host to accept                |
 | 8    | future time           | timestamp is too far in the future for this host to accept              |
 | 9    | time travel           | timestamp is before parent timestamp                                    |
-| 10   | duplicate             | message has already been received for all recipients on this host       |
+| 10   | duplicate             | message has already been received by this host                          |
 | 11   | accept add to         | additional recipients received, discontinue                             |
 |      |                       |                                                                         |
 | 64   | continue              | header received, continue message transmission                          |
@@ -470,16 +478,16 @@ The following variables corresponding to host defined configuration are used in 
 3. Host B downloads the first byte 
     1. If the value is less than 128 and a supported fmsg version, continue.
     2. If the value is greater than 128 and 256 minus the value is a supported fmsg version — this is an incoming CHALLENGE and should be processed per [Handling a Challenge](#handling-a-challenge).
-    3. Otherwise Host B sends REJECT code 2 (unsupported version) on Connection 1 then closes the connection completing the message exchange.
+    3. Otherwise the version is unsupported. If the value is 128 or less, the peer is a sending host whose first read on this connection is a response code, so Host B sends REJECT code 2 (unsupported version) on Connection 1 then closes the connection completing the message exchange. If the value is greater than 128, the peer issued a CHALLENGE of an unsupported version and its next read is exactly the 32-byte CHALLENGE-RESPONSE hash — a response code written into that stream would be indistinguishable from the start of a hash — so Host B MUST TERMINATE the connection without responding.
 4. Host B downloads the remaining message header and parses the fields. If parsing fails because types cannot be decoded, Receiving Host MUST TERMINATE the message exchange.
     1. The following conditions MUST be met otherwise Host B MUST respond REJECT code 1 (invalid) and close the connection completing the message exchange:
         1. There must be at least one address in _to_.
         2. All recipients in _to_ are distinct using case-insensitive comparison.
         3. If the _has add to_ flag bit is set:
             1. _add to from_ MUST exist and _add to from_ MUST also be in _from_ or _to_.
-            2. _add to_ MUST have at least one address and all addresses are distinct using case-insensitive comparison.
+            2. _add to_ MUST have at least one address, all addresses in _add to_ MUST be distinct using case-insensitive comparison, and no address in _add to_ may also be in _to_ using case-insensitive comparison.
             _NOTE I_ _add to_ requires _add to from_ to be a participant of the original message, so recipients only in _add to_ cannot add recipients.
-            _NOTE II_ _add to_ recipients could possibly overlap with those in _to_. This allows original recipients in _to_ who may no longer have their message to be added causing the message to be sent to them again this time as an additional recipient. The protocol also allows re-sending any message without necessarily using _add to_ but that does require recipients to have the thread of messages referenced by following _pid_ prior.
+            _NOTE II_ Recipients cannot be added twice — an address already in _to_ MUST NOT appear in _add to_. An original recipient who no longer has the message can instead be re-served by re-sending: the protocol allows re-sending any message, though the recipient needs prior messages in the thread referenced by following _pid_ for a reply to them to be accepted.
         4. If the _has add to_ flag bit is not set, there must be at least one recipient in _to_ for Host B (example.edu domain). If the _has add to_ flag bit is set, there must be at least one participant (_from_, _to_, _add to from_ or _add to_) for Host B.
         5. _type_ number when _common type_ [Flag](#flags) is set, exists in [Common Media Type](#common-media-types) mapping.
         6. Each attachment _type_ number, when that attachment's _common type_ flag is set, exists in [Common Media Type](#common-media-types) mapping.
@@ -548,21 +556,19 @@ Ultimately, whether to challenge or not is at the discretion of the receiving ho
 
 #### 3. Continue, Per-Recipient Response and Disposition
 
-1. Iff _add to_ exists and message was verified to be stored in step 1.4.6.3.2 above:
-    1. If Host B has already recorded this exact add-to batch, i.e. the message hash for this batch matches a stored batch per [Verifying Message Stored](#verifying-message-stored), Host B MUST respond REJECT code 10 (duplicate) then close the connection completing the message exchange.
-    2. If any of the _add to_ recipients are for Host B:
-        1. Host B MUST respond with "ACCEPT or REJECT CODE" 65 (skip data) and message exchange continues.
-        _NOTE_ Host B has verfied it already has message referred to by _pid_ which means this message is an exact duplicate except for (_add to from_, _add to_ and time)
-    3. Otherwise none of the recipients were found to be for Host B;
-        1. Host B MUST then respond with ACCEPT code 11 (accept add to) then close the connection completing the message exchange.
-        _NOTE_ At this stage Host B has been informed additional recipients have been added to a message it has previously accepted. This is also the path taken by notification-only participant domains (e.g. the domain of _from_ when _from_ is not among the recipients), which are being informed that recipients were added. Host B MUST record these new fields: _add to from_, _add to_ recipients and _time_, along with the fact code 11 was sent in response, such that the message hash can be faithfully computed with and without this batch of additional recipients as per [Verifying Message Stored](#verifying-message-stored). This is because either the original message or message with the just added recipients could be referred to by subsequent messages.
-2. If the CHALLENGE, CHALLENGE-RESP exchange was completed, the message hash received in the CHALLENGE-RESP SHOULD be used to check if the message is already stored for **all** recipients on Host B per [Verifying Message Stored](#verifying-message-stored).
-    1. If the message is found to be already stored for all recipients on Host B, Host B MUST respond REJECT code 10 (duplicate) then close the connection completing the message exchange.
+1. Host B determines and sends exactly one "REJECT or ACCEPT RESPONSE" code for the message header, evaluating the following checks in order — the first check that determines a code is the code sent, and the remaining checks are not performed:
+    1. Iff _add to_ exists and message was verified to be stored in step 1.4.6.3.3 above:
+        1. If Host B has already recorded this exact add-to batch, i.e. the message hash for this batch matches a stored batch per [Verifying Message Stored](#verifying-message-stored), Host B MUST respond REJECT code 10 (duplicate) then close the connection completing the message exchange.
+        2. If any of the _add to_ recipients are for Host B, Host B MUST respond with "ACCEPT or REJECT CODE" 65 (skip data) and message exchange continues.
+        _NOTE_ Host B has verified it already has message referred to by _pid_ which means this message is an exact duplicate except for (_add to from_, _add to_ and _time_). As on the code 11 path, Host B MUST record these fields exactly as transmitted so the batch's message hash can be faithfully recomputed per [Verifying Message Stored](#verifying-message-stored) — a subsequent reply may reference this batch by its hash.
+        3. Otherwise none of the _add to_ recipients are for Host B; Host B MUST respond with ACCEPT code 11 (accept add to) then close the connection completing the message exchange.
+        _NOTE_ Host B MUST record the new fields — _add to from_, _add to_ and _time_ — exactly as transmitted, along with the fact code 11 was sent, so the batch's message hash can be faithfully computed per [Verifying Message Stored](#verifying-message-stored); subsequent messages may reference either the original message or this batch via _pid_. This is also the path notification-only participant domains take.
+    2. If the CHALLENGE, CHALLENGE-RESP exchange was completed, the message hash received in the CHALLENGE-RESP SHOULD be used to check if the message is already stored for **all** recipients on Host B per [Verifying Message Stored](#verifying-message-stored). If the message is found to be already stored for all recipients on Host B, Host B MUST respond REJECT code 10 (duplicate) then close the connection completing the message exchange.
     _NOTE_ If only some recipients still had the message stored continuing the message exchange allows restoring the message to those without the message.
-3. Otherwise, Host B responds with "ACCEPT or REJECT CODE" 64 (continue) and the message exchange continues.
-4. If Host B responded earlier with "ACCEPT or REJECT CODE" 65 (skip data), Host B MUST NOT read any further data from Connection 1. Otherwise, Host B continues downloading the exact number of remaining bytes i.e. the sum of message _size_ plus any attachments _size_. For each message or attachment data part with the corresponding _zlib-deflate_ flag bit set, Host B MUST decompress the part and the decompressed byte count MUST exactly match that part's _expanded size_. If decompression fails, produces more bytes than _expanded size_, produces fewer bytes than _expanded size_, or otherwise does not exactly match _expanded size_, the message is invalid and Host B MUST TERMINATE the message exchange.
-5. If the CHALLENGE, CHALLENGE-RESP exchange was completed, the message hash received in the CHALLENGE-RESP MUST exactly match the computed message hash per [Computing Message Hash](#computing-message-hash); otherwise Host B MUST TERMINATE the message exchange.
-6. Host B transmits an "ACCEPT or REJECT RESPONSE" code to Host A for each individual recipient belonging to Host B.
+    3. Otherwise, Host B responds with "ACCEPT or REJECT CODE" 64 (continue) and the message exchange continues.
+2. If Host B responded with "ACCEPT or REJECT CODE" 65 (skip data), Host B MUST NOT read any further data from Connection 1. Otherwise (code 64), Host B continues downloading the exact number of remaining bytes i.e. the sum of message _size_ plus any attachments _size_. For each message or attachment data part with the corresponding _zlib-deflate_ flag bit set, Host B MUST decompress the part and the decompressed byte count MUST exactly match that part's _expanded size_. If decompression fails, produces more bytes than _expanded size_, produces fewer bytes than _expanded size_, or otherwise does not exactly match _expanded size_, the message is invalid and Host B MUST TERMINATE the message exchange.
+3. If the CHALLENGE, CHALLENGE-RESP exchange was completed, the message hash received in the CHALLENGE-RESP MUST exactly match the computed message hash per [Computing Message Hash](#computing-message-hash); otherwise Host B MUST TERMINATE the message exchange.
+4. Host B transmits an "ACCEPT or REJECT RESPONSE" code to Host A for each individual recipient belonging to Host B.
     1. Host B iterates through each address for its domain (example.edu) in the order they appear in _to_ then in _add to_ (if any). Note for any REJECT code specific to a user, 105 (user undisclosed) MAY be used instead — so Host B does not have to disclose the reason message was not accepted for that address. For each recipient:
         1. Host B looks up implementation specific data for the recipient address such as quotas and whether the address is accepting new messages.
         2. If the message has already been received for this recipient, Host B MUST respond either REJECT code 103 (user duplicate) OR REJECT code 105 (user undisclosed).
@@ -571,34 +577,34 @@ Ultimately, whether to challenge or not is at the discretion of the receiving ho
         5. Else if the address is not accepting new messages, Host B MUST respond either REJECT code 102 (user not accepting) OR REJECT code 105 (user undisclosed).
         6. Otherwise, Host B MUST respond ACCEPT code 200 (accepted) for the recipient address 
     2. Host A MUST record the "ACCEPT or REJECT RESPONSE" code received per recipient for Host B's domain.
-7. Host A and Host B close Connection 1, completing the message exchange.
+5. Host A and Host B close Connection 1, completing the message exchange.
 
 _NOTE_ When recipients for Host B are added using the _add to_ functionality to a message Host B previously accepted, those previous recipients for Host B (that still have the message) would respond REJECT code 103 (user duplicate), or code 105 (user undisclosed). Implementations SHOULD keep the original accept response code 200 to more accuratly reflect that status of the delivery to that recipient. Implementations MAY choose to record the additional response code as well.
 
 #### 4. Sending a Message
 
-A Sending Host (Host A) delivers a message if and only if _from_ or _add to from_ belongs to Host A's domain. When the _has add to_ flag bit is not set, the message is sent to each unique recipient domain exactly once, regardless of how many recipients share that domain. When the _has add to_ flag bit is set, the message is sent exactly once to each unique participant domain — the domains of _from_ and of every address in _to_ and _add to_, omitting _from_'s domain when _from_ is the _add to from_ (the adder is the original sender, whose host is the Sending Host) — so that all participants of the message being added to learn of the added recipients, not only the domains hosting the new recipients. A participant domain having no address in the message's _to_ or _add to_ fields is notification-only: the message exchange completes at the single "REJECT or ACCEPT RESPONSE" code in step 6 (code 11 on success, or code 6 when Host B does not hold the parent) and no per-recipient codes are exchanged. This section describes the steps Host A performs for each domain. If multiple domains exist, Host A performs these steps independently for each domain without regard to the others.
+A Sending Host (Host A) delivers a message if and only if _from_ or _add to from_ belongs to Host A's domain. When the _has add to_ flag bit is not set, the message is sent to each unique recipient domain exactly once, regardless of how many recipients share that domain. When the _has add to_ flag bit is set, the message is sent exactly once to each unique participant domain — the domains of _from_ and of every address in _to_ and _add to_, omitting _from_'s domain when _from_ is the _add to from_ (the adder is the original sender, whose host is the Sending Host) — so that all participants of the message being added to learn of the added recipients, not only the domains hosting the new recipients. A participant domain having no address in the message's _to_ or _add to_ fields is notification-only: the message exchange completes at the single "REJECT or ACCEPT RESPONSE" code in step 5 (code 11 on success, or code 6 when Host B does not hold the parent) and no per-recipient codes are exchanged. (A domain hosting recipients in _to_ but none in _add to_ likewise completes at code 11 on success.) This section describes the steps Host A performs for each domain. If multiple domains exist, Host A performs these steps independently for each domain without regard to the others.
 
-2. Host A resolves the authorised IP addresses via [Domain Resolution](#domain-resolution) for Host B.
+1. Host A resolves the authorised IP addresses via [Domain Resolution](#domain-resolution) for Host B.
     1. Host A initiates a connection (Connection 1) to the first authorised IP address for the Receiving Host (Host B).
     2. If the first IP address is unresponsive within an implementation-defined timeout, and multiple IP addresses were returned during domain resolution, Host A SHOULD attempt to connect to each address in the order provided, one at a time, until a responsive host is reached.
     3. If no responsive Receiving Host is found, Host A SHOULD retry delivery after an implementation-defined delay. Implementations SHOULD apply a back-off strategy (e.g. exponential back-off) to subsequent retry attempts.
     4. Host A SHOULD continue retrying delivery until a maximum delivery window has elapsed, after which the message MAY be considered undeliverable for the affected recipients. Implementations MAY provide a mechanism for clients or operators to manually trigger or influence retry behaviour.
-3. Before transmitting, Host A MUST register the _message hash_ computed per [Computing Message Hash](#computing-message-hash) of the outgoing message, and the IP address being used for Host B, both keyed on the _message header_ hash. So that incoming [CHALLENGE](#challenge) requests on Connection 2 can be matched to this message per [Handling a Challenge](#handling-a-challenge).
-4. Host A transmits the message header to Host B on Connection 1, encoding all fields in the order defined in [Message](#message):
+2. Before transmitting, Host A MUST register the _message hash_ computed per [Computing Message Hash](#computing-message-hash) of the outgoing message, and the IP address being used for Host B, both keyed on the _message header_ hash. So that incoming [CHALLENGE](#challenge) requests on Connection 2 can be matched to this message per [Handling a Challenge](#handling-a-challenge).
+3. Host A transmits the message header to Host B on Connection 1, encoding all fields in the order defined in [Message](#message):
     1. _version_, _flags_, [_pid_], _from_, _to_, [_add to from_], [_add to_], _time_, [_topic_], _type_, _size_, [_expanded size_] and _attachment headers_.
-5. Host A waits for Host B's response. During this time Host B may open Connection 2 to issue a CHALLENGE which Host A MUST handle per [Handling a Challenge](#handling-a-challenge).
-6. Host A reads the first byte from Host B on Connection 1 which represents a "REJECT or ACCEPT RESPONSE" code.
+4. Host A waits for Host B's response. During this time Host B may open Connection 2 to issue a CHALLENGE which Host A MUST handle per [Handling a Challenge](#handling-a-challenge).
+5. Host A reads the first byte from Host B on Connection 1 which represents a "REJECT or ACCEPT RESPONSE" code.
     1. If code is 1 through 10, the message being sent has been rejected for all recipients belonging to Host B. Host A MUST record the response then close Connection 1 completing the message exchange.
-    2. If code is 11 (accept add to), and there were additional recipients in the message header, the additional recipients have been accepted, and, the message has been verified already stored by Host B, so no further transmission is needed. Host A MUST record the response then close Connection 1 completing the message exchange. Otherwise, if there were no additional recipients in the message header, Host A MUST TERMINATE the message exchange.
+    2. If code is 11 (accept add to), and there were additional recipients in the message header, Host B — which hosts none of the _add to_ recipients — has recorded the add-to batch and verified it already holds the message being added to, so no further transmission is needed. Host A MUST record the response then close Connection 1 completing the message exchange. Otherwise, if there were no additional recipients in the message header, Host A MUST TERMINATE the message exchange.
     3. If code is 64 (continue) indicating Host B instructs transmission of the message to continue (because they have validated the message is acceptable). 
     4. If code is 65 (skip data) Host B instructs to skip sending message data and any attachments data (because they already have the data).
     5. Otherwise code is unrecognised, Host A MUST TERMINATE the message exchange.
-7. If and only if "REJECT or ACCEPT RESPONSE" code was 64 (continue), Host A MUST transmit message data and any attachment data which MUST be of the exact length specified in _size_ plus any attachment sizes.
-8. Host A reads the next number of bytes as there were recipients for Host B on the outgoing message. Each byte represents a "REJECT or ACCEPT RESPONSE" code for each recipient belonging to Host B in the order they were on the message.
-9. Host A MUST record the response code for each recipient.
-10. Host A removes the _message header hash_ from its outgoing record.
-11. Host A and Host B close Connection 1, completing the message exchange for this recipient domain.
+6. If and only if "REJECT or ACCEPT RESPONSE" code was 64 (continue), Host A MUST transmit message data and any attachment data which MUST be of the exact length specified in _size_ plus any attachment sizes.
+7. Host A reads the next number of bytes as there were recipients for Host B on the outgoing message. Each byte represents a "REJECT or ACCEPT RESPONSE" code for each recipient belonging to Host B in the order they were on the message.
+8. Host A MUST record the response code for each recipient.
+9. Host A removes the _message header hash_ from its outgoing record.
+10. Host A and Host B close Connection 1, completing the message exchange for this recipient domain.
 
 
 ### Handling a Challenge
@@ -608,16 +614,16 @@ A Sending Host MUST be listening for incoming connections on the same IP address
 1. Host A downloads the first byte 
     1. If the value is less than 128 and a supported fmsg version — this is an incoming message and should be processed per [Connection and Header Exchange](#1-connection-and-header-exchange).
     2. If the value is greater than 128 and 256 minus the value is a supported fmsg version, this is a CHALLENGE we support, continue.
-    3. Otherwise Host A MUST TERMINATE the connection.
+    3. Otherwise the version is unsupported. If the value is 128 or less, the peer is a sending host whose first read is a response code, so Host A sends REJECT code 2 (unsupported version) then closes the connection. If the value is greater than 128, the peer issued a CHALLENGE of an unsupported version and its next read is exactly the 32-byte CHALLENGE-RESPONSE hash, so Host A MUST TERMINATE the connection without responding.
 2. Host A downloads the next 32 bytes — the _header hash_ supplied by Host B.
 3. Host A MUST verify the authenticity of the challenge by checking:
     1. The _header hash_ exactly matches a _message header hash_ of a message Host A is currently transmitting.
     2. The IP address of the incoming connection challenging Host A is associated with the matched _header hash_.
     — If no currently outgoing _message header hash_ AND associated IP address matches the supplied _header hash_, Host A MUST TERMINATE the connection. The challenge does not correspond to any message Host A is sending and may be spurious or malicious.
-5. Host A responds with the _message hash_ computed per [Computing Message Hash](#computing-message-hash) included in [CHALLENGE RESPONSE](#challenge-response).
-6. Host A and Host B close Connection 2. The message exchange continues on Connection 1.
+4. Host A responds with the _message hash_ computed per [Computing Message Hash](#computing-message-hash) included in [CHALLENGE RESPONSE](#challenge-response).
+5. Host A and Host B close Connection 2. The message exchange continues on Connection 1.
 
-_NOTE_ A Sending Host MUST maintain a record of outgoing messages keyed by message header hash, including the IP address of each Receiving Host the message is being transmitted to. This record is used to match incoming challenges to the correct outgoing message and verify the challenger's IP address. The record SHOULD be created before transmission begins. When a message exchange to a particular Receiving Host completes or is aborted, that host's IP address SHOULD be removed from the record. Once no IP addresses remain for a given message header hash, the entry SHOULD be removed.
+_NOTE_ A Sending Host MUST maintain a record of outgoing messages keyed by message header hash, including the IP address of each Receiving Host the message is being transmitted to. This record is used to match incoming challenges to the correct outgoing message and verify the challenger's IP address. The record MUST be created before transmission begins, as required by [4. Sending a Message](#4-sending-a-message). When a message exchange to a particular Receiving Host completes or is aborted, that host's IP address SHOULD be removed from the record. Once no IP addresses remain for a given message header hash, the entry SHOULD be removed.
 
 
 ### Computing Message Hash
@@ -630,11 +636,13 @@ The hash MUST be computed over the full message bytes, comprising the message he
 A host MUST retain each stored message in full and exactly as transmitted — including the complete _to_ and _add to_ recipient lists, not only recipients belonging to its own domain. Both the hash computation above and the participant checks in [Protocol Steps](#protocol-steps) step 1.4.6 depend on the message being reconstructible exactly as received.
 
 A host verifies that a message is stored given a SHA-256 digest if:
-* The provided digest exactly matches the SHA-256 digest computed per [Computing Message Hash](#computing-message-hash) of a message that was previously accepted, i.e. for which the host responded with "REJECT or ACCEPT CODE" 200 (accept) to at least one recipient, OR "REJECT or ACCEPT CODE" 11 (accept add to).
+* The provided digest exactly matches the SHA-256 digest computed per [Computing Message Hash](#computing-message-hash) of a message that was either:
+    * previously accepted by the host, i.e. for which the host responded with "REJECT or ACCEPT CODE" 200 (accept) to at least one recipient, OR "REJECT or ACCEPT CODE" 11 (accept add to); or
+    * sent by the host, i.e. a message whose sender (_from_, or _add to from_ when the _has add to_ flag bit is set) belongs to the host's domain and which the host has transmitted or holds for sending — including each add-to message (batch) the host sent, since a reply may reference the batch by its hash. Without this, replies to a message could never be accepted by the host of the participant that sent it.
 * The corresponding message currently exists on the host and can be retrieved.
 
-_NOTE I_ When a host accepted with "REJECT or ACCEPT CODE" 11 (accept add to), computing the hash requires constructing a message by combining the message header accepted (that has the add to fields) with the message and attachment data from the parent message referred to by _pid_.
-_NOTE II_ Multiple messages with _add to_ may arrive for the same _pid_ over time, each carrying a different batch of additional recipients. Only the specific batch of _add to_ recipients, i.e. the message that was accepted, can be used for comparison.
+_NOTE I_ An add-to message's data never crosses the wire when the receiving host already holds the message being added to (codes 11 and 65), and the sending host likewise already holds it. Computing an add-to message's hash therefore requires RECONSTRUCTING the message: combining the add-to message header exactly as transmitted (which has the add to fields) with the message and attachment data of the message referred to by _pid_. Every host holding a batch — whether it accepted it with code 11, accepted it with code 65 and per-recipient codes, or sent it — MUST be able to perform this reconstruction so replies referencing the batch by its hash can be verified.
+_NOTE II_ Multiple messages with _add to_ may arrive for the same _pid_ over time, each carrying a batch of additional recipients. Only the specific batch that was accepted can be used for comparison. A batch's identity is its message hash, which covers _time_: two batches carrying the same _add to_ addresses but different _time_ values are distinct batches.
 
 
 ## Domain Resolution
