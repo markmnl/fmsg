@@ -421,7 +421,7 @@ Other codes 100 and above are per recipient in the same order as recipients for 
 | 8    | future time           | timestamp is too far in the future for this host to accept              |
 | 9    | time travel           | timestamp is before parent timestamp                                    |
 | 10   | duplicate             | message has already been received by this host                          |
-| 11   | accept add to         | already holds the rest of the message and hosts no _add to_ recipient; batch recorded, exchange complete |
+| 11   | accept add to         | additional recipients received, discontinue                             |
 |      |                       |                                                                         |
 | 64   | continue              | header received, continue message transmission                          |
 | 65   | skip data             | header received, skip sending message and attachment data               |

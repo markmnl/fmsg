@@ -138,7 +138,7 @@ Single-value codes (sent as first/only byte):
 | 8 | future time | Timestamp too far in future. |
 | 9 | time travel | Timestamp before parent's timestamp. |
 | 10 | duplicate | Message already received by this host. |
-| 11 | accept add to | Already holds the rest of the message and hosts no _add to_ recipient — nothing more to send; batch recorded. Stop. |
+| 11 | accept add to | Additional recipients received, discontinue. |
 | 64 | continue | Header accepted; send data. |
 | 65 | skip data | Add-to accepted; parent already stored; _add to_ recipients on this host. Skip data, per-recipient codes follow. |
 
