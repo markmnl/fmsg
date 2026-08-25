@@ -179,7 +179,7 @@ Host A delivers iff _from_ or _add to from_ belongs to Host A's domain.
 
 When _has add to_ is NOT set: perform the steps below for each unique recipient domain.
 
-When _has add to_ IS set: perform the steps below for each unique participant domain — the domains of _from_ and of every address in _to_ and _add to_. _from_'s domain is omitted when _from_ is the _add to from_ (the adder is the original sender, whose host is Host A). A domain having no address in this message's _to_ or _add to_ is **notification-only** — only _from_'s domain can be, when a recipient rather than the sender adds recipients.
+When _has add to_ IS set: perform the steps below for each unique participant domain — the domains of _from_ and of every address in _to_ and _add to_. _from_'s domain is omitted when _from_ is the _add to from_ (the adder is the original sender, whose host is Host A).
 
 1. Resolve recipient domain IPs via ``fmsg.<domain>``. Connect to first responsive IP (Connection 1). Retry with backoff if unreachable.
 2. Register the message header hash and Host B's IP in an outgoing record (for matching challenges).
@@ -232,7 +232,7 @@ Steps 1–3 determine exactly one response code for the message header: the firs
 1. If _add to_ set and parent verified stored in step 7:
    - If Host B has already recorded this exact add-to batch (§11) → respond code 10 (duplicate), close.
    - If any _add to_ recipient belongs to Host B's domain → respond 65 (skip data).
-   - Otherwise → record the add-to batch (_add to from_, _add to_, _time_) per §11, respond 11 (accept add to), close. This is the path notification-only participant domains take.
+   - Otherwise → record the add-to batch (_add to from_, _add to_, _time_) per §11, respond 11 (accept add to), close. This is the path taken by a participant domain hosting none of the _add to_ recipients, including a **notification-only** domain — one with no address in _to_ or _add to_ at all, being told only that recipients were added.
 2. If challenge was completed, use the message hash from the challenge response to check for duplicates across all recipients on Host B. If duplicate for all → respond code 10, close.
 3. Otherwise → respond 64 (continue).
 4. If code 65 was sent, skip to step 6 (data already stored). Otherwise download data + attachments (exactly declared on-wire sizes). For each zlib-deflate part, decompress and verify output byte length exactly equals _expanded size_; failure or mismatch means invalid → TERMINATE.
