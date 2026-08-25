@@ -11,7 +11,7 @@
 | v0.3.2  | 2026-05-05 | Mark Mennell | Expanded size on message and attachments data  |
 | v0.4.0  | 2026-08-02 | Mark Mennell | Add-to messages delivered to all participant domains; notification-only delivery completes at code 11  |
 | v0.4.1  | 2026-08-03 | Mark Mennell | Hosts must retain stored messages in full, including complete recipient lists  |
-| v0.5.0  | 2026-08-10 | Mark Mennell | Consistency fixes: stored messages include those the host sent; exactly one header-response code; _recipients_ is a set, so an address in both _to_ and _add to_ gets exactly one response code; add-to copies omit _topic_; add-to batches are sibling branches whose added recipients reply to the batch message; batch identity is the batch message hash; an unsupported version TERMINATES (code 2 retired, numbering unchanged)  |
+| v0.5.0  | 2026-08-10 | Mark Mennell | Consistency fixes: stored messages include those the host sent; exactly one header-response code; _add to_ may overlap _to_, with one response code per recipient entry; add-to copies omit _topic_; add-to batches are sibling branches whose added recipients reply to the batch message; batch identity is the batch message hash; an unsupported version TERMINATES (code 2 retired, numbering unchanged)  |
 
 ## Contents
 
@@ -87,7 +87,7 @@ _"participants"_ all recipients plus _from_, plus _add to from_ (if exists)
 
 _"recipient"_ an address in a message's _to_ or _add to_ fields
 
-_"recipients"_ the set of all addresses in a message's _to_ and _add to_ fields.
+_"recipients"_ the addresses in a message's _to_ and _add to_ fields. Addresses MUST be distinct within _to_, and distinct within _add to_, but an address MAY appear in both lists — it is then a recipient of each and receives a response code for each.
 
 _"sender"_ the address in a message's _from_ field when _has add to_ not set; otherwise the address in the _add to from_ field.
 
@@ -207,7 +207,7 @@ Adding recipients is achieved by sending a whole new distinct message, that is a
 * The _has pid_ flag bit is set and _pid_ references the message which recipients are being added to (replacing any _pid_ the original message had).
 * _topic_ is omitted if the original message had one, because _pid_ is now present and _topic_ only exists on a message without _pid_.
 * _add to from_ exists and is the address of the participant in the previous message adding the additional recipients, i.e. the sender.
-* _add to_ exists and is addresses of the new recipients being added, none of which may already be in _to_.
+* _add to_ exists and is addresses of the new recipients being added, which MAY include an address already in _to_ — re-serving an original recipient.
 * _time_ is the POSIX epoch time of this new message with added recipients was ready for sending.
 
 An add-to message MUST be sent to every participant domain, not only the unique domains of the message's recipients, so that all participants of the message being added to — including the original sender, when not themselves the _add to from_ — learn of the added recipients. This is required because a subsequent reply may reference the add-to message via _pid_, and a host can only accept a reply whose parent it holds. See [4. Sending a Message](#4-sending-a-message).
@@ -486,7 +486,7 @@ The following variables corresponding to host defined configuration are used in 
             1. _add to from_ MUST exist and _add to from_ MUST also be in _from_ or _to_.
             2. _add to_ MUST have at least one address and all addresses in _add to_ MUST be distinct using case-insensitive comparison.
             _NOTE I_ _add to_ requires _add to from_ to be a participant of the original message, so recipients only in _add to_ cannot add recipients.
-            _NOTE II_ An address in _to_ MAY also appear in _add to_. This allows an original recipient who no longer has the message to be served it again as an additional recipient. _recipients_ is a set (see [Terms](#terms)): an address in both lists is ONE recipient and receives exactly one per-recipient response code, per [Continue, Per-Recipient Response and Disposition](#3-continue-per-recipient-response-and-disposition) — so both hosts always agree on how many codes the response stream contains.
+            _NOTE II_ An address in _to_ MAY also appear in _add to_. This allows an original recipient who no longer has the message to be served it again as an additional recipient. Addresses need only be distinct within each list; an address in both is a recipient of each, and receives one response code for its _to_ entry and one for its _add to_ entry, per [Continue, Per-Recipient Response and Disposition](#3-continue-per-recipient-response-and-disposition) — so both hosts always agree on how many codes the response stream contains.
         4. If the _has add to_ flag bit is not set, there must be at least one recipient in _to_ for Host B (example.edu domain). If the _has add to_ flag bit is set, there must be at least one participant (_from_, _to_, _add to from_ or _add to_) for Host B.
         5. _type_ number when _common type_ [Flag](#flags) is set, exists in [Common Media Type](#common-media-types) mapping.
         6. Each attachment _type_ number, when that attachment's _common type_ flag is set, exists in [Common Media Type](#common-media-types) mapping.
@@ -568,7 +568,7 @@ Ultimately, whether to challenge or not is at the discretion of the receiving ho
 2. If Host B responded with "ACCEPT or REJECT CODE" 65 (skip data), Host B MUST NOT read any further data from Connection 1. Otherwise (code 64), Host B continues downloading the exact number of remaining bytes i.e. the sum of message _size_ plus any attachments _size_. For each message or attachment data part with the corresponding _zlib-deflate_ flag bit set, Host B MUST decompress the part and the decompressed byte count MUST exactly match that part's _expanded size_. If decompression fails, produces more bytes than _expanded size_, produces fewer bytes than _expanded size_, or otherwise does not exactly match _expanded size_, the message is invalid and Host B MUST TERMINATE the message exchange.
 3. If the CHALLENGE, CHALLENGE-RESP exchange was completed, the message hash received in the CHALLENGE-RESP MUST exactly match the computed message hash per [Computing Message Hash](#computing-message-hash); otherwise Host B MUST TERMINATE the message exchange.
 4. Host B transmits an "ACCEPT or REJECT RESPONSE" code to Host A for each individual recipient belonging to Host B.
-    1. Host B iterates through each DISTINCT address for its domain (example.edu) in the order the address first appears, scanning _to_ then _add to_ (if any). An address appearing in both lists is one recipient and receives exactly one code, in its _to_ position. Note for any REJECT code specific to a user, 105 (user undisclosed) MAY be used instead — so Host B does not have to disclose the reason message was not accepted for that address. For each recipient:
+    1. Host B iterates through each address for its domain (example.edu) in the order they appear in _to_ then in _add to_ (if any). An address in both lists is iterated twice and receives one code for its _to_ entry and one for its _add to_ entry. Note for any REJECT code specific to a user, 105 (user undisclosed) MAY be used instead — so Host B does not have to disclose the reason message was not accepted for that address. For each recipient:
         1. Host B looks up implementation specific data for the recipient address such as quotas and whether the address is accepting new messages.
         2. If the message has already been received for this recipient, Host B MUST respond either REJECT code 103 (user duplicate) OR REJECT code 105 (user undisclosed).
         3. If the address is unknown to Host B, Host B MUST respond either REJECT code 100 (user unknown) OR REJECT code 105 (user undisclosed). 
@@ -637,7 +637,7 @@ A host MUST retain each stored message in full and exactly as transmitted — in
 A host verifies that a message is stored given a SHA-256 digest if:
 * The provided digest exactly matches the SHA-256 digest computed per [Computing Message Hash](#computing-message-hash) of a message that was either:
     * previously accepted by the host, i.e. for which the host responded with "REJECT or ACCEPT CODE" 200 (accept) to at least one recipient, OR "REJECT or ACCEPT CODE" 11 (accept add to); or
-    * sent by the host, i.e. a message whose sender (_from_, or _add to from_ when the _has add to_ flag bit is set) belongs to the host's domain and which the host has transmitted or holds for sending — including each add-to message (batch) the host sent, since a reply may reference the batch by its hash. Without this, replies to a message could never be accepted by the host of the participant that sent it.
+    * sent by the host, i.e. a message whose sender (_from_, or _add to from_ when the _has add to_ flag bit is set) belongs to the host's domain and which the host has transmitted or holds for sending — including each add-to message (batch) the host sent, since a reply may reference the batch by its hash.
 * The corresponding message currently exists on the host and can be retrieved.
 
 _NOTE I_ An add-to message's data never crosses the wire when the receiving host already holds the message being added to (codes 11 and 65), and the sending host likewise already holds it. Computing an add-to message's hash therefore requires RECONSTRUCTING the message: combining the add-to message header exactly as transmitted (which has the add to fields) with the message and attachment data of the message referred to by _pid_. Every host holding a batch — whether it accepted it with code 11, accepted it with code 65 and per-recipient codes, or sent it — MUST be able to perform this reconstruction so replies referencing the batch by its hash can be verified.

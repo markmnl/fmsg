@@ -24,7 +24,7 @@ All fields are read sequentially. `[ ]` = conditionally present.
 | 4 | from | address | Sender address. |
 | 5 | to | uint8 count + addresses | ≥ 1 distinct (case-insensitive) addresses. |
 | 6 | [add to from] | address | Present iff flag bit 1 set. Must be in _from_ or _to_. |
-| 7 | [add to] | uint8 count + addresses | Present iff flag bit 1 set. ≥ 1 distinct addresses (case-insensitive); MAY overlap _to_. |
+| 7 | [add to] | uint8 count + addresses | Present iff flag bit 1 set. ≥ 1 addresses, distinct within this list (case-insensitive); MAY overlap _to_. |
 | 8 | time | float64 | POSIX epoch, stamped by sending host. |
 | 9 | [topic] | uint8 length + UTF-8 | Present iff pid is NOT present. Length may be 0. |
 | 10 | type | uint8 + [US-ASCII string] | If flag bit 2 (common type) set: uint8 is a Common Media Type ID (see §4). Otherwise: uint8 is length of subsequent ASCII Media Type string. |
@@ -36,7 +36,7 @@ All fields are read sequentially. `[ ]` = conditionally present.
 
 **Message header** = fields 1–13. **Message header hash** = SHA-256(message header). **Message hash** = SHA-256(entire message, fields 1–15).
 
-The hash MUST be computed over the full message bytes: message header fields exactly as transmitted, followed by message data and any attachments data. When the zlib-deflate flag is set for message data or an attachment's data, that data MUST be decompressed prior to inclusion in the hash computation and MUST exactly match the corresponding _expanded size_; mismatch means invalid → TERMINATE.
+The hash MUST be computed over the full message bytes: message header fields exactly as transmitted, followed by message data and any attachments data. When the zlib-deflate flag is set for message data or an attachment's data, that data MUST be decompressed prior to inclusion in the hash computation and MUST exactly match the corresponding _expanded size_. Mismatch means invalid; TERMINATE.
 
 **Sender** = _from_ when _has add to_ not set; _add to from_ when set.
 
@@ -197,29 +197,29 @@ When _has add to_ IS set: perform the steps below for each unique participant do
 ### 10.3 Receiving — Header Exchange (Host B perspective)
 
 1. Read first byte on Connection 1:
-   - 1–127 and supported → message version, continue.
-   - 129–255 and (256 − value) supported → incoming CHALLENGE, handle per §10.5.
-   - Otherwise → TERMINATE (unsupported version — we don't know how to respond).
-2. Parse remaining header. If unparseable → TERMINATE.
+   - 1–127 and supported; message version, continue.
+   - 129–255 and (256 − value) supported; incoming CHALLENGE, handle per §10.5.
+   - Otherwise; TERMINATE (unsupported version — we don't know how to respond).
+2. Parse remaining header. If unparseable; TERMINATE.
 3. Validate (all must pass, else respond code 1 invalid and close):
    - _to_ has ≥ 1 distinct address.
-   - If _has add to_: _add to from_ exists and is in _from_ or _to_; _add to_ has ≥ 1 distinct address (case-insensitive). _add to_ MAY overlap _to_ — re-serving an original recipient who lost the message.
+   - If _has add to_: _add to from_ exists and is in _from_ or _to_; _add to_ has ≥ 1 address, distinct within _add to_ (case-insensitive). _add to_ MAY overlap _to_ — re-serving an original recipient who lost the message.
    - If _has add to_ not set: ≥ 1 recipient in _to_ belongs to Host B's domain. If _has add to_ set: ≥ 1 participant (_from_, _to_, _add to from_ or _add to_) belongs to Host B's domain.
    - Common type IDs (message and attachment) are mapped.
    - _expanded size_ fields are present iff the corresponding zlib-deflate flag is set.
-4. DNS-verify sender IP: resolve `fmsg.<sender domain>`, check Connection 1 source IP is in result set. Fail → TERMINATE.
-5. If _size_ + attachment sizes > MAX_SIZE, or total expanded size > MAX_EXPANDED_SIZE → respond code 4, close. Total expanded size uses _expanded size_ for compressed parts and _size_ for uncompressed parts.
+4. DNS-verify sender IP: resolve `fmsg.<sender domain>`, check Connection 1 source IP is in result set. Fail; TERMINATE.
+5. If _size_ + attachment sizes > MAX_SIZE, or total expanded size > MAX_EXPANDED_SIZE; respond code 4, close. Total expanded size uses _expanded size_ for compressed parts and _size_ for uncompressed parts.
 6. Compute DELTA = now − _time_:
-   - DELTA > MAX_MESSAGE_AGE → respond code 7, close.
-   - DELTA < −MAX_TIME_SKEW → respond code 8, close.
+   - DELTA > MAX_MESSAGE_AGE; respond code 7, close.
+   - DELTA < −MAX_TIME_SKEW; respond code 8, close.
 7. Evaluate pid / add-to:
    - **No pid, no add-to** (new thread): proceed.
    - **pid set, no add-to** (reply):
-     - Verify parent stored (§11). Not found → respond code 6, close.
-     - Parent time − MAX_TIME_SKEW must be before incoming time. Fail → respond code 9, close.
-     - _from_ must be a participant of the parent. Fail → respond code 1, close.
+     - Verify parent stored (§11). Not found; respond code 6, close.
+     - Parent time − MAX_TIME_SKEW must be before incoming time. Fail; respond code 9, close.
+     - _from_ must be a participant of the parent. Fail; respond code 1, close.
    - **add-to set** (adding recipients):
-     - pid MUST also be set. Fail → respond code 1, close.
+     - pid MUST also be set. Fail; respond code 1, close.
      - Check if parent stored (§11):
        - **Stored**: check time travel (code 9 if fail).
        - **Not stored**: if ≥ 1 recipient in _to_ or _add to_ belongs to Host B's domain, treat as full message delivery. Otherwise (Host B hosts only non-recipient participants) respond code 6 (parent not found), close.
@@ -230,19 +230,19 @@ When _has add to_ IS set: perform the steps below for each unique participant do
 Steps 1–3 determine exactly one response code for the message header: the first rule that matches decides the code sent and the remaining rules are not evaluated.
 
 1. If _add to_ set and parent verified stored in step 7:
-   - If Host B has already recorded this exact add-to batch (§11) → respond code 10 (duplicate), close.
-   - If any _add to_ recipient belongs to Host B's domain → respond 65 (skip data).
-   - Otherwise → record the add-to batch (_add to from_, _add to_, _time_) per §11, respond 11 (accept add to), close. This is the path taken by a participant domain hosting none of the _add to_ recipients, including a **notification-only** domain — one with no address in _to_ or _add to_ at all, being told only that recipients were added.
-2. If challenge was completed, use the message hash from the challenge response to check for duplicates across all recipients on Host B. If duplicate for all → respond code 10, close.
-3. Otherwise → respond 64 (continue).
-4. If code 65 was sent, skip to step 6 (data already stored). Otherwise download data + attachments (exactly declared on-wire sizes). For each zlib-deflate part, decompress and verify output byte length exactly equals _expanded size_; failure or mismatch means invalid → TERMINATE.
-5. If challenge was completed, verify computed message hash matches the challenge response hash. For code 65, compute from received header + stored data. Mismatch → TERMINATE.
-6. For each DISTINCT recipient address on Host B's domain, send one response byte, in the order the address first appears scanning _to_ then _add to_. Recipients are a SET: an address in both _to_ and _add to_ is one recipient and gets exactly one byte, in its _to_ position.
-   - Already received → 103 (or 105).
-   - Unknown address → 100 (or 105).
-   - Quota exceeded → 101 (or 105).
-   - Not accepting → 102 (or 105).
-   - Otherwise → 200 (accept).
+   - If Host B has already recorded this exact add-to batch (§11); respond code 10 (duplicate), close.
+   - If any _add to_ recipient belongs to Host B's domain; respond 65 (skip data).
+   - Otherwise; record the add-to batch (_add to from_, _add to_, _time_) per §11, respond 11 (accept add to), close. This is the path taken by a participant domain hosting none of the _add to_ recipients, including a **notification-only** domain — one with no address in _to_ or _add to_ at all, being told only that recipients were added.
+2. If challenge was completed, use the message hash from the challenge response to check for duplicates across all recipients on Host B. If duplicate for all; respond code 10, close.
+3. Otherwise; respond 64 (continue).
+4. If code 65 was sent, skip to step 6 (data already stored). Otherwise download data + attachments (exactly declared on-wire sizes). For each zlib-deflate part, decompress and verify output byte length exactly equals _expanded size_. Failure or mismatch means invalid; TERMINATE.
+5. If challenge was completed, verify computed message hash matches the challenge response hash. For code 65, compute from received header + stored data. Mismatch; TERMINATE.
+6. For each recipient on Host B's domain, send one response byte, in _to_ order then _add to_ order. An address in both lists is a recipient of each and gets one byte for its _to_ entry and one for its _add to_ entry.
+   - Already received; 103 (or 105).
+   - Unknown address; 100 (or 105).
+   - Quota exceeded; 101 (or 105).
+   - Not accepting; 102 (or 105).
+   - Otherwise; 200 (accept).
 7. Close Connection 1.
 
 ### 10.5 Challenge Flow
@@ -255,10 +255,10 @@ The challenge is optional (Receiving Host's discretion). It runs on a separate C
 
 **Sending Host (Host A) handles:**
 1. Read first byte on incoming connection:
-   - 1–127 and supported → incoming message, handle normally.
-   - 129–255 and (256 − value) supported → CHALLENGE, continue.
-   - Otherwise → TERMINATE (unsupported version).
-2. Read 32-byte header hash. Match against outgoing record by header hash AND challenger's IP. No match → TERMINATE.
+   - 1–127 and supported; incoming message, handle normally.
+   - 129–255 and (256 − value) supported; CHALLENGE, continue.
+   - Otherwise; TERMINATE (unsupported version).
+2. Read 32-byte header hash. Match against outgoing record by header hash AND challenger's IP. No match; TERMINATE.
 3. Send CHALLENGE RESPONSE: 32-byte SHA-256 of entire message.
 
 **Host B receives** the 32-byte message hash from Host A. Both close Connection 2. Exchange continues on Connection 1.
@@ -298,12 +298,12 @@ A batch is identified by its message hash, which covers _time_ (§11): re-issuin
 ## 13. Security Requirements
 
 - Enforce MAX_SIZE and MAX_EXPANDED_SIZE before downloading data.
-- For zlib-deflate parts, bound decompression and require output length to exactly match _expanded size_; mismatch means invalid → TERMINATE.
+- For zlib-deflate parts, bound decompression and require output length to exactly match _expanded size_. Mismatch means invalid; TERMINATE.
 - Enforce per-connection and per-IP rate limits.
 - Apply idle/slow-connection timeouts.
 - Verify sender IP via DNS BEFORE issuing any challenge.
 - Rate-limit outgoing challenge connections.
-- Use DNSSEC where supported. Fail → TERMINATE.
+- Use DNSSEC where supported. Fail; TERMINATE.
 - Track accepted message hashes to reject duplicates.
 - Support per-user storage quotas.
 - Use code 105 (user undisclosed) to prevent sender enumeration.
