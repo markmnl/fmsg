@@ -129,7 +129,6 @@ Single-value codes (sent as first/only byte):
 | Code | Name | Meaning |
 |-----:|------|---------|
 | 1 | invalid | Message header fails validation. |
-| 2 | unsupported version | Version not supported. |
 | 3 | undisclosed | No reason given. |
 | 4 | too big | Exceeds MAX_SIZE or MAX_EXPANDED_SIZE. |
 | 5 | insufficient resources | e.g. disk full. |
@@ -180,7 +179,7 @@ Host A delivers iff _from_ or _add to from_ belongs to Host A's domain.
 
 When _has add to_ is NOT set: perform the steps below for each unique recipient domain.
 
-When _has add to_ IS set: perform the steps below for each unique participant domain — the domains of _from_ and of every address in _to_ and _add to_. _from_'s domain is omitted when _from_ is the _add to from_ (the adder is the original sender, whose host is Host A). Domains having no address in this message's _to_ or _add to_ are **notification-only**: the exchange completes at the single response code in step 5 (code 11 on success, or code 6 when the domain's host does not hold the parent) and never reaches step 6. (A domain hosting recipients in _to_ but none in _add to_ likewise completes at code 11 on success. The only possible notification-only domain is _from_'s — when a recipient, not the sender, adds recipients.)
+When _has add to_ IS set: perform the steps below for each unique participant domain — the domains of _from_ and of every address in _to_ and _add to_. _from_'s domain is omitted when _from_ is the _add to from_ (the adder is the original sender, whose host is Host A). A domain having no address in this message's _to_ or _add to_ is **notification-only** — only _from_'s domain can be, when a recipient rather than the sender adds recipients.
 
 1. Resolve recipient domain IPs via ``fmsg.<domain>``. Connect to first responsive IP (Connection 1). Retry with backoff if unreachable.
 2. Register the message header hash and Host B's IP in an outgoing record (for matching challenges).
@@ -200,7 +199,7 @@ When _has add to_ IS set: perform the steps below for each unique participant do
 1. Read first byte on Connection 1:
    - 1–127 and supported → message version, continue.
    - 129–255 and (256 − value) supported → incoming CHALLENGE, handle per §10.5.
-   - Otherwise, unsupported: value ≤ 128 → respond code 2 (unsupported version), close (the peer reads a response code first). Value > 128 → TERMINATE without responding (the challenger's next read is exactly a 32-byte hash; a code byte would be indistinguishable from it).
+   - Otherwise → TERMINATE (unsupported version — we don't know how to respond).
 2. Parse remaining header. If unparseable → TERMINATE.
 3. Validate (all must pass, else respond code 1 invalid and close):
    - _to_ has ≥ 1 distinct address.
@@ -258,7 +257,7 @@ The challenge is optional (Receiving Host's discretion). It runs on a separate C
 1. Read first byte on incoming connection:
    - 1–127 and supported → incoming message, handle normally.
    - 129–255 and (256 − value) supported → CHALLENGE, continue.
-   - Otherwise, unsupported: value ≤ 128 → respond code 2 (unsupported version), close. Value > 128 → TERMINATE without responding (the challenger's next read is exactly a 32-byte hash; a code byte would be indistinguishable from it).
+   - Otherwise → TERMINATE (unsupported version).
 2. Read 32-byte header hash. Match against outgoing record by header hash AND challenger's IP. No match → TERMINATE.
 3. Send CHALLENGE RESPONSE: 32-byte SHA-256 of entire message.
 

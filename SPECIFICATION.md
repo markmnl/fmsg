@@ -11,7 +11,7 @@
 | v0.3.2  | 2026-05-05 | Mark Mennell | Expanded size on message and attachments data  |
 | v0.4.0  | 2026-08-02 | Mark Mennell | Add-to messages delivered to all participant domains; notification-only delivery completes at code 11  |
 | v0.4.1  | 2026-08-03 | Mark Mennell | Hosts must retain stored messages in full, including complete recipient lists  |
-| v0.5.0  | 2026-08-10 | Mark Mennell | Consistency fixes: stored messages include those the host sent; exactly one header-response code; _add to_ addresses may not overlap _to_; add-to copies omit _topic_; add-to batches are sibling branches whose added recipients reply to the batch message; batch identity is the batch message hash  |
+| v0.5.0  | 2026-08-10 | Mark Mennell | Consistency fixes: stored messages include those the host sent; exactly one header-response code; _add to_ addresses may not overlap _to_; add-to copies omit _topic_; add-to batches are sibling branches whose added recipients reply to the batch message; batch identity is the batch message hash; an unsupported version TERMINATES (code 2 retired, numbering unchanged)  |
 
 ## Contents
 
@@ -412,7 +412,6 @@ Other codes 100 and above are per recipient in the same order as recipients for 
 | code | name                  | description                                                             |
 |-----:|-----------------------|-------------------------------------------------------------------------|
 | 1    | invalid               | the message header fails verification checks, i.e. not in spec          |
-| 2    | unsupported version   | the version is not supported by the receiving host                      |
 | 3    | undisclosed           | no reason is given                                                      |
 | 4    | too big               | total size or expanded size exceeds host's maximum permitted size of messages |
 | 5    | insufficient resources | such as disk space to store the message                                |
@@ -478,7 +477,7 @@ The following variables corresponding to host defined configuration are used in 
 3. Host B downloads the first byte 
     1. If the value is less than 128 and a supported fmsg version, continue.
     2. If the value is greater than 128 and 256 minus the value is a supported fmsg version — this is an incoming CHALLENGE and should be processed per [Handling a Challenge](#handling-a-challenge).
-    3. Otherwise the version is unsupported. If the value is 128 or less, the peer is a sending host whose first read on this connection is a response code, so Host B sends REJECT code 2 (unsupported version) on Connection 1 then closes the connection completing the message exchange. If the value is greater than 128, the peer issued a CHALLENGE of an unsupported version and its next read is exactly the 32-byte CHALLENGE-RESPONSE hash — a response code written into that stream would be indistinguishable from the start of a hash — so Host B MUST TERMINATE the connection without responding.
+    3. Otherwise Host B MUST TERMINATE the connection (unsupported version — we don't know how to respond).
 4. Host B downloads the remaining message header and parses the fields. If parsing fails because types cannot be decoded, Receiving Host MUST TERMINATE the message exchange.
     1. The following conditions MUST be met otherwise Host B MUST respond REJECT code 1 (invalid) and close the connection completing the message exchange:
         1. There must be at least one address in _to_.
@@ -583,7 +582,7 @@ _NOTE_ When recipients for Host B are added using the _add to_ functionality to 
 
 #### 4. Sending a Message
 
-A Sending Host (Host A) delivers a message if and only if _from_ or _add to from_ belongs to Host A's domain. When the _has add to_ flag bit is not set, the message is sent to each unique recipient domain exactly once, regardless of how many recipients share that domain. When the _has add to_ flag bit is set, the message is sent exactly once to each unique participant domain — the domains of _from_ and of every address in _to_ and _add to_, omitting _from_'s domain when _from_ is the _add to from_ (the adder is the original sender, whose host is the Sending Host) — so that all participants of the message being added to learn of the added recipients, not only the domains hosting the new recipients. A participant domain having no address in the message's _to_ or _add to_ fields is notification-only: the message exchange completes at the single "REJECT or ACCEPT RESPONSE" code in step 5 (code 11 on success, or code 6 when Host B does not hold the parent) and no per-recipient codes are exchanged. (A domain hosting recipients in _to_ but none in _add to_ likewise completes at code 11 on success.) This section describes the steps Host A performs for each domain. If multiple domains exist, Host A performs these steps independently for each domain without regard to the others.
+A Sending Host (Host A) delivers a message if and only if _from_ or _add to from_ belongs to Host A's domain. When the _has add to_ flag bit is not set, the message is sent to each unique recipient domain exactly once, regardless of how many recipients share that domain. When the _has add to_ flag bit is set, the message is sent exactly once to each unique participant domain — the domains of _from_ and of every address in _to_ and _add to_, omitting _from_'s domain when _from_ is the _add to from_ (the adder is the original sender, whose host is the Sending Host) — so that all participants of the message being added to learn of the added recipients, not only the domains hosting the new recipients. This section describes the steps Host A performs for each domain. If multiple domains exist, Host A performs these steps independently for each domain without regard to the others.
 
 1. Host A resolves the authorised IP addresses via [Domain Resolution](#domain-resolution) for Host B.
     1. Host A initiates a connection (Connection 1) to the first authorised IP address for the Receiving Host (Host B).
@@ -614,7 +613,7 @@ A Sending Host MUST be listening for incoming connections on the same IP address
 1. Host A downloads the first byte 
     1. If the value is less than 128 and a supported fmsg version — this is an incoming message and should be processed per [Connection and Header Exchange](#1-connection-and-header-exchange).
     2. If the value is greater than 128 and 256 minus the value is a supported fmsg version, this is a CHALLENGE we support, continue.
-    3. Otherwise the version is unsupported. If the value is 128 or less, the peer is a sending host whose first read is a response code, so Host A sends REJECT code 2 (unsupported version) then closes the connection. If the value is greater than 128, the peer issued a CHALLENGE of an unsupported version and its next read is exactly the 32-byte CHALLENGE-RESPONSE hash, so Host A MUST TERMINATE the connection without responding.
+    3. Otherwise Host A MUST TERMINATE the connection (unsupported version).
 2. Host A downloads the next 32 bytes — the _header hash_ supplied by Host B.
 3. Host A MUST verify the authenticity of the challenge by checking:
     1. The _header hash_ exactly matches a _message header hash_ of a message Host A is currently transmitting.
