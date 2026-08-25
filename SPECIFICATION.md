@@ -11,7 +11,7 @@
 | v0.3.2  | 2026-05-05 | Mark Mennell | Expanded size on message and attachments data  |
 | v0.4.0  | 2026-08-02 | Mark Mennell | Add-to messages delivered to all participant domains; notification-only delivery completes at code 11  |
 | v0.4.1  | 2026-08-03 | Mark Mennell | Hosts must retain stored messages in full, including complete recipient lists  |
-| v0.5.0  | 2026-08-10 | Mark Mennell | Consistency fixes: stored messages include those the host sent; exactly one header-response code; _add to_ may overlap _to_, with one response code per recipient entry; add-to copies omit _topic_; add-to batches are sibling branches whose added recipients reply to the batch message; batch identity is the batch message hash; an unsupported version TERMINATES (code 2 retired, numbering unchanged)  |
+| v0.5.0  | 2026-08-10 | Mark Mennell | Clarified: stored messages include those the host sent; exactly one header-response code is sent; _add to_ may overlap _to_, with one response code per recipient entry; add-to copies omit _topic_; add-to batches are sibling branches whose added recipients reply to the batch message; batch identity is the batch message hash. Changed: an unsupported version TERMINATES rather than responding, retiring code 2 (numbering unchanged)  |
 
 ## Contents
 
@@ -87,7 +87,7 @@ _"participants"_ all recipients plus _from_, plus _add to from_ (if exists)
 
 _"recipient"_ an address in a message's _to_ or _add to_ fields
 
-_"recipients"_ the addresses in a message's _to_ and _add to_ fields. Addresses MUST be distinct within _to_, and distinct within _add to_, but an address MAY appear in both lists — it is then a recipient of each and receives a response code for each.
+_"recipients"_ the addresses in a message's _to_ and _add to_ fields
 
 _"sender"_ the address in a message's _from_ field when _has add to_ not set; otherwise the address in the _add to from_ field.
 
