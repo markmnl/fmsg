@@ -8,6 +8,7 @@ and is not an official binding of the A2A Project.
 | Revision | Date       | Summary       |
 |----------|------------|---------------|
 | v0.1.0   | 2026-08-09 | Initial threaded draft |
+| v0.2.0   | 2026-08-27 | Native attachment mapping; sibling events; detached delivery on parent loss |
 
 This revision binds A2A protocol version 1.0 to fmsg wire protocol version 1.
 A future revision is required to support a breaking version of either protocol.
@@ -33,7 +34,10 @@ server. The first operation is an fmsg thread root. Later operations may reply
 to earlier results so that task continuations form chains, related tasks branch
 from a context anchor, and task controls form side branches. A2A task and
 context identifiers remain authoritative for application continuity; fmsg
-parent hashes provide transport history, correlation, and integrity.
+parent hashes provide transport history, correlation, and integrity. Binary
+part content travels as native fmsg attachments rather than as base64 text.
+When an fmsg parent is no longer available, delivery restarts in a new fmsg
+thread and the A2A identifiers carry the task and context across threads.
 
 This binding does not change the A2A data model, task state machine, Agent Card
 discovery rules, or extension semantics.
@@ -59,7 +63,10 @@ Using fmsg means an agent does not have to be online at the same moment as its
 peer. Requests can survive temporary outages, task continuations form
 verifiable fmsg chains, related tasks can branch from a shared context, and
 status checks or cancellations can appear as side branches without changing
-the A2A task itself.
+the A2A task itself. Should a host no longer hold an earlier message, the
+exchange continues in a new fmsg thread and the A2A identifiers keep the
+relationship intact. Files exchanged as A2A parts are ordinary fmsg
+attachments, visible to any fmsg client that can read the thread.
 
 In short, A2A gives agents a shared language; fmsg gives their conversation a
 durable, federated, and verifiable delivery system. An adapter can therefore
@@ -97,12 +104,25 @@ or error for a request.
 
 **event message** is an fmsg reply carrying one item of an A2A streaming result.
 
+**mapped part** is an A2A `Part` whose `raw` content is carried as an fmsg
+attachment of the same message rather than inline in the JSON payload.
+
+**attachment reference** is the `fmsg-attachment` URI placed in a mapped
+part's `url` member to name its attachment.
+
 **context anchor** is the first successful conversational response or event
 known to establish an A2A context for a client/server address pair.
 
 **task head** is the most recent successful conversational response or event
 known for an A2A task by one endpoint. Concurrent operations may create more
 than one valid branch from an earlier task head.
+
+**detached root** is a request sent as an fmsg thread root although its A2A
+scope names an existing task or context, because no usable fmsg parent is
+available to the client.
+
+**detached result** is a response or event sent as an fmsg thread root because
+the request message cannot be used as its parent.
 
 **transport principal** is the fmsg sender address accepted by the receiving
 host after fmsg host and domain verification. This is distinct from an
@@ -191,13 +211,14 @@ envelope. Byte order marks are forbidden. Senders SHOULD use the shortest
 reasonable representation and receivers MUST ignore insignificant JSON
 whitespace.
 
-This revision does not map A2A `Part.raw` values to native fmsg attachments.
-Conforming messages MUST have zero fmsg attachments. Binary A2A values MUST be
-encoded within the JSON payload using ProtoJSON base64 encoding.
+Binary A2A content is carried as native fmsg attachments as defined in
+[Attachment Mapping](#attachment-mapping). A message MUST NOT carry any
+attachment other than those that mapping produces.
 
-The fmsg `important` flag MAY be set. The `zlib-deflate` flag MAY be used and is
-processed at the fmsg layer before JSON parsing. The `has add to` flag MUST NOT
-be set. Each message MUST have exactly one recipient.
+The fmsg `important` flag MAY be set. The `zlib-deflate` flag MAY be used on
+the message data and on any attachment and is processed at the fmsg layer
+before JSON parsing. The `has add to` flag MUST NOT be set. Each message MUST
+have exactly one recipient.
 
 ### Request Message
 
@@ -220,8 +241,8 @@ A response message MUST:
 
 - have `from` equal to the server address;
 - have one `to` value equal to the request's `from` address;
-- have `pid` equal to the request message hash;
-- contain no topic, as required for an fmsg reply;
+- have `pid` equal to the request message hash and no topic, or be a detached
+  result as defined in [Detached Results](#detached-results);
 - contain a response envelope; and
 - use the same `requestId` and `operation` as the request.
 
@@ -233,13 +254,34 @@ when both its fmsg relationship and envelope correlation are valid.
 ### Event Message
 
 If streaming is supported, each event message MUST meet the response message
-requirements except that it contains an event envelope. Event sequence zero
-MUST use `pid` equal to the request hash. Every later event MUST use `pid` equal
-to the immediately preceding event hash, forming one fmsg reply chain. Every
-non-final event MUST have the `no reply` flag clear. The final event of
-`SendStreamingMessage` MUST also have it clear because it can become a task
-head. A final `SubscribeToTask` event MAY set it because subscriptions are side
-branches.
+requirements except that it contains an event envelope. Every event of a
+stream therefore replies to the request message, not to the preceding event:
+the events are siblings under the request, ordered by the envelope `sequence`
+and not by fmsg linkage. Delivery of one event never depends on another, so a
+single undeliverable event cannot strand the remainder of a stream.
+
+A `SendStreamingMessage` event carrying a task ID MUST have the `no reply` flag
+clear because it can become a task head. Other events MAY set it;
+`SubscribeToTask` events are side branches.
+
+### Detached Results
+
+A server MUST send a result as a reply to the request message whenever it can.
+If the sending host reports fmsg REJECT code 6 (parent not found), the
+client's host no longer holds the request and the reply can never be
+delivered. The server MUST then resend the result as a detached result: an
+fmsg thread root with no `pid`, a topic of `A2A <requestId>`, and otherwise
+identical data and attachments. A server that can no longer reply to the
+request message, because its own host no longer holds it, MUST send the
+result as a detached result directly. Once any result for a request has been
+sent detached, every later event for that request MUST also be sent detached.
+
+A detached result is authenticated by fmsg transport verification of its
+`from` address and correlated by its topic and envelope; it cannot be linked
+to the request by hash. A client MUST accept a detached result whose `from`,
+recipient, topic, `requestId`, and `operation` match a request it sent, and
+MUST apply the same duplicate and sequence rules as for a reply. A detached
+result MAY become a task head or context anchor exactly as a reply would.
 
 ## Envelope
 
@@ -249,7 +291,7 @@ All envelope property names are case-sensitive. Unknown envelope properties
 MUST be ignored unless a later binding revision makes them required. A receiver
 MUST reject duplicate JSON object property names.
 
-`bindingVersion` MUST be the string `"0.1"` for this revision.
+`bindingVersion` MUST be the string `"0.2"` for this revision.
 
 `a2aVersion` MUST be a supported A2A major and minor version and MUST equal the
 `A2A-Version` service parameter. This revision permits only `"1.0"`.
@@ -265,7 +307,7 @@ Operation names are case-sensitive.
 
 ```json
 {
-  "bindingVersion": "0.1",
+  "bindingVersion": "0.2",
   "a2aVersion": "1.0",
   "kind": "request",
   "requestId": "018f3f6e-7c1a-7e95-8f23-6ed8b985a781",
@@ -290,7 +332,7 @@ A successful response contains `payload`:
 
 ```json
 {
-  "bindingVersion": "0.1",
+  "bindingVersion": "0.2",
   "a2aVersion": "1.0",
   "kind": "response",
   "requestId": "018f3f6e-7c1a-7e95-8f23-6ed8b985a781",
@@ -303,7 +345,7 @@ An unsuccessful response contains `error`:
 
 ```json
 {
-  "bindingVersion": "0.1",
+  "bindingVersion": "0.2",
   "a2aVersion": "1.0",
   "kind": "response",
   "requestId": "018f3f6e-7c1a-7e95-8f23-6ed8b985a781",
@@ -324,7 +366,7 @@ an empty JSON object.
 
 ```json
 {
-  "bindingVersion": "0.1",
+  "bindingVersion": "0.2",
   "a2aVersion": "1.0",
   "kind": "event",
   "requestId": "018f3f6e-7c1a-7e95-8f23-6ed8b985a781",
@@ -352,7 +394,8 @@ The `payload` property uses A2A 1.0 ProtoJSON without binding-specific changes:
 - field names MUST use lower camel case;
 - enum values MUST use their symbolic ProtoJSON names;
 - timestamps MUST be ISO 8601 UTC strings accepted by ProtoJSON;
-- `bytes` values MUST use ProtoJSON base64 encoding;
+- `bytes` values MUST use ProtoJSON base64 encoding, except that `Part.raw` is
+  carried as defined in [Attachment Mapping](#attachment-mapping);
 - 64-bit integer values MUST follow ProtoJSON string representation rules;
 - absent optional fields MUST remain absent; and
 - oneof constraints and A2A required-field constraints MUST be enforced.
@@ -364,6 +407,149 @@ the named operation. Binding metadata MUST NOT be inserted into an A2A object's
 An implementation MAY support A2A extensions. Extension identifiers and their
 metadata remain inside the A2A data model, and extension activation MUST also be
 declared through the `A2A-Extensions` service parameter as required by A2A.
+
+## Attachment Mapping
+
+A2A carries file content by reference in `Part.url` or by value in `Part.raw`.
+`Part.raw` is the only `bytes` field in the A2A 1.0 data model; the gRPC
+binding transports it as octets and the JSON binding as base64 text. fmsg
+carries binary content natively as attachments, so this binding transports
+`Part.raw` as an attachment of the fmsg message that carries its envelope.
+
+The mapping is a transport representation only. The A2A layer on either side
+observes an ordinary `Part` whose `raw` member holds the content; it never
+observes an attachment or an attachment reference.
+
+### Mapped Parts
+
+A sender MUST map every `Part` with a non-empty `raw` value, wherever it
+occurs in the payload, to one fmsg attachment, subject to
+[Count Limit and Inline Fallback](#count-limit-and-inline-fallback). For each
+mapped part the sender MUST:
+
+- write the `raw` octets as the attachment data, setting the attachment
+  `zlib-deflate` flag at its discretion;
+- name the attachment `a2a-part-<n>`, where `<n>` is the zero-based ordinal of
+  the mapped part in decimal without leading zeros, numbered in the order the
+  references appear in the serialized message data;
+- set the attachment type as defined in [Attachment Type](#attachment-type);
+- omit `raw` from the serialized `Part`; and
+- set the `Part` `url` member to the attachment reference
+  `fmsg-attachment:a2a-part-<n>`.
+
+Every other `Part` member, including `filename`, `mediaType`, and `metadata`,
+MUST be serialized unchanged. Because the reference occupies the `url` member
+of the `content` oneof, the payload remains valid A2A ProtoJSON and the
+[A2A Data Representation](#a2a-data-representation) rules continue to apply.
+
+A `raw` value of zero length MUST remain inline as `"raw": ""`.
+
+Attachments belong to the fmsg message that carries them. A response and each
+event of a stream carries only the attachments for its own payload; a chunked
+`TaskArtifactUpdateEvent` therefore carries only that chunk's octets.
+
+### Attachment Reference
+
+An attachment reference is a URI whose scheme is `fmsg-attachment` and whose
+scheme-specific part is the filename of an attachment in the same fmsg
+message. The scheme name MUST be lowercase. The reference MUST NOT contain an
+authority marker (`//`), query, fragment, or percent-encoding.
+
+The `fmsg-attachment` scheme is reserved by this binding. A sender MUST reject
+at its A2A API boundary any application-supplied `Part.url` that uses it, and
+a receiver MUST treat every `Part.url` that uses it as an attachment
+reference. A receiver MUST NOT attempt to retrieve an attachment reference as
+a network resource.
+
+### Attachment Type
+
+The attachment type MUST equal `Part.mediaType` when that value is present,
+non-empty, US-ASCII, and shorter than 256 octets; otherwise it MUST be
+`application/octet-stream`. Whether the fmsg type field is encoded as a common
+media type ID or as a string is an fmsg-layer detail with no meaning in this
+binding.
+
+`Part.mediaType` in the JSON payload remains the A2A value. The attachment
+type exists so that fmsg hosts and clients can apply media policy, display,
+and storage handling to the content without parsing the envelope.
+
+### Count Limit and Inline Fallback
+
+An fmsg message carries at most 255 attachments. A sender MUST map parts in
+serialization order until that limit is reached; every remaining `raw` part
+MUST be serialized inline using ProtoJSON base64 encoding.
+
+A receiver MUST accept an inline `raw` value wherever a `Part` is valid,
+regardless of how many attachments the message carries. Inline encoding is a
+fallback, not an alternative: a sender MUST NOT use it for a part that this
+section requires to be mapped.
+
+### Receiver Processing
+
+Before validating the payload against its A2A type, a receiver MUST:
+
+1. resolve every attachment reference to the attachment whose filename matches
+   it, compared case-insensitively as fmsg requires;
+2. verify that every attachment on the message is referenced exactly once;
+3. verify that each referenced attachment's type is either
+   `application/octet-stream` or equal to the referencing part's `mediaType`
+   after ASCII case folding; and
+4. replace the `url` member of each referencing `Part` with a `raw` member
+   holding the attachment's expanded data.
+
+A message failing any of these checks MUST be rejected with
+`FMSG_A2A_ATTACHMENT_INVALID`. A receiver resolves attachments by reference
+only; it MUST NOT depend on the `a2a-part-<n>` naming for ordering or
+correctness. This allows a later revision to relax attachment naming without
+changing receivers.
+
+### Integrity and Size
+
+The fmsg message hash covers attachment data, so a mapped part has the same
+integrity, correlation, and replay properties as inline content. Attachment
+data counts toward fmsg `MAX_SIZE` and `MAX_EXPANDED_SIZE` together with the
+message data, without base64 expansion.
+
+### Example
+
+A client sends a photograph for analysis. The fmsg message carries one
+attachment named `a2a-part-0` of type `image/jpeg` whose data is the JPEG
+octets, and this message data:
+
+```json
+{
+  "bindingVersion": "0.2",
+  "a2aVersion": "1.0",
+  "kind": "request",
+  "requestId": "018f3f75-2d0c-7a3e-9b41-7f2c5e8d9a10",
+  "operation": "SendMessage",
+  "serviceParameters": {
+    "a2a-version": "1.0"
+  },
+  "payload": {
+    "message": {
+      "messageId": "018f3f76-4b1e-7d92-8c53-1a9e6f7b2c44",
+      "role": "ROLE_USER",
+      "parts": [
+        {
+          "text": "What is in this photograph?",
+          "mediaType": "text/plain"
+        },
+        {
+          "url": "fmsg-attachment:a2a-part-0",
+          "filename": "photo.jpg",
+          "mediaType": "image/jpeg"
+        }
+      ]
+    }
+  }
+}
+```
+
+The receiving binding restores the second part before the A2A server sees it.
+The server observes a `Part` whose `raw` member holds the JPEG octets, with
+`filename` `photo.jpg` and `mediaType` `image/jpeg`, exactly as it would over
+any other A2A binding.
 
 ## Service Parameters
 
@@ -429,11 +615,12 @@ response envelope. After the first event, any failure MUST be the error in a
 final event envelope. A server MUST NOT send both a response envelope and an
 event envelope for the same streaming request.
 
-fmsg provides reliable message delivery but not a live byte stream. The
-`sequence` field defines application ordering. Clients MUST buffer out-of-order
-events within an implementation-defined bounded window. A missing sequence
-after an implementation-defined timeout terminates the local stream with a
-binding transport error; clients MAY recover task state using `GetTask` or a new
+fmsg provides reliable message delivery but not a live byte stream, and sibling
+events may be delivered in any order. The `sequence` field defines application
+ordering. Clients MUST buffer out-of-order events within an
+implementation-defined bounded window. A missing sequence after an
+implementation-defined timeout terminates the local stream with a binding
+transport error; clients MAY recover task state using `GetTask` or a new
 `SubscribeToTask` request.
 
 Receiving a terminal or interrupted `TaskStatusUpdateEvent` does not replace the
@@ -498,6 +685,7 @@ returned with one of these codes:
 | `FMSG_A2A_UNKNOWN_OPERATION` | `operation` is not recognized |
 | `FMSG_A2A_REQUEST_ID_CONFLICT` | A reused request ID has different request content |
 | `FMSG_A2A_CORRELATION_FAILED` | fmsg relationship and envelope correlation disagree |
+| `FMSG_A2A_ATTACHMENT_INVALID` | Attachment references, attachment set, or attachment types violate [Attachment Mapping](#attachment-mapping) |
 
 If the body cannot be parsed enough to determine a trustworthy `requestId`, the
 server MUST NOT send a response. It SHOULD record the failure without logging
@@ -506,9 +694,11 @@ the body.
 ### fmsg Delivery Failures
 
 fmsg rejection and transport failures occur before an A2A server necessarily
-processes a request. A client binding MUST report them as transport errors and
-MUST NOT fabricate an A2A response. The error SHOULD retain the fmsg response
-code, affected address, and whether retry may be useful.
+processes a request. Except for REJECT code 6 (parent not found), which the
+client handles as defined in [Thread Topology](#thread-topology), a client
+binding MUST report them as transport errors and MUST NOT fabricate an A2A
+response. The error SHOULD retain the fmsg response code, affected address, and
+whether retry may be useful.
 
 A client-side response timeout is also a transport error. Timing out does not
 cancel the remote operation. A caller wanting cancellation MUST subsequently
@@ -534,9 +724,12 @@ follows:
 
 Control operations and `SubscribeToTask` are side branches. Their responses and
 events MUST NOT become the task head. A successful `SendMessage` response and
-each successful `SendStreamingMessage` event carrying a task ID MUST become the
-sender's known task head. The first such result observed for a context
-establishes its context anchor; the anchor MUST NOT subsequently move.
+each successful `SendStreamingMessage` event carrying a task ID, processed in
+sequence order, MUST become the sender's known task head. The first such result
+observed for a context establishes its context anchor. The anchor MUST NOT move
+while it remains usable; if it becomes unusable, the next such result for the
+context establishes a new anchor. Whether a result was delivered as a reply or
+as a detached result does not affect its eligibility.
 
 An implementation can know only the portion of a graph available to its local
 fmsg account. If the canonical parent is unknown, deleted, has `no reply` set,
@@ -544,6 +737,16 @@ or cannot be used, the client MUST send the operation as a detached root. A
 server MUST accept a valid detached root even when its payload names an existing
 task or context. This permits another authorized client address or an endpoint
 that lost local graph state to continue using the A2A identifiers.
+
+A threaded request rejected by the server's host with fmsg REJECT code 6
+(parent not found) was never received by the A2A server: the server's host no
+longer holds the parent. The client MUST resend that request as a detached
+root with the same `requestId` and content, and MUST treat the lost parent as
+unusable thereafter. The fmsg specification's other recoveries for code 6 do
+not apply here, because `add to` is forbidden by this binding and a client
+cannot resend a message the server authored. Restarting an fmsg thread this
+way does not affect the A2A task or context, whose identifiers remain in every
+payload.
 
 A threaded request parent MUST be a successful `SendMessage` response or
 `SendStreamingMessage` event sent by the selected server to the requesting
@@ -562,13 +765,14 @@ documented maximum retry interval.
 On first receipt, the server MUST associate the tuple with a digest of the
 request envelope and with every response or event it emits. The digest SHOULD
 be SHA-256 over an implementation's deterministic encoding of the parsed
-envelope. It MUST exclude fmsg fields such as transmission time.
+envelope after attachment restoration, so that it covers the content of every
+mapped part. It MUST exclude fmsg fields such as transmission time.
 
 If the tuple is received again:
 
 - with equivalent request content, the server MUST NOT execute the operation a
-  second time and SHOULD replay the stored response or events as a new fmsg
-  response or event chain rooted at the newly received duplicate request; or
+  second time and SHOULD replay the stored response or events as new fmsg
+  replies to the newly received duplicate request; or
 - with different content, the server MUST return
   `FMSG_A2A_REQUEST_ID_CONFLICT` and MUST NOT execute it.
 
@@ -578,9 +782,8 @@ The server MUST also apply A2A `messageId` idempotency semantics. A new binding
 
 A client MUST match a response or event by all of:
 
-- for a response or sequence-zero event, fmsg `pid` equal to the request
-  message hash;
-- for a later event, fmsg `pid` equal to the immediately preceding event hash;
+- fmsg `pid` equal to the request message hash, or, for a detached result, no
+  `pid` and a topic of `A2A <requestId>`;
 - fmsg `from` equal to the selected server address;
 - fmsg recipient equal to the original client address;
 - matching `requestId`; and
@@ -681,17 +884,19 @@ message-time order, but MUST use the explicit event sequence for streams.
 
 ## Size and Media Handling
 
-The complete JSON envelope is subject to fmsg's message size, expanded-size,
-quota, and media-type limits. An adapter SHOULD check the destination's known
-limits before sending but MUST still handle an fmsg rejection.
+The complete fmsg message, comprising the JSON envelope and every mapped
+attachment, is subject to fmsg's message size, expanded-size, attachment
+count, quota, and media-type limits. An adapter SHOULD check the destination's
+known limits before sending but MUST still handle an fmsg rejection, including
+one caused by a receiving host's attachment media-type policy.
 
 An A2A server MUST validate every `Part.mediaType` against the selected skill's
 declared input modes. It MUST treat URLs in `Part.url`, filenames, structured
-data, and base64-decoded bytes as untrusted input.
+data, and `raw` content, whether restored from an attachment or decoded from
+base64, as untrusted input.
 
-Because this revision carries raw parts in JSON, base64 expansion counts toward
-the fmsg message size. Native fmsg attachment mapping requires a later binding
-revision and MUST NOT be inferred by implementations.
+Mapped parts carry `raw` content without base64 expansion; only inline
+fallback parts incur it.
 
 ## Security Considerations
 
@@ -704,19 +909,27 @@ Implementers MUST consider at least the following:
   content end to end. Sensitive A2A data may remain in host storage.
 - **Replay:** fmsg duplicate detection does not replace binding `requestId` and
   A2A `messageId` idempotency across newly encoded messages.
-- **Resource exhaustion:** JSON depth, object count, decoded base64 size,
-  stream reordering buffers, concurrent requests, and retained replay state
-  require explicit limits.
+- **Resource exhaustion:** JSON depth, object count, attachment count and
+  expanded size, decoded base64 size, stream reordering buffers, concurrent
+  requests, and retained replay state require explicit limits.
 - **Parser safety:** Receivers must reject duplicate JSON keys, invalid UTF-8,
   malformed ProtoJSON, and values outside declared numeric bounds.
 - **Response confusion:** Both fmsg parent linkage and envelope identifiers must
   be checked before accepting a response.
+- **Detached results:** A detached result has no hash linkage to its request.
+  Its authenticity rests entirely on fmsg transport verification of `from`, so
+  a client must never accept one from an address other than the selected
+  server address, and must apply duplicate and sequence checks as usual.
 - **Error privacy:** Errors must not disclose whether unauthorized task IDs,
   agent skills, extended-card data, or other principals exist.
 - **Agent Card integrity:** Clients should retrieve Agent Cards over HTTPS and
   verify an Agent Card signature when one is present.
 - **URL retrieval:** Servers resolving an A2A `Part.url` must defend against
   server-side request forgery and apply scheme, host, redirect, and size policy.
+- **Attachment references:** An `fmsg-attachment` reference names content in
+  the same fmsg message only. It must never be fetched as a network resource,
+  and a message whose references and attachments do not correspond exactly
+  must be rejected before any A2A processing.
 
 The security requirements of A2A, fmsg, and FMSG-001 remain applicable.
 
@@ -728,9 +941,13 @@ A conforming client implementation MUST:
 
 - parse and validate the selected fmsg `AgentInterface`;
 - construct the fmsg profile and request envelope defined here;
+- map and restore `Part.raw` content as defined in
+  [Attachment Mapping](#attachment-mapping);
 - support every non-capability-gated operation in the operation table;
 - validate fmsg and envelope correlation for every result;
-- implement duplicate response handling and configurable timeouts; and
+- implement duplicate response handling and configurable timeouts;
+- accept detached results and resend a threaded request as a detached root on
+  fmsg REJECT code 6; and
 - expose fmsg delivery failures separately from A2A errors.
 
 A client claiming streaming support MUST additionally implement event ordering,
@@ -742,10 +959,13 @@ A conforming server implementation MUST:
 
 - advertise an accurate Agent Card interface and capabilities;
 - validate the fmsg profile, envelope, service parameters, and A2A payload;
+- map and restore `Part.raw` content as defined in
+  [Attachment Mapping](#attachment-mapping);
 - recognize every operation in the operation table;
 - preserve A2A operation and task semantics;
 - authorize operations using the fmsg transport principal;
-- implement request replay protection and idempotent duplicate handling; and
+- implement request replay protection and idempotent duplicate handling;
+- send detached results when a reply cannot be delivered; and
 - return the response and error representations defined here.
 
 A server MAY return the prescribed unsupported errors for streaming, push
@@ -763,18 +983,24 @@ An implementation pair claiming interoperability SHOULD demonstrate:
    stable context anchor.
 5. `ListTasks` pagination and authorization scoping.
 6. Successful and rejected `CancelTask` operations.
-7. A2A raw bytes encoded through ProtoJSON.
-8. An A2A-specific error and an fmsg delivery rejection remaining distinct.
-9. Duplicate `requestId` with identical content executing once.
-10. Duplicate `requestId` with changed content being rejected.
-11. A forged or mismatched fmsg `pid`, sender, request ID, or operation being
+7. A2A raw bytes carried as fmsg attachments in a request and a response,
+   restored unchanged, and an inline base64 `raw` value accepted.
+8. A message with an unresolvable, unreferenced, or mistyped attachment being
+   rejected.
+9. An A2A-specific error and an fmsg delivery rejection remaining distinct.
+10. Duplicate `requestId` with identical content executing once.
+11. Duplicate `requestId` with changed content being rejected.
+12. A forged or mismatched fmsg `pid`, sender, request ID, or operation being
     rejected.
-12. Detached-root continuation when local graph state is unavailable.
-13. A task control side branch that does not advance the task head.
-14. If streaming is advertised, chained ordered events, duplicate events, a
-    missing event, and final-event handling.
-15. If push notifications are advertised, all configuration operations.
-16. If an extended Agent Card is advertised, authenticated retrieval and denial
+13. Detached-root continuation when local graph state is unavailable.
+14. A threaded request rejected with fmsg code 6 being resent as a detached
+    root, and a result rejected with code 6 being delivered as a detached
+    result.
+15. A task control side branch that does not advance the task head.
+16. If streaming is advertised, sibling events delivered out of order, duplicate
+    events, a missing event, and final-event handling.
+17. If push notifications are advertised, all configuration operations.
+18. If an extended Agent Card is advertised, authenticated retrieval and denial
     to an unauthorized transport principal.
 
 ## Complete Example
@@ -817,7 +1043,7 @@ The client `@assistant@example.net` sends a root fmsg message to
 
 ```json
 {
-  "bindingVersion": "0.1",
+  "bindingVersion": "0.2",
   "a2aVersion": "1.0",
   "kind": "request",
   "requestId": "018f3f6e-7c1a-7e95-8f23-6ed8b985a781",
@@ -848,7 +1074,7 @@ the request hash, the `no reply` flag clear, and this data:
 
 ```json
 {
-  "bindingVersion": "0.1",
+  "bindingVersion": "0.2",
   "a2aVersion": "1.0",
   "kind": "response",
   "requestId": "018f3f6e-7c1a-7e95-8f23-6ed8b985a781",
