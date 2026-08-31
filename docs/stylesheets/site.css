@@ -137,6 +137,11 @@ html {
   display: none;
 }
 
+/* Header: hide the repo link (and its stats). It's still in the footer social icons. */
+.md-header .md-source {
+  display: none;
+}
+
 /* Left nav: clearer section labels (Specification, Standards, …). */
 .md-nav__item--section > .md-nav__link {
   font-size: 0.7rem;
