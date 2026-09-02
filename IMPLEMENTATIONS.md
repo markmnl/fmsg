@@ -17,3 +17,13 @@
 
 
  
+
+
+# fmsg Adaptors
+
+Adaptors connect existing agent frameworks and applications to fmsg so they can send and receive messages using their own fmsg address.
+
+| Implementation                                             | Description                          |
+|------------------------------------------------------------|--------------------------------------|
+| [hermes-fmsg](https://github.com/markmnl/hermes-fmsg)      | fmsg platform plugin for [Hermes Agent](https://github.com/NousResearch/hermes-agent) - gives a Hermes agent its own address with fmsg threads mapped to Hermes sessions |
+| [openclaw-fmsg](https://github.com/markmnl/openclaw-fmsg)  | fmsg channel plugin for [OpenClaw](https://openclaw.ai) - receives messages over WebSocket with inbox catch-up, maps fmsg message trees to OpenClaw sessions and carries attachments both ways |

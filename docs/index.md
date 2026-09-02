@@ -71,8 +71,8 @@ bindings around that core.
 ## Implementations
 
 The open-source ecosystem includes a host daemon, client-facing Web API,
-address and quota service, command-line client, and a Docker Compose stack for
-running them together.
+address and quota service, command-line client, a Docker Compose stack for
+running them together, and adaptors that connect agent frameworks to fmsg.
 
 [Explore fmsg implementations](IMPLEMENTATIONS.md){ .section-link }
 
