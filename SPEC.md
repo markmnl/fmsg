@@ -52,7 +52,8 @@ The hash MUST be computed over the full message bytes: message header fields exa
 | 3 | important | Sender flags message as important. |
 | 4 | no reply | Sender will discard any reply. |
 | 5 | zlib-deflate | Message data compressed with zlib/deflate (RFC 1950/1951); _expanded size_ field present. |
-| 6–7 | reserved | Must be 0. |
+| 6 | terminal | Message is a leaf: no message may reference it via _pid_. A reply to, or add-to of, a terminal message → code 1. Enforced by hosts, unlike advisory _no reply_. |
+| 7 | reserved | MUST be 0; set → code 1. |
 
 ## 4. Common Media Types
 
@@ -101,7 +102,7 @@ Each attachment header, in order:
 
 | Field | Type | Notes |
 |-------|------|-------|
-| flags | uint8 | Bit 0 = common type (same lookup as §4). Bit 1 = zlib-deflate. Bits 2–7 reserved. |
+| flags | uint8 | Bit 0 = common type (same lookup as §4). Bit 1 = zlib-deflate. Bits 2–7 reserved, MUST be 0; set → code 1. |
 | type | uint8 + [ASCII string] | Same encoding rule as message type, using this attachment's own common type flag. |
 | filename | uint8 length + UTF-8 | < 256 bytes. Unicode letters/numbers, plus `-` `_` ` ` `.` non-consecutively, not at start/end. Unique per message (case-insensitive). |
 | size | uint32 | Byte length of this attachment's data on the wire (after compression, if zlib-deflate set). |
@@ -175,7 +176,7 @@ One message per connection. Two TCP connections used: Connection 1 (message tran
 
 ### 10.2 Sending (Host A perspective)
 
-Host A delivers iff _from_ or _add to from_ belongs to Host A's domain.
+Host A delivers iff _from_ or _add to from_ belongs to Host A's domain. Host A MUST NOT send a message whose _pid_ references a message it holds with _terminal_ set.
 
 When _has add to_ is NOT set: perform the steps below for each unique recipient domain.
 
@@ -207,6 +208,8 @@ When _has add to_ IS set: perform the steps below for each unique participant do
    - If _has add to_ not set: ≥ 1 recipient in _to_ belongs to Host B's domain. If _has add to_ set: ≥ 1 participant (_from_, _to_, _add to from_ or _add to_) belongs to Host B's domain.
    - Common type IDs (message and attachment) are mapped.
    - _expanded size_ fields are present iff the corresponding zlib-deflate flag is set.
+   - If _has add to_: _terminal_ is NOT set (an add-to copies the original's flags, so _terminal_ means the original is terminal and cannot be referenced).
+   - No reserved flag bit is set (message bit 7, attachment bits 2–7).
 4. DNS-verify sender IP: resolve `fmsg.<sender domain>`, check Connection 1 source IP is in result set. Fail → TERMINATE.
 5. If _size_ + attachment sizes > MAX_SIZE, or total expanded size > MAX_EXPANDED_SIZE → respond code 4, close. Total expanded size uses _expanded size_ for compressed parts and _size_ for uncompressed parts.
 6. Compute DELTA = now − _time_:
@@ -218,10 +221,11 @@ When _has add to_ IS set: perform the steps below for each unique participant do
      - Verify parent stored (§11). Not found → respond code 6, close.
      - Parent time − MAX_TIME_SKEW must be before incoming time. Fail → respond code 9, close.
      - _from_ must be a participant of the parent. Fail → respond code 1, close.
+     - Parent must not be terminal. Fail → respond code 1, close.
    - **add-to set** (adding recipients):
      - pid MUST also be set. Fail → respond code 1, close.
      - Check if parent stored (§11):
-       - **Stored**: check time travel (code 9 if fail).
+       - **Stored**: parent must not be terminal (code 1 if fail); check time travel (code 9 if fail).
        - **Not stored**: if ≥ 1 recipient in _to_ or _add to_ belongs to Host B's domain, treat as full message delivery. Otherwise (Host B hosts only non-recipient participants) respond code 6 (parent not found), close.
 8. Optionally issue a CHALLENGE on Connection 2 (see §10.5).
 
@@ -289,7 +293,7 @@ An add-to message is a duplicate of the original message with these differences:
 
 An add-to message MUST be sent to every participant domain per §10.2, so all participants of the message being added to — including the original sender, when not themselves the _add to from_ — learn of the added recipients, not only the domains hosting the new recipients. This is required because a subsequent reply may reference this add-to message via _pid_, and a host can only accept a reply whose parent it holds.
 
-Add-to batches do not chain: recipients are always added to the original message; an add-to message's _pid_ MUST NOT reference another add-to message. A message therefore has 0 or more add-to batches, each a sibling branch under the original — the thread evolves as a tree.
+Add-to batches do not chain: recipients are always added to the original message; an add-to message's _pid_ MUST NOT reference another add-to message. An add-to message MUST NOT reference a terminal message (§3). A message therefore has 0 or more add-to batches, each a sibling branch under the original — the thread evolves as a tree.
 
 A recipient added by a batch and not already in _to_ is a participant of that batch message only, not of the original: their replies MUST reference the batch message via _pid_ (referencing the original would fail the participant check, §10.3 step 7) and extend the batch's branch. An address in both _to_ and _add to_ was already a participant of the original and may reply on either branch.
 

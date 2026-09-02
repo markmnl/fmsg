@@ -12,6 +12,7 @@
 | v0.4.0  | 2026-08-02 | Mark Mennell | Add-to messages delivered to all participant domains; notification-only delivery completes at code 11  |
 | v0.4.1  | 2026-08-03 | Mark Mennell | Hosts must retain stored messages in full, including complete recipient lists  |
 | v0.5.0  | 2026-08-10 | Mark Mennell | Clarified: stored messages include those the host sent; exactly one header-response code is sent; _add to_ may overlap _to_, with one response code per recipient entry; add-to copies omit _topic_; add-to batches are sibling branches whose added recipients reply to the batch message; batch identity is the batch message hash. Changed: an unsupported version TERMINATES rather than responding, retiring code 2 (numbering unchanged)  |
+| v0.6.0  | 2026-09-02 | Mark Mennell | Added _terminal_ flag (bit 6); reserved flag bits set on the wire are rejected  |
 
 ## Contents
 
@@ -24,6 +25,7 @@
     - [Message](#message)
     - [Notes on Message Definition](#notes-on-message-definition)
     - [Notes on Adding Recipients](#notes-on-adding-recipients)
+    - [Notes on Terminal Messages](#notes-on-terminal-messages)
     - [Notes on Time](#notes-on-time)
     - [Flags](#flags)
         - [Common Media Types](#common-media-types)
@@ -91,6 +93,8 @@ _"recipients"_ the addresses in a message's _to_ and _add to_ fields
 
 _"sender"_ the address in a message's _from_ field when _has add to_ not set; otherwise the address in the _add to from_ field.
 
+_"terminal message"_ a message with the _terminal_ flag bit set. No message may reference it via _pid_, see [Notes on Terminal Messages](#notes-on-terminal-messages).
+
 _"thread"_ is a linked hierarchy of messages where messages relate to previous messages using the _pid_ field
 
 _"UTF-8"_ is for the unicode standard: Unicode Transformation Format – 8-bit.
@@ -151,6 +155,7 @@ In programmer friendly JSON a message could look like (once decoded from the bin
     "version": 1,
     "important": false,
     "noreply": false,
+    "terminal": false,
     "pid": null,
     "from": "@user@example.com",
     "to": [
@@ -198,6 +203,7 @@ On the wire messages are encoded thus:
 * Square brackets "[ ]" indicate fields or part thereof may not exist on a message. Where the brackets surround the name, e.g. _pid_, the whole field may not be present (which in the case of pid is only valid if the message is the first in a thread). Where they surround part of the type, that part may not be present, e.g. list of attachment headers will not be present if uint8 prefix is 0.
 * _topic_ only exists on the first message in a thread, i.e. on a message with no _pid_. This makes _topic_ immutable because it cannot be changed by subsequent replies. (Presentations of message threads MAY use a local mutable field for display purposes).
 * It is not possible to accept a message _from_ an address that wasn't a participant in the message referenced by _pid_ following the [Protocol Steps](#protocol-steps).
+* It is not possible to accept a message whose _pid_ references a message with the _terminal_ flag bit set, see [Notes on Terminal Messages](#notes-on-terminal-messages).
 
 
 ### Notes on Adding Recipients
@@ -218,6 +224,19 @@ A recipient added in a batch who was not already in the original's _to_ is a par
 
 A batch is identified by its message hash (see [Computing Message Hash](#computing-message-hash)), which covers _time_. Re-issuing an add-to with the same _add to_ addresses at a new _time_ is a new, distinct batch — a new sibling branch — not a duplicate.
 
+An add-to message MUST NOT reference a terminal message, see [Notes on Terminal Messages](#notes-on-terminal-messages).
+
+
+### Notes on Terminal Messages
+
+A message with the _terminal_ flag bit set is a leaf of its thread: nobody can reply to it and recipients cannot be added to it, because no subsequent message may reference it via _pid_. Receiving Hosts enforce this per [Protocol Steps](#protocol-steps) and Sending Hosts MUST NOT transmit a message that violates it, so every host holding a thread agrees on its shape — a terminal message never gains children on one host that another host rejected.
+
+_terminal_ differs from _no reply_. _no reply_ is advisory: the sender states it will discard replies, but a reply is still a valid message that hosts accept and other participants see. _terminal_ is enforced: a reply is rejected by every host before it is stored. The two MAY be combined.
+
+_terminal_ MAY be set on any message, including the first in a thread, and applies only to the message it is set on; it does not affect the message's parent or siblings. Because an add-to message is an exact duplicate of the original apart from the fields listed in [Notes on Adding Recipients](#notes-on-adding-recipients), an add-to message carrying the _terminal_ flag bit necessarily references a terminal original and is therefore invalid.
+
+This flag exists so standards can define kinds of message that MUST NOT be built upon — for example a reaction to a message — without every host needing to understand the standard: a host enforces _terminal_ without knowing why it was set. A host that predates this flag treats it as a reserved bit and rejects the message (see [Flags](#flags)), which is preferable to accepting it as an ordinary reply that could then be replied to.
+
 
 ### Notes on Time
 
@@ -236,8 +255,8 @@ fmsg includes some time checking and controls, rejecting messages too far in fut
 | 3         | important    | Sender indicates this message is IMPORTANT!                                                                                                                                                                                 |
 | 4         | no reply     | Sender indicates any reply will be discarded.                                                                                                                                                                               |
 | 5         | zlib-deflate | Message data is compressed using the zlib structure (defined in RFC 1950), with the deflate compression algorithm (defined in RFC 1951).                                                                                    |
-| 6         | TBD          | Unused, reserved for future use                                                                        |
-| 7         | TBD          | Unused, reserved for future use    |
+| 6         | terminal     | This message is a leaf: no subsequent message may reference it via _pid_. A Receiving Host rejects any reply to, or add-to batch of, a terminal message with REJECT code 1 (invalid). See [Notes on Terminal Messages](#notes-on-terminal-messages). |
+| 7         | reserved     | Unused, reserved for future use. MUST be 0; a Receiving Host MUST respond REJECT code 1 (invalid) if set.    |
 
 
 #### Common Media Types
@@ -337,7 +356,7 @@ Each attachment header consists of flags, type, filename, size, and conditional 
 |----------:|-------------|------------------------------------------------------------------------------------------------------------------------------------|
 | 0         | common type | Indicates this attachment's type field is just a uint8 value and Media Type can be looked up per [Common Media Types](#common-media-types). |
 | 1         | zlib-deflate | Attachment data is compressed using the zlib structure (defined in RFC 1950), with the deflate compression algorithm (defined in RFC 1951). |
-| 2 — 7     | TBD         | Unused, reserved for future use                                                                                                    |
+| 2 — 7     | reserved    | Unused, reserved for future use. MUST be 0; a Receiving Host MUST respond REJECT code 1 (invalid) if any is set.                    |
 
 filename MUST be:
 
@@ -411,7 +430,7 @@ Other codes 100 and above are per recipient in the same order as recipients for 
 
 | code | name                  | description                                                             |
 |-----:|-----------------------|-------------------------------------------------------------------------|
-| 1    | invalid               | the message header fails verification checks, i.e. not in spec          |
+| 1    | invalid               | the message header fails verification checks, i.e. not in spec, including a _pid_ referencing a terminal message |
 | 3    | undisclosed           | no reason is given                                                      |
 | 4    | too big               | total size or expanded size exceeds host's maximum permitted size of messages |
 | 5    | insufficient resources | such as disk space to store the message                                |
@@ -492,6 +511,8 @@ The following variables corresponding to host defined configuration are used in 
         6. Each attachment _type_ number, when that attachment's _common type_ flag is set, exists in [Common Media Type](#common-media-types) mapping.
         7. The message _expanded size_ field MUST exist if and only if the message _zlib-deflate_ flag bit is set.
         8. Each attachment _expanded size_ field MUST exist if and only if that attachment's _zlib-deflate_ flag bit is set.
+        9. If the _has add to_ flag bit is set, the _terminal_ flag bit MUST NOT be set. An add-to message duplicates the original's flags, so _terminal_ here means the original is terminal and cannot be referenced, see [Notes on Terminal Messages](#notes-on-terminal-messages).
+        10. No reserved flag bit is set: message flags bit 7, and each attachment's flags bits 2 through 7, MUST be 0.
     2. Receiving Host B MUST perform a DNS lookup on the fmsg subdomain of the senders domain to verify that the IP address of the incoming connection is in those authorised by the sending domain. If the incoming IP address is not in the authorised set, Host B MUST TERMINATE the message exchange. See [Domain Resolution](#domain-resolution) for more.
         * If the _has add to_ flag bit set the sender's domain is the domain part of the _add to from_ address.
         * Otherwise, the sender's domain is the domain part of the _from_ address.
@@ -506,12 +527,14 @@ The following variables corresponding to host defined configuration are used in 
             1. The message _pid_ refers to MUST be verified to be stored already on Host B per [Verifying Message Stored](#verifying-message-stored); otherwise Host B MUST respond with REJECT code 6 (parent not found) completing the message exchange.
             2. The stored message for _pid_'s _time_ minus MAX_TIME_SKEW MUST be before _time_ on the incoming message header; otherwise Host B MUST respond with REJECT code 9 (time travel) completing the message exchange.
             3. _from_ MUST have been a participant in the stored message referred to by _pid_; otherwise Host B MUST respond with REJECT code 1 (invalid) completing the message exchange.
+            4. The stored message referred to by _pid_ MUST NOT have the _terminal_ flag bit set; otherwise Host B MUST respond with REJECT code 1 (invalid) completing the message exchange.
             _NOTE_ Verifying Message Stored checks the host has the parent message, not that every recipient still has it in their message store. Implementations MAY consider restoring the parent message to a recipient's message store if that _recipient_ no longer has the message, so that the incoming reply has proper thread context for all recipients.
         3. Else _add to_ exists;
             1. _pid_ field MUST exist too, otherwise Host B MUST respond REJECT code 1 (invalid) and close the connection completing the message exchange.
             2. [Verifying Message Stored](#verifying-message-stored) is performed for message referred to by _pid_;
             3. If original message referred to by _pid_ is verified to be stored AND;
-                1. The stored message for _pid_'s _time_ minus MAX_TIME_SKEW MUST be before _time_ on the incoming message header; otherwise Host B MUST respond with REJECT code 9 (time travel).
+                1. The stored message MUST NOT have the _terminal_ flag bit set; otherwise Host B MUST respond with REJECT code 1 (invalid) completing the message exchange.
+                2. The stored message for _pid_'s _time_ minus MAX_TIME_SKEW MUST be before _time_ on the incoming message header; otherwise Host B MUST respond with REJECT code 9 (time travel).
             4. Otherwise (original message has not been found, possible because Host B was never a participant of the message, or the message referenced by _pid_ is no longer held):
                 1. If at least one recipient in _to_ or _add to_ belongs to Host B, the message is treated as a full message delivery.
                 2. Otherwise Host B hosts only non-recipient participants of the message; Host B MUST respond REJECT code 6 (parent not found) then close the connection completing the message exchange.
@@ -583,6 +606,8 @@ _NOTE_ When recipients for Host B are added using the _add to_ functionality to 
 #### 4. Sending a Message
 
 A Sending Host (Host A) delivers a message if and only if _from_ or _add to from_ belongs to Host A's domain. When the _has add to_ flag bit is not set, the message is sent to each unique recipient domain exactly once, regardless of how many recipients share that domain. When the _has add to_ flag bit is set, the message is sent exactly once to each unique participant domain — the domains of _from_ and of every address in _to_ and _add to_, omitting _from_'s domain when _from_ is the _add to from_ (the adder is the original sender, whose host is the Sending Host) — so that all participants of the message being added to learn of the added recipients, not only the domains hosting the new recipients. This section describes the steps Host A performs for each domain. If multiple domains exist, Host A performs these steps independently for each domain without regard to the others.
+
+Host A MUST NOT transmit a message whose _pid_ references a message Host A holds with the _terminal_ flag bit set, and SHOULD refuse to create such a message for its clients, see [Notes on Terminal Messages](#notes-on-terminal-messages).
 
 1. Host A resolves the authorised IP addresses via [Domain Resolution](#domain-resolution) for Host B.
     1. Host A initiates a connection (Connection 1) to the first authorised IP address for the Receiving Host (Host B).
