@@ -5,6 +5,7 @@
 | Revision | Date       | Summary       |
 |----------|------------|---------------|
 | v0.1.0   | 2026-08-07 | Initial draft |
+| v0.2.0   | 2026-09-02 | `terminal` flag on messages; FMSG-005 reactions: `reaction`/`reactions` fields, `POST /fmsg/:id/react`, `reaction` event |
 
 This standard defines an authenticated HTTP and WebSocket API through which one
 fmsg identity creates, sends, receives, and manages messages on an fmsg host. It
@@ -29,6 +30,7 @@ It defines:
 - optional API keys and API-access grants;
 - draft, message, recipient, attachment, and read-state operations;
 - delivery-status reporting;
+- emoji reactions per [FMSG-005](fmsg-005-reactions.md);
 - plain-text thread rendering;
 - live event delivery over WebSocket; and
 - optional Web Push subscription management.
@@ -40,6 +42,7 @@ database schemas, host-to-host message transport, or a user interface.
 
 - [fmsg Specification](../SPECIFICATION.md)
 - [FMSG-002 Id Standard](fmsg-002-id.md)
+- [FMSG-005 Reactions Standard](fmsg-005-reactions.md)
 - [RFC 6455: The WebSocket Protocol](https://www.rfc-editor.org/rfc/rfc6455)
 - [RFC 7517: JSON Web Key](https://www.rfc-editor.org/rfc/rfc7517)
 - [RFC 7519: JSON Web Token](https://www.rfc-editor.org/rfc/rfc7519)
@@ -234,6 +237,7 @@ Core routes are always present. Grant and Web Push routes are conditional.
 | `POST` | `/fmsg/:id/send` | Core | Send a draft |
 | `POST` | `/fmsg/:id/read` | Core | Mark a received message read |
 | `POST` | `/fmsg/:id/add-to` | Core | Add recipients |
+| `POST` | `/fmsg/:id/react` | Core | Set or clear the caller's reaction |
 | `GET` | `/fmsg/:id/data` | Core | Download message data |
 | `GET` | `/fmsg/:id/thread` | Core | Render direct ancestor lineage |
 | `POST` | `/fmsg/:id/attach` | Core | Upload an attachment |
@@ -262,6 +266,7 @@ A message metadata object has this shape:
   "important": false,
   "no_reply": false,
   "deflate": false,
+  "terminal": false,
   "pid": null,
   "from": "@alice@example.com",
   "to": ["@bob@example.com"],
@@ -296,6 +301,10 @@ A message metadata object has this shape:
   "time_read": null,
   "attachments": [
     { "filename": "notes.pdf", "size": 12345 }
+  ],
+  "reaction": null,
+  "reactions": [
+    { "emoji": "👍", "from": ["@bob@example.com"] }
   ]
 }
 ```
@@ -310,6 +319,7 @@ The fields are:
 | `important` | Boolean | Sender importance indication |
 | `no_reply` | Boolean | Sender indicates replies will be discarded |
 | `deflate` | Boolean | Stored data was detected as compressed content for fmsg wire handling |
+| `terminal` | Boolean | The fmsg _terminal_ flag: a leaf no message may reference via _pid_ |
 | `pid` | integer or null | Parent message ID in this API deployment |
 | `from` | string | Sender fmsg address |
 | `to` | string array | Primary recipients |
@@ -323,9 +333,21 @@ The fields are:
 | `read` | Boolean | Effective recipient's read state |
 | `time_read` | number or null | Effective recipient's first-read time |
 | `attachments` | object array | Attachment names and sizes; never their contents |
+| `reaction` | string or null | When this message is an FMSG-005 reaction, the emoji it carries, or `""` for a clearing reaction; `null` otherwise |
+| `reactions` | object array | Effective FMSG-005 reactions on this message; `[]` when none |
 
 List and WebSocket message objects additionally contain an integer `id`. A
 single `GET /fmsg/:id` response does not contain `id`.
+
+A message is a reaction when it has the shape defined by FMSG-005 and its body
+is a single emoji or empty. The server MUST recognise reactions by that shape
+and MAY ignore the FMSG-005 requirement on `to` when recognising them. Each
+`reactions` entry is `{ "emoji": string, "from": string array }`: one entry per
+distinct emoji, in order of first reaction, listing the participants whose
+effective reaction it is in time order. A participant whose latest reaction is
+a clearing reaction has no entry. Servers SHOULD populate `reaction` and
+`reactions` on every message object so clients can hide reaction messages from
+message lists and render reactions on their subjects.
 
 `short_text` MAY be omitted. When enabled, it MUST appear only for a body whose
 media type is `text/*` and whose preview is valid UTF-8. It MUST be truncated
@@ -396,6 +418,7 @@ Creates a draft. The request is JSON:
 | `size` | integer | yes | Client's body byte count; server-computed value is authoritative |
 | `important` | Boolean | no | Defaults to false |
 | `no_reply` | Boolean | no | Defaults to false |
+| `terminal` | Boolean | no | Defaults to false; sets the fmsg _terminal_ flag |
 | `data` | string | no | UTF-8 message body; defaults to empty |
 
 Recipients can be added only through the add-to route. A supplied `add_to`
@@ -404,6 +427,10 @@ property MUST NOT add recipients.
 The server MUST derive the stored `size` from the UTF-8 bytes of `data`, rather
 than trust the request's `size`. The body and total message size MUST remain
 within deployment limits.
+
+A `pid` referencing a message whose `terminal` is true MUST be rejected with
+`409 Conflict`: no message may reference a terminal message. The same applies
+to `PUT /fmsg/:id`.
 
 Success is `201 Created`:
 
@@ -498,10 +525,49 @@ permitted by the fmsg protocol's re-delivery semantics.
 The server MUST atomically create the batch, its recipient rows, and any
 participant-domain notifications required by the fmsg protocol.
 
+Recipients cannot be added to a terminal message; the server MUST reject with
+`409 Conflict`.
+
 Success is:
 
 ```json
 { "id": 123, "added": 2 }
+```
+
+### `POST /fmsg/:id/react`
+
+Sets or clears the authenticated identity's reaction on message `:id` per
+[FMSG-005](fmsg-005-reactions.md). The identity MUST be a participant of the
+message. The message MUST be sent and MUST NOT be terminal; otherwise the
+server MUST reject with `409 Conflict`.
+
+Request:
+
+```json
+{ "emoji": "👍" }
+```
+
+`emoji` MUST be a single emoji: an element of the Unicode `RGI_Emoji` set, or
+another single well-formed emoji sequence as permitted by FMSG-005. An absent,
+`null`, or empty `emoji` clears the caller's reaction. Any other value MUST be
+rejected with `400 Bad Request`.
+
+The server MUST create and send, in one step, a reaction message as defined by
+FMSG-005: a reply to `:id` with _no reply_ and _terminal_ set, type
+`text/plain;charset=UTF-8`, body `emoji`, addressed to every participant of
+the message other than the caller. If the message has no other participant the
+server MUST reject with `409 Conflict`. The reply-domain check of
+`POST /fmsg/:id/send` applies.
+
+Setting a reaction equal to the caller's current effective reaction MUST NOT
+send another message; the server responds `200 OK` with the existing reaction
+message's `id` and `time`. Clearing when the caller has no effective reaction
+responds `200 OK` with `null` for both.
+
+Success when a reaction message was sent is `201 Created`:
+
+```json
+{ "id": 124, "time": 1786064500.000001 }
 ```
 
 ## Content Routes
@@ -778,6 +844,10 @@ message list.
 | `new_msg` | Message recipient | A sent or federated message became available |
 | `delivered` | Message sender | Delivery state changed; `data` is the refreshed message |
 | `recipients_added` | Message participant | An add-to batch was recorded; `data` is the refreshed message |
+| `reaction` | Subject participant | An FMSG-005 reaction arrived; `data` is the refreshed subject message with its `reactions` |
+
+A reaction message MUST NOT be delivered as `new_msg`: the server MUST route it
+as a `reaction` event on its subject instead.
 
 Clients MUST ignore unknown event types. The server SHOULD send WebSocket ping
 frames and disconnect clients that do not respond or cannot consume events
@@ -825,7 +895,8 @@ Deletion is idempotent and scoped to the authenticated identity. Success is
 ### Push Payload
 
 When `new_msg` occurs, the server MAY send an encrypted Web Push independently
-of whether a WebSocket client is connected:
+of whether a WebSocket client is connected. A reaction MUST NOT produce a Web
+Push:
 
 ```json
 {
@@ -921,6 +992,7 @@ An implementation pair SHOULD demonstrate:
 4. Root and reply creation, including an undeliverable reply-domain conflict.
 5. Primary and add-to recipient visibility and per-recipient read state.
 6. Atomic add-to batches and refreshed `recipients_added` events.
+   Rejection of add-to, reply creation, and reaction on a terminal message.
 7. Pending, failed, local, and successful remote delivery states plus
    `delivered` events.
 8. Thread rendering with visible text, JSON, non-text, and invisible ancestors.
@@ -931,3 +1003,6 @@ An implementation pair SHOULD demonstrate:
     deletion, source denial, token exchange, and revocation of an issued JWT.
 12. If Web Push is supported: create, refresh, idempotent delete, root-thread
     payload grouping, and removal of dead subscriptions.
+13. Reactions: set, change, clear, idempotent repeat, non-participant denial,
+    `reaction`/`reactions` on message objects, the `reaction` event, and no
+    `new_msg` event or Web Push for a reaction message.

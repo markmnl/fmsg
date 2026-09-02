@@ -36,9 +36,8 @@ This standard defines:
 - how hosts and clients that do not implement this standard behave.
 
 It does not change the host-to-host protocol, define a client API, or require
-a host to understand reactions in order to carry them. Client API exposure of
-reactions is expected in a future revision of
-[FMSG-003](fmsg-003-webapi.md).
+a host to understand reactions in order to carry them. The client API for
+reactions is defined by [FMSG-003](fmsg-003-webapi.md) v0.2.0 and later.
 
 ## Normative References
 
@@ -205,7 +204,9 @@ a message either has the shape of a reaction or is simply a reply.
 Implementations SHOULD treat a _type_ encoded as the string
 `text/plain;charset=UTF-8` with the _common type_ flag bit not set as
 equivalent to Common Media Type ID 56 when recognising reactions; senders
-MUST use ID 56.
+MUST use ID 56. Implementations MAY ignore the [Recipients](#recipients)
+requirement when recognising a stored reaction, since a host cannot always
+know a subject's full participant set.
 
 ## Presentation
 
