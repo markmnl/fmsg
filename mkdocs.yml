@@ -63,6 +63,7 @@ nav:
       - FMSG-002 — Address API: standards/fmsg-002-id.md
       - FMSG-003 — Web API: standards/fmsg-003-webapi.md
       - FMSG-004 — A2A binding: standards/fmsg-004-a2a-binding.md
+      - FMSG-005 — Reactions: standards/fmsg-005-reactions.md
   - White paper: white-paper.md
   - Implementations: IMPLEMENTATIONS.md
   - Background: show-hn.md
