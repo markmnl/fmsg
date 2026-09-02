@@ -7,9 +7,10 @@
 | v0.1.0   | 2026-09-02 | Initial draft |
 
 This standard defines how a participant reacts to a message with a single
-emoji. A reaction is an ordinary fmsg message constrained so that it can be
-verified, delivered, and stored by any conforming host, and so that no message
-can be built on top of it.
+emoji. A reaction is an ordinary plain-text fmsg message, recognised by its
+shape rather than by a dedicated type, constrained so that it can be verified,
+delivered, and stored by any conforming host, and so that no message can be
+built on top of it.
 
 This revision requires fmsg Specification v0.6.0 or later for the _terminal_
 flag.
@@ -79,11 +80,19 @@ that, and every host enforces it whether or not it knows what a reaction is.
 Because messages are immutable, changing or removing a reaction is done by
 sending a newer reaction whose data replaces the earlier one.
 
+A reaction has no Media Type of its own. Its data is UTF-8 text, and a Media
+Type describes representation, not intent; the intent is already carried by
+the flags. A reaction is therefore any terminal, no-reply, plain-text reply
+whose whole body is a single emoji. A person who sends exactly that as a reply
+meant it as a reaction, and clients that know nothing of this standard render
+it as the short text message it is.
+
 ## Reaction Message
 
-A reaction message is an fmsg message with all of the following properties. A
-message that has the reaction Media Type but violates any of them is malformed;
-see [Malformed Reactions](#malformed-reactions).
+A message is a reaction message if and only if it has all of the following
+properties. There is no separate reaction type: a message is recognised as a
+reaction by its shape, and a message lacking any property is an ordinary
+message, see [Recognising Reactions](#recognising-reactions).
 
 ### Flags
 
@@ -91,7 +100,7 @@ see [Malformed Reactions](#malformed-reactions).
 |---------:|------|-------------|
 | 0 | has pid | MUST be set. |
 | 1 | has add to | MUST NOT be set. |
-| 2 | common type | MUST NOT be set. |
+| 2 | common type | MUST be set. |
 | 3 | important | MUST NOT be set. |
 | 4 | no reply | MUST be set. |
 | 5 | zlib-deflate | MUST NOT be set. |
@@ -109,7 +118,7 @@ still present the reaction as something not to be replied to.
 | _from_ | The reactor. Per the Specification the reactor MUST be a participant of the subject. |
 | _to_ | Every participant of the subject other than the reactor, see [Recipients](#recipients). |
 | _topic_ | Absent, because _pid_ is present. |
-| _type_ | The US-ASCII string `application/vnd.fmsg.reaction`, exactly, with no parameters. |
+| _type_ | Common Media Type ID 56, `text/plain;charset=UTF-8`. |
 | _size_ | 0, or the byte length of _data_, which MUST NOT exceed 64. |
 | _attachment headers_ | Count MUST be 0. |
 | _data_ | Empty, or exactly one emoji encoded as UTF-8, see [Emoji](#emoji). |
@@ -127,8 +136,8 @@ Unicode version they support. Because that set grows over time, an
 implementation encountering non-empty _data_ that is a single extended
 grapheme cluster (UAX #29) whose code points all have the `Emoji`,
 `Emoji_Component`, or `Emoji_Modifier` property, or are ZWJ or a variation
-selector, SHOULD treat it as a reaction it cannot render rather than as
-malformed.
+selector, SHOULD treat it as a reaction it cannot render rather than as an
+ordinary message.
 
 Empty _data_ (_size_ 0) means the reactor has no reaction on the subject, see
 [Effective Reaction](#effective-reaction).
@@ -176,22 +185,27 @@ implement v0.6.0.
 ## Receiving
 
 A Receiving Host applies the Specification unchanged. This standard adds no
-header validation: a host need not recognise the reaction Media Type to accept,
-challenge, store, and deliver a reaction message.
+header validation: a host need not recognise reactions to accept, challenge,
+store, and deliver one, because on the wire a reaction is a plain-text
+terminal reply.
 
-A host or client that does implement this standard SHOULD validate
-[Reaction Message](#reaction-message) after the message is stored and handle
-violations per [Malformed Reactions](#malformed-reactions).
+### Recognising Reactions
 
-### Malformed Reactions
+A host or client that implements this standard determines whether a stored
+message is a reaction by testing it against [Reaction Message](#reaction-message)
+after the message is stored. A message meeting every property is a reaction
+and contributes to the effective reaction of its reactor on its subject. Any
+other message, including a terminal plain-text reply whose data is not a
+single emoji, is an ordinary message and MUST NOT contribute to any effective
+reaction.
 
-A stored message whose _type_ is `application/vnd.fmsg.reaction` but which
-violates [Reaction Message](#reaction-message) MUST NOT be treated as a
-reaction: it MUST NOT contribute to any effective reaction. Implementations
-MAY present it as an ordinary message or hide it.
+There is consequently no malformed reaction and nothing to reject on the wire:
+a message either has the shape of a reaction or is simply a reply.
 
-Rejecting such a message on the wire is not possible after the header exchange
-without inventing response codes, and this standard does not do so.
+Implementations SHOULD treat a _type_ encoded as the string
+`text/plain;charset=UTF-8` with the _common type_ flag bit not set as
+equivalent to Common Media Type ID 56 when recognising reactions; senders
+MUST use ID 56.
 
 ## Presentation
 
@@ -209,9 +223,9 @@ Clients that implement this standard are expected to:
 - treat an incoming reaction message as a low-priority event that does not
   warrant the notification an ordinary message would.
 
-Clients that do not implement this standard see a short message of an
-unfamiliar type containing an emoji, or nothing, with _no reply_ set. That is
-the intended degradation.
+Clients that do not implement this standard see a short plain-text reply
+containing an emoji, or an empty one, with _no reply_ set. That is the intended
+degradation, and it is why reactions carry no type of their own.
 
 ## Interoperability
 
@@ -226,10 +240,10 @@ the intended degradation.
 - **Volume:** each reaction is a stored message and a connection per recipient
   domain. The Specification's per-connection and per-IP rate limits and
   per-user storage quotas apply. Hosts MAY apply stricter rate limits to
-  messages of the reaction Media Type.
-- **Rendering:** implementations MUST NOT render _data_ of a malformed
-  reaction as an emoji. Validating against `RGI_Emoji` prevents arbitrary text
-  being displayed in a reaction slot.
+  messages having the shape of a reaction.
+- **Rendering:** implementations MUST NOT place _data_ that is not a single
+  `RGI_Emoji` in a reaction slot. The shape test is what prevents arbitrary
+  text from being displayed as a reaction.
 - **Participant rule:** reactions inherit the Specification's participant
   check, so an address that is not a participant of the subject cannot react
   to it, and a host cannot be tricked into showing one.
@@ -257,12 +271,14 @@ to Bob and `@chris@example.edu`:
         "@chris@example.edu"
     ],
     "time": 1788393600.120384,
-    "type": "application/vnd.fmsg.reaction",
+    "type": "text/plain;charset=UTF-8",
     "size": 4,
     "data": "👍",
     "attachments": []
 }
 ```
+
+On the wire _type_ is the single byte 56 with the _common type_ flag bit set.
 
 Bob later clears the reaction by sending the same message with a later
 _time_, _size_ 0, and no data.
