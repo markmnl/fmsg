@@ -12,7 +12,7 @@
 | v0.4.0  | 2026-08-02 | Mark Mennell | Add-to messages delivered to all participant domains; notification-only delivery completes at code 11  |
 | v0.4.1  | 2026-08-03 | Mark Mennell | Hosts must retain stored messages in full, including complete recipient lists  |
 | v0.5.0  | 2026-08-10 | Mark Mennell | Clarified: stored messages include those the host sent; exactly one header-response code is sent; _add to_ may overlap _to_, with one response code per recipient entry; add-to copies omit _topic_; add-to batches are sibling branches whose added recipients reply to the batch message; batch identity is the batch message hash. Changed: an unsupported version TERMINATES rather than responding, retiring code 2 (numbering unchanged)  |
-| v0.6.0  | 2026-09-02 | Mark Mennell | Added: _terminal_ flag (bit 6) — no message may reference a terminal message via _pid_; hosts reject a reply to, or add-to batch of, a terminal message with code 1. Changed: reserved flag bits set on the wire (message bit 7, attachment bits 2–7) are rejected with code 1 so future bits degrade consistently  |
+| v0.6.0  | 2026-09-02 | Mark Mennell | Added _terminal_ flag (bit 6); reserved flag bits set on the wire are rejected  |
 
 ## Contents
 
