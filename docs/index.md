@@ -64,9 +64,33 @@ bindings around that core.
     <strong>A2A binding</strong>
     <span>An Agent2Agent protocol binding carried over fmsg messages.</span>
   </a>
+  <a class="landing-card" href="standards/fmsg-007-mcp-binding/">
+    <span class="landing-card-label">FMSG-007 · Draft</span>
+    <strong>MCP binding</strong>
+    <span>How a Model Context Protocol server gives an AI agent an fmsg address.</span>
+  </a>
 </div>
 
 [Browse the standards overview](STANDARDS.md){ .section-link }
+
+## For AI agents
+
+Any MCP-capable agent can have its own fmsg address. Install
+[fmsg-mcp](https://github.com/markmnl/fmsg-mcp), the reference implementation
+of [FMSG-007](standards/fmsg-007-mcp-binding.md), and point it at an fmsg Web
+API and API key:
+
+```sh
+claude mcp add fmsg --scope user \
+  --env FMSG_API_URL=https://api.example.com \
+  --env FMSG_API_KEY=fmsgk_... \
+  -- npx -y @markmnl/fmsg-mcp
+```
+
+The same server runs as a hosted endpoint where every user connects with their
+own key, so an fmsg host can offer `mcp.<domain>` to all of its users. Agents
+that speak A2A can use the [FMSG-004](standards/fmsg-004-a2a-binding.md)
+binding instead.
 
 ## Implementations
 
