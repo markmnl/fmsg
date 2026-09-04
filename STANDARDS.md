@@ -25,6 +25,7 @@ Each standard is prefixed with a unique identifer following the format: "FMSG-##
 | [FMSG-004](standards/fmsg-004-a2a-binding.md) | A2A protocol binding over fmsg |
 | [FMSG-005](standards/fmsg-005-reactions.md) | Emoji reactions to messages, carried as terminal fmsg messages |
 | [FMSG-006](standards/fmsg-006-indicators.md) | Ephemeral indicators such as composing a reply, as unacknowledged UDP datagrams |
+| [FMSG-007](standards/fmsg-007-mcp-binding.md) | Model Context Protocol binding: how an MCP server gives an AI agent an fmsg address |
 
 
 
