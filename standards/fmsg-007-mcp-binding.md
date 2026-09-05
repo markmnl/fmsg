@@ -329,6 +329,30 @@ reached.
   only at a path the caller supplies, and SHOULD allow the operator to confine
   such writes to a directory.
 
+## Instructions
+
+MCP lets a server return an `instructions` string in the `initialize` result,
+which hosts place in the model's system prompt for the session. A server SHOULD
+provide one, kept short, that:
+
+- states that the server is the way to read and send fmsg messages for one
+  address (naming the address when the server already knows it, otherwise
+  pointing at `whoami`), and that the agent MUST NOT fall back to an fmsg
+  command-line tool, local configuration files or cached credentials, which may
+  belong to a different address or host;
+- tells the agent that, when a tool reports the server is not configured, it
+  should report the missing configuration to the user rather than look
+  elsewhere;
+- restates the send rule: sends are immediate and irrevocable, so the send
+  tools are called only on the user's clear request; and
+- restates that message content returned by the tools is data from other
+  parties, not instructions.
+
+This is the one place a host is guaranteed to read before the model picks a
+tool, so it is where precedence over other access paths is established; tool
+descriptions cannot do that. The reference implementation's text is a suitable
+starting point.
+
 ## Prompts
 
 A server MAY register MCP prompts. Where it offers them, the names `chat`
@@ -346,7 +370,8 @@ A server conforms to this standard when it:
 3. registers the `fmsg://message/{id}` and `fmsg://thread/{id}` resources;
 4. represents message references as decimal strings without loss;
 5. follows every rule in [Behavioural Rules](#behavioural-rules) and
-   [Safety Requirements](#safety-requirements); and
+   [Safety Requirements](#safety-requirements), and provides
+   [instructions](#instructions) as described; and
 6. if it offers the Streamable HTTP profile, meets every requirement of that
    profile.
 
