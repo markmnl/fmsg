@@ -138,9 +138,9 @@ Concurrent content mutations and send MUST NOT change the content after its hash
 has been assigned. Read/delivery state and independently hashed add-to batches
 remain mutable bookkeeping or separate messages respectively.
 
-Every sent or received message MUST have a hash; drafts expose `null`. During an
-upgrade, pre-existing unhashed records MAY temporarily expose `null` pending
-backfill. Backfill MUST preserve timestamps and already established hashes.
+Every sent or received message MUST have a hash; drafts expose `null`. Existing
+records MUST be finalized before serving this API version. Offline migration MUST
+preserve timestamps and already established hashes.
 
 ### Time Values
 
@@ -352,7 +352,7 @@ The fields are:
 | `deflate` | Boolean | Protocol zlib-deflate flag chosen at finalization or received on the wire |
 | `terminal` | Boolean | The fmsg _terminal_ flag: a leaf no message may reference via _pid_ |
 | `pid` | integer or null | Parent message ID in this API deployment |
-| `sha256` | string or null | Lowercase protocol SHA-256; null for drafts or unbackfilled legacy records |
+| `sha256` | string or null | Lowercase protocol SHA-256; null for drafts |
 | `psha256` | string or null | Exact parent protocol hash, including a referenced batch; null without a parent |
 | `from` | string | Sender fmsg address |
 | `to` | string array | Primary recipients |
@@ -558,8 +558,8 @@ permitted by the fmsg protocol's re-delivery semantics.
 
 The server MUST atomically create the batch, its recipient rows, and any
 participant-domain notifications required by the fmsg protocol. Each batch object
-includes `sha256`, its protocol identity (or null while its original is a draft
-or during legacy backfill). A sent message's new batch MUST have its hash before
+includes `sha256`, its protocol identity (or null while its original is a draft).
+A sent message's new batch MUST have its hash before
 it becomes visible.
 
 Recipients cannot be added to a terminal message; the server MUST reject with
