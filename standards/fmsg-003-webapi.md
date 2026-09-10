@@ -5,8 +5,8 @@
 | Revision | Date       | Summary       |
 |----------|------------|---------------|
 | v0.1.0   | 2026-08-07 | Initial draft |
-| v0.3.0   | 2026-09-10 | Hashes finalized at send time; SHA-256 message references and batch parents |
 | v0.2.0   | 2026-09-02 | `terminal` flag on messages; FMSG-005 reactions: `reaction`/`reactions` fields, `POST /fmsg/:id/react`, `reaction` event |
+| v0.3.0   | 2026-09-10 | Hashes finalized at send time; SHA-256 message references and batch parents |
 
 This standard defines an authenticated HTTP and WebSocket API through which one
 fmsg identity creates, sends, receives, and manages messages on an fmsg host. It
