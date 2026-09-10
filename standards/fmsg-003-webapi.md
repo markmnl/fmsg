@@ -5,6 +5,7 @@
 | Revision | Date       | Summary       |
 |----------|------------|---------------|
 | v0.1.0   | 2026-08-07 | Initial draft |
+| v0.3.0   | 2026-09-10 | Hashes finalized at send time; SHA-256 message references and batch parents |
 | v0.2.0   | 2026-09-02 | `terminal` flag on messages; FMSG-005 reactions: `reaction`/`reactions` fields, `POST /fmsg/:id/react`, `reaction` event |
 
 This standard defines an authenticated HTTP and WebSocket API through which one
@@ -106,13 +107,40 @@ address.
 
 ### Identifiers
 
-Message IDs, parent IDs, and add-to batch IDs are positive signed 64-bit
-integers local to one API deployment. A `pid` in this API is a message ID, not
-the SHA-256 parent hash used on the fmsg wire. The host maps between them when
-encoding or decoding fmsg messages.
+Message IDs, response parent IDs, and add-to batch IDs are positive signed
+64-bit integers local to one API deployment. Numeric identifiers remain supported.
+A message's `sha256` is its protocol identity across deployments: a lowercase
+64-character hexadecimal SHA-256 digest computed by the fmsg specification's
+message-hash rules. It is not a hash of API JSON or mutable delivery/read state.
 
-An `:id` path parameter MUST be a positive base-10 integer. An invalid value
-MUST produce `400 Bad Request`.
+A message `:id` path parameter MUST accept either a positive base-10 integer or
+exactly 64 hexadecimal characters. Hexadecimal input is case-insensitive. A
+64-character all-digit value is a hash, not an overflowing integer. Invalid
+references MUST produce `400 Bad Request`; an unknown hash produces `404 Not
+Found`. Hash references MUST preserve every authorization and state restriction
+of the corresponding numeric route. Drafts have no hash; draft-only operations
+continue to reject sent messages. Non-message identifiers such as batch IDs and
+pagination values remain numeric.
+
+Create/update request `pid` MAY be a numeric message ID or a 64-character hash
+string. Response `pid` remains a local numeric message ID. A hash-valued parent
+may identify an original message or one of its add-to batch messages. The server
+MUST retain that exact protocol parent hash in `psha256`, even when both resolve
+to the same local message row. The parent MUST be sent and non-terminal, and the
+caller MUST participate in the specifically referenced original or batch. A
+recipient added only through a batch MUST use that batch's hash to reply.
+
+When a message becomes sent, its timestamp and hash MUST become visible atomically,
+including local-only messages and reactions. Header encoding, compression metadata,
+recipient order, and attachment order MUST be settled before hashing and preserved
+for subsequent federation. Finalization failure MUST leave a draft unchanged.
+Concurrent content mutations and send MUST NOT change the content after its hash
+has been assigned. Read/delivery state and independently hashed add-to batches
+remain mutable bookkeeping or separate messages respectively.
+
+Every sent or received message MUST have a hash; drafts expose `null`. During an
+upgrade, pre-existing unhashed records MAY temporarily expose `null` pending
+backfill. Backfill MUST preserve timestamps and already established hashes.
 
 ### Time Values
 
@@ -268,6 +296,8 @@ A message metadata object has this shape:
   "deflate": false,
   "terminal": false,
   "pid": null,
+  "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "psha256": null,
   "from": "@alice@example.com",
   "to": ["@bob@example.com"],
   "to_delivery": [
@@ -280,6 +310,7 @@ A message metadata object has this shape:
   "add_to": [
     {
       "batch_id": 42,
+      "sha256": "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
       "add_to_from": "@bob@example.com",
       "to": ["@carol@example.com"],
       "to_delivery": [
@@ -318,9 +349,11 @@ The fields are:
 | `has_add_to` | Boolean | Whether `add_to` contains at least one batch |
 | `important` | Boolean | Sender importance indication |
 | `no_reply` | Boolean | Sender indicates replies will be discarded |
-| `deflate` | Boolean | Stored data was detected as compressed content for fmsg wire handling |
+| `deflate` | Boolean | Protocol zlib-deflate flag chosen at finalization or received on the wire |
 | `terminal` | Boolean | The fmsg _terminal_ flag: a leaf no message may reference via _pid_ |
 | `pid` | integer or null | Parent message ID in this API deployment |
+| `sha256` | string or null | Lowercase protocol SHA-256; null for drafts or unbackfilled legacy records |
+| `psha256` | string or null | Exact parent protocol hash, including a referenced batch; null without a parent |
 | `from` | string | Sender fmsg address |
 | `to` | string array | Primary recipients |
 | `to_delivery` | object array | Delivery state corresponding to `to` |
@@ -412,7 +445,7 @@ Creates a draft. The request is JSON:
 | `version` | integer | yes | Currently `1` |
 | `from` | string | yes | MUST equal the authenticated identity |
 | `to` | string array | yes | At least one valid fmsg address |
-| `pid` | integer | no | Existing parent message ID |
+| `pid` | integer or string | no | Existing parent message ID, original hash, or batch hash |
 | `topic` | string | no | Root topic; MUST be empty when `pid` is present |
 | `type` | string | yes | Complete body media type |
 | `size` | integer | yes | Client's body byte count; server-computed value is authoritative |
@@ -422,7 +455,8 @@ Creates a draft. The request is JSON:
 | `data` | string | no | UTF-8 message body; defaults to empty |
 
 Recipients can be added only through the add-to route. A supplied `add_to`
-property MUST NOT add recipients.
+property MUST NOT add recipients. Client-provided `sha256` and `psha256`
+MUST NOT override server-derived identities.
 
 The server MUST derive the stored `size` from the UTF-8 bytes of `data`, rather
 than trust the request's `size`. The body and total message size MUST remain
@@ -483,7 +517,7 @@ thread.
 Success is:
 
 ```json
-{ "id": 123, "time": 1786064400.654321 }
+{ "id": 123, "time": 1786064400.654321, "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef" }
 ```
 
 HTTP success means the API accepted the message for local or federated
@@ -523,7 +557,10 @@ batch MUST be rejected. An original primary recipient MAY be added again, as
 permitted by the fmsg protocol's re-delivery semantics.
 
 The server MUST atomically create the batch, its recipient rows, and any
-participant-domain notifications required by the fmsg protocol.
+participant-domain notifications required by the fmsg protocol. Each batch object
+includes `sha256`, its protocol identity (or null while its original is a draft
+or during legacy backfill). A sent message's new batch MUST have its hash before
+it becomes visible.
 
 Recipients cannot be added to a terminal message; the server MUST reject with
 `409 Conflict`.
@@ -531,7 +568,7 @@ Recipients cannot be added to a terminal message; the server MUST reject with
 Success is:
 
 ```json
-{ "id": 123, "added": 2 }
+{ "id": 123, "added": 2, "batch_id": 42, "sha256": "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210" }
 ```
 
 ### `POST /fmsg/:id/react`
@@ -1006,3 +1043,19 @@ An implementation pair SHOULD demonstrate:
 13. Reactions: set, change, clear, idempotent repeat, non-participant denial,
     `reaction`/`reactions` on message objects, the `reaction` event, and no
     `new_msg` event or Web Push for a reaction message.
+
+## Hash Fields in Mutation and Thread Responses
+
+A successful send response includes `sha256` alongside its existing numeric `id`
+and `time`. A newly created or idempotently returned reaction includes its hash;
+a no-op clear with no reaction message returns `sha256: null`.
+
+A successful add-to response includes `batch_id` and the batch's `sha256` alongside
+`id` and `added`. A batch created on a draft exposes `null` until the original is
+sent; its timestamp cannot precede the finalized original timestamp. On a sent
+message, batch recipients, timestamp and hash MUST commit together, even if all
+added recipients are local. Creating a batch MUST NOT change the original hash.
+
+Structured thread message entries include `sha256` and `psha256` when applicable.
+Implementations exposing `message_sha256` MUST retain it as a compatibility alias.
+Hashes and batch details MUST be omitted from inaccessible ancestor placeholders.
