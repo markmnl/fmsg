@@ -10,7 +10,7 @@
 | Implementation                                         | Description                          |
 |--------------------------------------------------------|--------------------------------------|
 | [fmsg-docker](https://github.com/markmnl/fmsg-docker)  | Docker compose all-in-one fmsg stack |
-| [fmsgid](https://github.com/markmnl/fmsgid)            | Address and quota HTTP service for [FMSG-002](standards/fmsg-002-id.md), with usage reporting and address provisioning; see the standard’s compatibility notes.     |
+| [fmsgid](https://github.com/markmnl/fmsgid)            | Example implementation of [FMSG-002](standards/fmsg-002-id.md).     |
 | [fmsg-webapi](https://github.com/markmnl/fmsg-webapi)  | Implementation of the [fmsg Web API Standard](standards/fmsg-003-webapi.md) - HTTP API providing message sending and retrival via an integrated fmsgd host     |
 | [fmsg-cli](https://github.com/markmnl/fmsg-cli)        | Command line interface to fmsg Web API     |
 | [fmsg-groot](https://github.com/markmnl/fmsg-groot)    | Demo bot that replies “I am Groot” to every message |
