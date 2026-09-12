@@ -108,7 +108,7 @@ bit 7 is retained so a future assignment cannot be toggled on a signed message.
 
 ## Signing
 
-1. Assemble the message without the signature attachment. `origin time` is the message `time`; `origin ref` is `topic` (tag 0) when the message has no `pid`, otherwise `pid` (tag 1).
+1. The sending host stamps `time` per the core [Notes on Time](https://github.com/markmnl/fmsg/blob/main/SPECIFICATION.md#notes-on-time) and assembles the message without the signature attachment. `origin time` is that host-stamped `time`; `origin ref` is `topic` (tag 0) when the message has no `pid`, otherwise `pid` (tag 1).
 2. Compute the signing input.
 3. Sign it with the private key of a published selector.
 4. Append the signature attachment last.
@@ -117,34 +117,47 @@ The key's scope MUST match the author: a domain-scoped key requires `from` to
 be in the key's domain; an address-scoped key additionally requires `from` to
 have that recipient part.
 
-A host MAY sign with a domain-scoped key on behalf of its users. A client MAY
-sign with a key scoped to its own address. A message carries one signature;
-domains wanting per-address authorship SHOULD publish address-scoped keys and
-have clients sign.
+The host MAY sign on behalf of its users with a domain-scoped or address-scoped
+key. Domains wanting per-address verification SHOULD publish address-scoped
+keys. Signing MUST occur after the host stamps `time` and before the final
+message hash is computed or delivery begins. Client-provided timestamps MUST
+NOT override the host-stamped value. A client signing exchange is outside the
+scope of this revision.
 
-The signer MUST use the same `time` the host will transmit. Where a host stamps
-`time` at acquisition, host and client MUST agree on the value before signing;
-the RECOMMENDED arrangement is that the client sets `time` and the host
-preserves it.
+[FMSG-005 reactions](fmsg-005-reactions.md#reaction-message), including clearing
+a reaction, require zero attachments and MUST NOT be signed. Adding a signature
+attachment makes the message an ordinary message, not a reaction. A domain
+requiring every message to be signed cannot send reactions.
 
 ## Key Publication
 
 Keys are published as DNS TXT records at `<selector>._fmsgkey.<domain>`, for
-example `agent-2026a._fmsgkey.example.com`. The record contains
-semicolon-separated `tag=value` pairs. Whitespace around pairs is ignored. Tags
-are case-sensitive. Unknown tags MUST be ignored.
+example `agent-2026a._fmsgkey.example.com`. Key and policy records follow DKIM's
+[tag-list rules](https://www.rfc-editor.org/rfc/rfc6376#section-3.2), with UTF-8
+values permitted for `s` and `n`: tags are case-sensitive, surrounding folding
+whitespace is ignored, a trailing semicolon is allowed, and unknown tags are
+ignored. Duplicate tags, including unknown tags, or malformed syntax invalidate
+the entire record; an empty value is distinct from an absent tag.
+
+Following DKIM's [DNS binding](https://www.rfc-editor.org/rfc/rfc6376#section-3.6.2.2),
+the strings within one TXT record MUST be concatenated in order without added
+whitespace. Each key or policy name MUST have exactly one TXT record when
+published; separate records MUST NOT be concatenated. This standard treats
+multiple records, missing required tags, or invalid tag values as an unusable
+lookup: a key yields `unverifiable`, and a policy is unavailable rather than
+equivalent to `p=none`.
 
 | Tag | Required | Value                                                                                                                                              |
 | --- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `v` | yes      | `fmsgsig1`                                                                                                                                         |
 | `k` | yes      | Algorithm name: `ed25519` for id 1.                                                                                                                |
-| `p` | yes      | Base64 ([RFC 4648](https://www.rfc-editor.org/rfc/rfc4648) §4) public key. Empty means revoked.                                                     |
+| `p` | yes      | Base64 ([RFC 4648](https://www.rfc-editor.org/rfc/rfc4648) §4) public key, ignoring folding whitespace as in DKIM. For Ed25519, this MUST decode to the raw 32-byte key. Empty means revoked. |
 | `s` | no       | Scope. Absent or `*`: any address in the domain. Otherwise a recipient part, matched case-insensitively against `from`.                            |
 | `x` | no       | Not-after, POSIX epoch integer. Messages with `origin time` after this MUST NOT verify with this key.                                              |
 | `n` | no       | Human-readable note; ignored by verifiers.                                                                                                         |
 
 ```
-agent-2026a._fmsgkey.example.com. IN TXT "v=fmsgsig1; k=ed25519; s=sales-agent; p=MCowBQYDK2VwAyEA..."
+agent-2026a._fmsgkey.example.com. IN TXT "v=fmsgsig1; k=ed25519; s=sales-agent; p=11qYAYKxCrfVS/7TyWQHOg7hcvPapiMlrwIaaPcHURo="
 ```
 
 A domain MAY publish any number of selectors. A record SHOULD remain published
@@ -173,9 +186,11 @@ A domain MAY publish its signing policy as a TXT record at `_fmsgsig.<domain>`:
 | `p` | yes      | `required`: every message from the domain is signed. `optional`: some are. `none`: the domain does not sign.            |
 | `u` | no       | `required`: every message is signed with a key scoped to its `from` address, not merely a domain key. Default `optional`. |
 
-Absence of the record is equivalent to `p=none`. Policy affects only how a
-verifier interprets an absent or failing signature; it does not change signing
-or verification.
+A confirmed absence of the record is equivalent to `p=none`. A failed lookup or
+unusable record leaves policy unavailable; verifiers MUST NOT infer either
+`required` or `none` from that failure. Policy affects only how a verifier
+interprets an absent or failing signature; it does not change signing or
+verification. Reactions have no exemption from a `required` policy.
 
 ## Verification
 
@@ -195,7 +210,7 @@ Procedure:
 2. Parse the attachment data. `sig version` ≠ 1 or unknown `alg` → `unverifiable`. Malformed → `invalid`.
 3. If has add to is not set: `origin time` MUST equal header `time` and `origin ref` MUST match the header (`topic` when no `pid`, else `pid`). Otherwise → `invalid`.
 4. If has add to is set: take `origin time` and `origin ref` from the attachment. If the verifier also holds the original message the add-to references, it MAY check the original's `time` and `topic`/`pid` equal these; mismatch → `invalid`.
-5. Resolve `<selector>._fmsgkey.<domain of from>`. Resolution failure, absent record, wrong `v`, `k` not matching `alg`, or empty `p` → `unverifiable`.
+5. Resolve `<selector>._fmsgkey.<domain of from>` and parse per [Key Publication](#key-publication). Resolution failure, absent or unusable record, wrong `v`, `k` not matching `alg`, or empty `p` → `unverifiable`.
 6. `x` present and `origin time` > `x` → `invalid`.
 7. `s` present and not `*`: MUST equal the recipient part of `from`. Otherwise → `invalid`.
 8. Compute the signing input from the stored message.
