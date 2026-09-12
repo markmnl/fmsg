@@ -26,6 +26,6 @@ Each standard is prefixed with a unique identifer following the format: "FMSG-##
 | [FMSG-005](standards/fmsg-005-reactions.md) | Emoji reactions to messages, carried as terminal fmsg messages |
 | [FMSG-006](standards/fmsg-006-indicators.md) | Ephemeral indicators such as composing a reply, as unacknowledged UDP datagrams |
 | [FMSG-007](standards/fmsg-007-mcp-binding.md) | Model Context Protocol binding: how an MCP server gives an AI agent an fmsg address |
-
+| [FMSG-008](standards/fmsg-008-signing.md) | Ed25519 message signatures, DNS keys, and signing policy |
 
 
