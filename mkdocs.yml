@@ -66,6 +66,7 @@ nav:
       - FMSG-005 — Reactions: standards/fmsg-005-reactions.md
       - FMSG-006 — Indicators: standards/fmsg-006-indicators.md
       - FMSG-007 — MCP binding: standards/fmsg-007-mcp-binding.md
+      - FMSG-009 — Checkpoints: standards/fmsg-009-checkpoints.md
   - White paper: white-paper.md
   - Implementations: IMPLEMENTATIONS.md
   - Background: show-hn.md
