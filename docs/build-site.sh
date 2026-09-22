@@ -33,7 +33,7 @@ stage_sources() {
   cp "$repository_dir/SPEC.md" "$source_dir/SPEC.md"
   cp "$repository_dir/STANDARDS.md" "$source_dir/STANDARDS.md"
   cp "$repository_dir/IMPLEMENTATIONS.md" "$source_dir/IMPLEMENTATIONS.md"
-  cp "$repository_dir/FMSG_WHITE_PAPER.pdf" "$source_dir/FMSG_WHITE_PAPER.pdf"
+  cp "$repository_dir/fmsg.pdf" "$source_dir/fmsg.pdf"
   cp -R "$repository_dir/pics" "$source_dir/pics"
   cp "$repository_dir"/standards/*.md "$source_dir/standards"/
 
