@@ -7,6 +7,8 @@ This standard defines the TCP+TLS transport binding for fmsg. It specifies host-
 
 fmsg TCP+TLS MUST use TCP port 4930 for both outgoing and incoming connections. Hosts MUST listen on port 4930 to accept incoming message transfers and [incoming challenges](../SPECIFICATION.md#handling-a-challenge).
 
+TCP port 4930 is registered with IANA in the [Service Name and Transport Protocol Port Number Registry](https://www.iana.org/assignments/service-names-port-numbers/service-names-port-numbers.xhtml?search=fmsg) under the service name `fmsg`.
+
 
 ## TLS Requirements
 
