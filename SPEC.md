@@ -225,7 +225,7 @@ When _has add to_ IS set: perform the steps below for each unique participant do
    - **add-to set** (adding recipients):
      - pid MUST also be set. Fail → respond code 1, close.
      - Check if parent stored (§11):
-       - **Stored**: parent must not be terminal (code 1 if fail); check time travel (code 9 if fail).
+       - **Stored**: parent must not be terminal (code 1 if fail); check time travel (code 9 if fail); _add to from_ must be in the stored parent's _from_ or _to_ (code 1 if fail). The incoming header's _from_ and _to_ are not evidence of this: the sender wrote them.
        - **Not stored**: if ≥ 1 recipient in _to_ or _add to_ belongs to Host B's domain, treat as full message delivery. Otherwise (Host B hosts only non-recipient participants) respond code 6 (parent not found), close.
 8. Optionally issue a CHALLENGE on Connection 2 (see §10.5).
 

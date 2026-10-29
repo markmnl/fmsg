@@ -535,6 +535,7 @@ The following variables corresponding to host defined configuration are used in 
             3. If original message referred to by _pid_ is verified to be stored AND;
                 1. The stored message MUST NOT have the _terminal_ flag bit set; otherwise Host B MUST respond with REJECT code 1 (invalid) completing the message exchange.
                 2. The stored message for _pid_'s _time_ minus MAX_TIME_SKEW MUST be before _time_ on the incoming message header; otherwise Host B MUST respond with REJECT code 9 (time travel).
+                3. _add to from_ MUST be in the stored message's _from_ or _to_; otherwise Host B MUST respond with REJECT code 1 (invalid) completing the message exchange. The incoming header's own _from_ and _to_ (checked in step 1) are written by the sender, so only the stored message shows who its participants are; a recipient added by an earlier batch is a participant of that batch, not of the original.
             4. Otherwise (original message has not been found, possible because Host B was never a participant of the message, or the message referenced by _pid_ is no longer held):
                 1. If at least one recipient in _to_ or _add to_ belongs to Host B, the message is treated as a full message delivery.
                 2. Otherwise Host B hosts only non-recipient participants of the message; Host B MUST respond REJECT code 6 (parent not found) then close the connection completing the message exchange.
