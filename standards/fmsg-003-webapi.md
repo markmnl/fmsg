@@ -7,6 +7,7 @@
 | v0.1.0   | 2026-08-07 | Initial draft |
 | v0.2.0   | 2026-09-02 | `terminal` flag on messages; FMSG-005 reactions: `reaction`/`reactions` fields, `POST /fmsg/:id/react`, `reaction` event |
 | v0.3.0   | 2026-09-10 | Hashes finalized at send time; SHA-256 message references and batch parents |
+| v0.4.0   | 2026-10-31 | FMSG-006 indicators: `POST /fmsg/:id/indicate`, `indicator` event |
 
 This standard defines an authenticated HTTP and WebSocket API through which one
 fmsg identity creates, sends, receives, and manages messages on an fmsg host. It
@@ -32,6 +33,7 @@ It defines:
 - draft, message, recipient, attachment, and read-state operations;
 - delivery-status reporting;
 - emoji reactions per [FMSG-005](fmsg-005-reactions.md);
+- indicators, such as composing a reply, per [FMSG-006](fmsg-006-indicators.md);
 - plain-text thread rendering;
 - live event delivery over WebSocket; and
 - optional Web Push subscription management.
@@ -44,6 +46,7 @@ database schemas, host-to-host message transport, or a user interface.
 - [fmsg Specification](../SPECIFICATION.md)
 - [FMSG-002 Id Standard](fmsg-002-id.md)
 - [FMSG-005 Reactions Standard](fmsg-005-reactions.md)
+- [FMSG-006 Indicators Standard](fmsg-006-indicators.md)
 - [RFC 6455: The WebSocket Protocol](https://www.rfc-editor.org/rfc/rfc6455)
 - [RFC 7517: JSON Web Key](https://www.rfc-editor.org/rfc/rfc7517)
 - [RFC 7519: JSON Web Token](https://www.rfc-editor.org/rfc/rfc7519)
@@ -252,7 +255,7 @@ as the owner and MUST reject first-party tokens and act-as identities.
 
 ## Route Summary
 
-Core routes are always present. Grant and Web Push routes are conditional.
+Core routes are always present. Grant, Indicator and Web Push routes are conditional.
 
 | Method | Path | Requirement | Description |
 |--------|------|-------------|-------------|
@@ -266,6 +269,7 @@ Core routes are always present. Grant and Web Push routes are conditional.
 | `POST` | `/fmsg/:id/read` | Core | Mark a received message read |
 | `POST` | `/fmsg/:id/add-to` | Core | Add recipients |
 | `POST` | `/fmsg/:id/react` | Core | Set or clear the caller's reaction |
+| `POST` | `/fmsg/:id/indicate` | Indicator | Show or clear the caller's indicator |
 | `GET` | `/fmsg/:id/data` | Core | Download message data |
 | `GET` | `/fmsg/:id/thread` | Core | Render direct ancestor lineage |
 | `POST` | `/fmsg/:id/attach` | Core | Upload an attachment |
@@ -607,6 +611,45 @@ Success when a reaction message was sent is `201 Created`:
 { "id": 124, "time": 1786064500.000001 }
 ```
 
+### `POST /fmsg/:id/indicate`
+
+This route and the `indicator` event are OPTIONAL as a group. A server that
+implements them MUST implement both.
+
+Shows or clears the authenticated identity's indicator on message `:id` per
+[FMSG-006](fmsg-006-indicators.md): a short-lived state such as composing a
+reply. The identity MUST be a participant of the message. The message MUST be
+sent and MUST NOT be terminal; otherwise the server MUST reject with
+`409 Conflict`.
+
+Request:
+
+```json
+{ "emoji": "✍️", "ttl": 6 }
+```
+
+`emoji` MUST be a single emoji as for `POST /fmsg/:id/react`; any other value
+MUST be rejected with `400 Bad Request`. An absent, `null`, or empty `emoji`
+clears the indicator. `ttl` is the number of seconds the state lasts unless
+repeated; when absent the server SHOULD use 6. A `ttl` of 0 clears the
+indicator, a negative `ttl` MUST be rejected with `400 Bad Request`, and a
+`ttl` above INDICATOR_TTL_MAX MUST be clamped to it.
+
+The server MUST NOT store an indicator. It MUST deliver it as an `indicator`
+event to the message's other participants connected to it, and, when it is
+also the participant's host, send it to the participants' other hosts per
+FMSG-006 Sending. The server MAY drop indicators that one identity sets on one
+message more often than once a second, and MUST NOT drop clears.
+
+Success is `202 Accepted` with no body, whether or not the indicator was
+dropped.
+
+A client SHOULD repeat an indicator before its `ttl` lapses while the state
+continues, and SHOULD clear it when the state ends, for example when the reply
+is sent or discarded. A client SHOULD let its user turn off sending composing
+indicators, and MUST NOT send 👀 or similar indicators of attention unless its
+user opted in.
+
 ## Content Routes
 
 ### `GET /fmsg/:id/data`
@@ -882,9 +925,23 @@ message list.
 | `delivered` | Message sender | Delivery state changed; `data` is the refreshed message |
 | `recipients_added` | Message participant | An add-to batch was recorded; `data` is the refreshed message |
 | `reaction` | Subject participant | An FMSG-005 reaction arrived; `data` is the refreshed subject message with its `reactions` |
+| `indicator` | Message participant | An FMSG-006 indicator arrived from another participant; `data` is the indicator (below) |
 
 A reaction message MUST NOT be delivered as `new_msg`: the server MUST route it
 as a `reaction` event on its subject instead.
+
+An `indicator` event's `data` is not a message:
+
+```json
+{ "id": 123, "root_id": 120, "from": "@bob@example.edu", "emoji": "✍️", "ttl": 6 }
+```
+
+`id` is the message the indicator is on, `root_id` the first message of its
+thread, and `from` the indicating participant, never the event's recipient.
+The state replaces any earlier one from `from` on `id` and lapses `ttl`
+seconds after the event unless replaced; an empty `emoji` clears it. The
+server MUST NOT send a Web Push or any other durable notification for an
+indicator.
 
 Clients MUST ignore unknown event types. The server SHOULD send WebSocket ping
 frames and disconnect clients that do not respond or cannot consume events

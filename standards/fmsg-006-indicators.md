@@ -35,9 +35,8 @@ This standard defines:
 It does not change the fmsg host-to-host protocol or the message format, does
 not define a client API, and does not require a host to implement it. A host
 that does not implement this standard is unaffected: it does not listen, and
-datagrams sent to it are lost, which is the defined outcome. Client API
-exposure of indicators is expected in a future revision of
-[FMSG-003](fmsg-003-webapi.md).
+datagrams sent to it are lost, which is the defined outcome. The client API
+for indicators is defined by [FMSG-003](fmsg-003-webapi.md) v0.4.0 and later.
 
 ## Normative References
 
