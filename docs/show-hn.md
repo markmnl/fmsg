@@ -3,7 +3,9 @@
 
 <div style="float: right; margin: 1em;">
    <picture>
-      <img alt="An fmsg address" src="https://raw.githubusercontent.com/markmnl/fmsg/main/pics/address.png">
+      <source media="(prefers-color-scheme: dark)" srcset="pics/address-dark.svg">
+      <source media="(prefers-color-scheme: light)" srcset="pics/address.svg">
+      <img alt="An fmsg address" src="pics/address.svg">
    </picture>
 </div>
 
