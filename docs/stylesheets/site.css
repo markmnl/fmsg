@@ -244,6 +244,41 @@ html {
   line-height: 1.5;
 }
 
+/* Blog posts */
+.md-typeset .article-meta {
+  color: var(--fmsg-muted);
+  font-size: 0.75rem;
+  margin-top: -0.6rem;
+}
+
+/* Charts are drawn for a light background, so keep one in dark mode too. */
+.md-typeset .article-figure {
+  display: block;
+  margin: 1.5em 0;
+  width: 100%;
+}
+
+.md-typeset .article-figure img {
+  background: #fcfcfa;
+  border: 1px solid var(--fmsg-line);
+  border-radius: 0.4rem;
+  display: block;
+  height: auto;
+  width: 100%;
+}
+
+.md-typeset .article-figure br {
+  display: none;
+}
+
+.md-typeset .article-figure figcaption {
+  color: var(--fmsg-muted);
+  font-size: 0.75rem;
+  margin: 0.5em 0 0;
+  max-width: none;
+  text-align: left;
+}
+
 .section-link {
   display: inline-block;
   font-weight: 700;

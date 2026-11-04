@@ -4,10 +4,11 @@ This directory holds **website-only** sources for https://fmsg.org:
 
 | Path | Purpose |
 |------|---------|
-| `index.md`, `white-paper.md`, `show-hn.md` | Pages that are not canonical protocol docs |
+| `index.md`, `white-paper.md` | Pages that are not canonical protocol docs |
+| `over-the-wire.md`, `show-hn.md` | Blog posts (nav section "Blog") |
 | `stylesheets/` | Custom CSS layered on Material for MkDocs |
 | `overrides/` | Small Material theme template overrides |
-| `img/favicon.ico` | Site favicon |
+| `img/` | Site favicon and blog post images |
 | `CNAME` | Custom domain `fmsg.org` (copied into the build artifact) |
 | `build-site.sh` | Stages root specs + this tree, runs MkDocs, checks links |
 | `check-site.py` | Fails the build if generated HTML points at missing local files |
