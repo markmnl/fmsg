@@ -68,7 +68,7 @@ nav:
       - "FMSG-007: MCP binding": standards/fmsg-007-mcp-binding.md
   - White paper: white-paper.md
   - Implementations: IMPLEMENTATIONS.md
-  - Articles:
+  - Blog:
       - "Over the wire: Email vs. WhatsApp vs. fmsg": over-the-wire.md
       - "Show HN: fmsg": show-hn.md
 
