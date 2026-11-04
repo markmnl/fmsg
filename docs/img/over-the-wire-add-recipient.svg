@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="644.8pt" height="182.6pt" viewBox="0 24.54 644.8 182.6" font-family="DejaVu Sans, Verdana, Arial, sans-serif" stroke-linejoin="round">
+ <path d="M45.16 183.94L45.16 49.54" clip-path="url(#c1)" fill="none" stroke="#e1e0d9" stroke-width="0.7" stroke-linecap="square"/>
+ <path d="M45.16 183.94l0 3.5" fill="#898781" stroke="#898781" stroke-width="0.8"/>
+ <text x="44.84" y="197.78" font-size="9" text-anchor="middle" fill="#52514e">0 B</text>
+ <path d="M112.08 183.94L112.08 49.54" clip-path="url(#c1)" fill="none" stroke="#e1e0d9" stroke-width="0.7" stroke-linecap="square"/>
+ <path d="M112.08 183.94l0 3.5" fill="#898781" stroke="#898781" stroke-width="0.8"/>
+ <text x="111.76" y="197.78" font-size="9" text-anchor="middle" fill="#52514e">4 kB</text>
+ <path d="M179 183.94L179 49.54" clip-path="url(#c1)" fill="none" stroke="#e1e0d9" stroke-width="0.7" stroke-linecap="square"/>
+ <path d="M179 183.94l0 3.5" fill="#898781" stroke="#898781" stroke-width="0.8"/>
+ <text x="178.68" y="197.78" font-size="9" text-anchor="middle" fill="#52514e">8 kB</text>
+ <path d="M245.92 183.94L245.92 49.54" clip-path="url(#c1)" fill="none" stroke="#e1e0d9" stroke-width="0.7" stroke-linecap="square"/>
+ <path d="M245.92 183.94l0 3.5" fill="#898781" stroke="#898781" stroke-width="0.8"/>
+ <text x="245.6" y="197.78" font-size="9" text-anchor="middle" fill="#52514e">12 kB</text>
+ <path d="M45.16 77.33l-3.5 0" fill="#898781" stroke="#898781" stroke-width="0.8"/>
+ <text x="37.34" y="80.75" font-size="9" text-anchor="end" fill="#52514e">fmsg</text>
+ <path d="M45.16 156.16l-3.5 0" fill="#898781" stroke="#898781" stroke-width="0.8"/>
+ <text x="37.32" y="159.58" font-size="9" text-anchor="end" fill="#52514e">email</text>
+ <path d="M45.16 183.94L45.16 49.54" fill="none" stroke="#c3c2b7" stroke-width="0.8" stroke-linejoin="miter" stroke-linecap="square"/>
+ <path d="M45.16 183.94L311.5 183.94" fill="none" stroke="#c3c2b7" stroke-width="0.8" stroke-linejoin="miter" stroke-linecap="square"/>
+ <path d="M45.16 55.65L202.87 55.65L202.87 99.01L45.16 99.01z" clip-path="url(#c1)" fill="#2a78d6"/>
+ <path d="M45.16 134.48L298.82 134.48L298.82 177.83L45.16 177.83z" clip-path="url(#c1)" fill="#eb6834"/>
+ <text x="45.16" y="43.54" font-size="9" fill="#52514e">120-byte message (m1p2-fwd)</text>
+ <text x="168.31" y="79.67" font-size="9" fill="#ffffff">9.4 kB</text>
+ <text x="258.53" y="158.49" font-size="9" fill="#ffffff">15.2 kB</text>
+ <path d="M355.94 183.94L355.94 49.54" clip-path="url(#c2)" fill="none" stroke="#e1e0d9" stroke-width="0.7" stroke-linecap="square"/>
+ <path d="M355.94 183.94l0 3.5" fill="#898781" stroke="#898781" stroke-width="0.8"/>
+ <text x="355.63" y="197.78" font-size="9" text-anchor="middle" fill="#52514e">0 B</text>
+ <path d="M422.47 183.94L422.47 49.54" clip-path="url(#c2)" fill="none" stroke="#e1e0d9" stroke-width="0.7" stroke-linecap="square"/>
+ <path d="M422.47 183.94l0 3.5" fill="#898781" stroke="#898781" stroke-width="0.8"/>
+ <text x="422.15" y="197.78" font-size="9" text-anchor="middle" fill="#52514e">400 kB</text>
+ <path d="M488.99 183.94L488.99 49.54" clip-path="url(#c2)" fill="none" stroke="#e1e0d9" stroke-width="0.7" stroke-linecap="square"/>
+ <path d="M488.99 183.94l0 3.5" fill="#898781" stroke="#898781" stroke-width="0.8"/>
+ <text x="488.68" y="197.78" font-size="9" text-anchor="middle" fill="#52514e">800 kB</text>
+ <path d="M555.52 183.94L555.52 49.54" clip-path="url(#c2)" fill="none" stroke="#e1e0d9" stroke-width="0.7" stroke-linecap="square"/>
+ <path d="M555.52 183.94l0 3.5" fill="#898781" stroke="#898781" stroke-width="0.8"/>
+ <text x="555.2" y="197.78" font-size="9" text-anchor="middle" fill="#52514e">1.2 MB</text>
+ <path d="M622.05 183.94L622.05 49.54" clip-path="url(#c2)" fill="none" stroke="#e1e0d9" stroke-width="0.7" stroke-linecap="square"/>
+ <path d="M622.05 183.94l0 3.5" fill="#898781" stroke="#898781" stroke-width="0.8"/>
+ <text x="621.73" y="197.78" font-size="9" text-anchor="middle" fill="#52514e">1.6 MB</text>
+ <path d="M355.94 77.33l-3.5 0" fill="#898781" stroke="#898781" stroke-width="0.8"/>
+ <text x="348.13" y="80.75" font-size="9" text-anchor="end" fill="#52514e">fmsg</text>
+ <path d="M355.94 156.16l-3.5 0" fill="#898781" stroke="#898781" stroke-width="0.8"/>
+ <text x="348.1" y="159.58" font-size="9" text-anchor="end" fill="#52514e">email</text>
+ <path d="M355.94 183.94L355.94 49.54" fill="none" stroke="#c3c2b7" stroke-width="0.8" stroke-linejoin="miter" stroke-linecap="square"/>
+ <path d="M355.94 183.94L622.29 183.94" fill="none" stroke="#c3c2b7" stroke-width="0.8" stroke-linejoin="miter" stroke-linecap="square"/>
+ <path d="M355.94 55.65L357.51 55.65L357.51 99.01L355.94 99.01z" clip-path="url(#c2)" fill="#2a78d6"/>
+ <path d="M355.94 134.48L609.6 134.48L609.6 177.83L355.94 177.83z" clip-path="url(#c2)" fill="#eb6834"/>
+ <text x="355.94" y="43.54" font-size="9" fill="#52514e">message with 1 MiB attachment (m1p2a1m-fwd)</text>
+ <text x="361.51" y="79.67" font-size="9" fill="#52514e">9.4 kB (header only)</text>
+ <text x="566.76" y="158.49" font-size="9" fill="#ffffff">1.53 MB</text>
+ <defs>
+  <clipPath id="c1">
+   <rect x="45.16" y="49.54" width="266.34" height="134.4"/>
+  </clipPath>
+  <clipPath id="c2">
+   <rect x="355.94" y="49.54" width="266.34" height="134.4"/>
+  </clipPath>
+ </defs>
+</svg>
