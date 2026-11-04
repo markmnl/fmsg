@@ -156,6 +156,13 @@ html {
   box-shadow: none;
 }
 
+/* Standards nav entries (FMSG-001: …) in monospace. Skips "Standards overview"
+ * and the integrated page TOC. */
+.md-nav__item--section:has(a[href*="fmsg-00"]) > .md-nav > .md-nav__list > .md-nav__item:not(:first-child) > .md-nav__link {
+  font-family: var(--md-code-font-family);
+  font-size: 0.68rem;
+}
+
 /* Landing page */
 .landing-eyebrow {
   color: var(--fmsg-accent);
@@ -219,6 +226,11 @@ html {
   font-weight: 750;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+.standards-grid .landing-card-label {
+  font-family: var(--md-code-font-family);
+  letter-spacing: 0.02em;
 }
 
 .landing-card strong {
