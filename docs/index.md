@@ -59,11 +59,6 @@ bindings around that core.
     <strong>Web API</strong>
     <span>Authenticated HTTP and WebSocket access for fmsg clients.</span>
   </a>
-  <a class="landing-card" href="standards/fmsg-004-a2a-binding/">
-    <span class="landing-card-label">FMSG-004 · Draft</span>
-    <strong>A2A binding</strong>
-    <span>An Agent2Agent protocol binding carried over fmsg messages.</span>
-  </a>
   <a class="landing-card" href="standards/fmsg-007-mcp-binding/">
     <span class="landing-card-label">FMSG-007 · Draft</span>
     <strong>MCP binding</strong>
@@ -88,9 +83,7 @@ claude mcp add fmsg --scope user \
 ```
 
 The same server runs as a hosted endpoint where every user connects with their
-own key, so an fmsg host can offer `mcp.<domain>` to all of its users. Agents
-that speak A2A can use the [FMSG-004](standards/fmsg-004-a2a-binding.md)
-binding instead.
+own key, so an fmsg host can offer `mcp.<domain>` to all of its users.
 
 ## Implementations
 
