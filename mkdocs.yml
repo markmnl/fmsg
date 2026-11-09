@@ -106,6 +106,9 @@ extra:
     - icon: fontawesome/brands/github
       link: https://github.com/markmnl/fmsg
       name: fmsg on GitHub
+    - icon: fontawesome/brands/mastodon
+      link: https://mastodon.social/@fmsgai
+      name: fmsg on Mastodon
 
 validation:
   omitted_files: warn
