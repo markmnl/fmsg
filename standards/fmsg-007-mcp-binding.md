@@ -5,6 +5,7 @@
 | Revision | Date       | Summary       |
 |----------|------------|---------------|
 | v0.1.0   | 2026-09-04 | Initial draft |
+| v0.2.0   | 2026-11-11 | FMSG-008 edits: recommended `edit_message` tool, `edited` on message items, edit messages excluded from lists and waits |
 
 This standard defines how a [Model Context Protocol](https://modelcontextprotocol.io)
 (MCP) server exposes an fmsg address to an AI agent: how the agent's identity
@@ -55,6 +56,7 @@ against one fmsg MCP server work against another.
 - [fmsg Specification](../SPECIFICATION.md)
 - [FMSG-003 Web API Standard](fmsg-003-webapi.md) v0.2.0
 - [FMSG-005 Reactions Standard](fmsg-005-reactions.md)
+- [FMSG-008 Edits Standard](fmsg-008-edits.md), for servers offering `edit_message`
 - [RFC 6750](https://www.rfc-editor.org/rfc/rfc6750) (bearer token usage)
 - [RFC 3339](https://www.rfc-editor.org/rfc/rfc3339) (timestamps)
 
@@ -253,6 +255,14 @@ A *message item* has at least: `id`, `pid` (or null), `from`, `to`, `topic`,
 **`react`** — arguments `id`, `emoji` (string, or null/empty to clear). Result:
 `id`, `reaction_id` (or null), `cleared` (boolean).
 
+**`edit_message`** — arguments `id`, `text` (string: the complete new body, or
+null to revert to the original). Edits the body of a message the caller sent,
+per [FMSG-008](fmsg-008-edits.md), through the Web API's edit route (FMSG-003
+v0.5.0). Result: `id`, `edit_id` (the edit message now in force, or null),
+`reverted` (boolean), `changed` (boolean; false when the body already read
+that way and nothing was sent). The tool description MUST state that the
+original remains stored and visible to the other participants.
+
 **`mark_read`** — argument `ids` (array). Result: `marked`, `failed` (arrays).
 
 **`download_attachment`** — arguments `id`, `filename`, and either an inline
@@ -292,6 +302,11 @@ reached.
 - **Reactions.** Messages that are themselves reactions (FMSG-005:
   `reaction` non-null) MUST be excluded from `list_messages` and
   `wait_for_message` unless explicitly requested.
+- **Edits.** Messages that are themselves edit messages (FMSG-008: `edit`
+  true) MUST be excluded from `list_messages` and `wait_for_message`: the Web
+  API already presents their subject as edited. A message item whose message
+  has an edit in force SHOULD carry `edited` (the RFC 3339 time of that edit),
+  so the agent knows the body it reads is not what was first sent.
 - **Atomic send.** `send_message` and `reply` MUST create the draft, upload
   every attachment and send in one tool call, and MUST delete the draft if a
   later step fails, so that a failed call leaves nothing behind.
