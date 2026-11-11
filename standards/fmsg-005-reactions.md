@@ -5,6 +5,7 @@
 | Revision | Date       | Summary       |
 |----------|------------|---------------|
 | v0.1.0   | 2026-09-02 | Initial draft |
+| v0.1.1   | 2026-11-11 | Reactions to a message sent only to oneself |
 
 This standard defines how a participant reacts to a message with a single
 emoji. A reaction is an ordinary plain-text fmsg message, recognised by its
@@ -148,9 +149,10 @@ all participants observe the reaction. The subject's participants are its
 _from_, every address in its _to_, and, when the subject is an add-to batch
 message, its _add to from_ and every address in its _add to_.
 
-Where the reactor is the only participant of the subject this standard cannot
-apply, because a message requires at least one recipient; a reaction to a
-message one sent only to oneself is not sent.
+Where the reactor is the only participant of the subject, that is, a message
+the reactor sent only to themselves, _to_ MUST contain exactly the reactor. A
+message requires at least one recipient, and this lets notes to self be
+reacted to.
 
 ## Effective Reaction
 
