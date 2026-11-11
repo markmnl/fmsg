@@ -40,7 +40,8 @@ This standard defines:
 - how hosts and clients that do not implement this standard behave.
 
 It does not change the host-to-host protocol, define a client API, or require
-a host to understand edits in order to carry them. It covers a message's
+a host to understand edits in order to carry them. The client API for edits is
+defined by [FMSG-003](fmsg-003-webapi.md) v0.5.0 and later. It covers a message's
 _data_ only: a message's _topic_, attachments, flags, recipients, and _type_
 cannot be edited by this revision.
 
@@ -141,7 +142,7 @@ to be replied to.
 |-------|-------------|
 | _pid_ | The message hash of the subject. |
 | _from_ | The editor, see [Editor](#editor). |
-| _to_ | Every participant of the subject other than the editor, see [Recipients](#recipients). |
+| _to_ | The participants the edit is for, see [Recipients](#recipients). |
 | _topic_ | Absent, because _pid_ is present. |
 | _type_ | The Media Type string `application/vnd.fmsg.edit`. |
 | _size_ | 0, or the on-wire byte length of _data_. |
@@ -167,15 +168,23 @@ did not write the data and cannot edit it.
 
 ### Recipients
 
-_to_ MUST contain every participant of the subject except the editor, so that
-all participants observe the edit. The subject's participants are its _from_,
-every address in its _to_, and, when the subject is an add-to batch message,
-its _add to from_ and every address in its _add to_.
+When the subject is not an add-to batch message, _to_ MUST contain every
+participant of the subject except the editor, that is, every address in the
+subject's _to_ other than the editor, so that all participants observe the
+edit.
 
-Where the editor is the only participant of the subject, that is, a message
+Where the editor is the only participant of such a subject, that is, a message
 the editor sent only to themselves, _to_ MUST contain exactly the editor. A
 message requires at least one recipient, and this keeps notes to self
 editable.
+
+When the subject is an add-to batch message, _to_ MUST contain every address
+in the batch's _add to_ except the editor, and SHOULD NOT contain any other
+address. The batch's other participants are participants of the original
+message and observe the edit of the original, see
+[Add-to Batches](#add-to-batches); addressing them here as well would deliver
+them the same edit once per batch. A batch whose _add to_ contains no address
+other than the editor needs no edit message.
 
 ### Edit Document
 
@@ -252,8 +261,10 @@ only.
 An editor who wants every reader to see an edit MUST therefore send one edit
 message for the original and one for each add-to batch of it that the editor
 holds, each with _pid_ set to that message's hash and _to_ set per
-[Recipients](#recipients) for that message. Because the data is identical, the
-same edit document serves all of them.
+[Recipients](#recipients) for that message: the edit of the original reaches
+the original's participants, and the edit of each batch reaches the recipients
+that batch added. Because the data is identical, the same edit document serves
+all of them.
 
 Likewise, when recipients are added to a message that has an effective edit,
 the editor's client or host SHOULD send an edit message for the new batch once

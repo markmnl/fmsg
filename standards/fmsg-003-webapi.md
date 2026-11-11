@@ -8,6 +8,7 @@
 | v0.2.0   | 2026-09-02 | `terminal` flag on messages; FMSG-005 reactions: `reaction`/`reactions` fields, `POST /fmsg/:id/react`, `reaction` event |
 | v0.3.0   | 2026-09-10 | Hashes finalized at send time; SHA-256 message references and batch parents |
 | v0.4.0   | 2026-10-31 | FMSG-006 indicators: `POST /fmsg/:id/indicate`, `indicator` event |
+| v0.5.0   | 2026-11-11 | FMSG-008 edits: `POST /fmsg/:id/edit`, `edit`/`edited` fields, `original` on the data route, `edit` event; reactions to a message sent only to oneself |
 
 This standard defines an authenticated HTTP and WebSocket API through which one
 fmsg identity creates, sends, receives, and manages messages on an fmsg host. It
@@ -34,6 +35,7 @@ It defines:
 - delivery-status reporting;
 - emoji reactions per [FMSG-005](fmsg-005-reactions.md);
 - indicators, such as composing a reply, per [FMSG-006](fmsg-006-indicators.md);
+- edits to a sent message's data per [FMSG-008](fmsg-008-edits.md);
 - plain-text thread rendering;
 - live event delivery over WebSocket; and
 - optional Web Push subscription management.
@@ -47,6 +49,7 @@ database schemas, host-to-host message transport, or a user interface.
 - [FMSG-002 Id Standard](fmsg-002-id.md)
 - [FMSG-005 Reactions Standard](fmsg-005-reactions.md)
 - [FMSG-006 Indicators Standard](fmsg-006-indicators.md)
+- [FMSG-008 Edits Standard](fmsg-008-edits.md)
 - [RFC 6455: The WebSocket Protocol](https://www.rfc-editor.org/rfc/rfc6455)
 - [RFC 7517: JSON Web Key](https://www.rfc-editor.org/rfc/rfc7517)
 - [RFC 7519: JSON Web Token](https://www.rfc-editor.org/rfc/rfc7519)
@@ -269,6 +272,7 @@ Core routes are always present. Grant, Indicator and Web Push routes are conditi
 | `POST` | `/fmsg/:id/read` | Core | Mark a received message read |
 | `POST` | `/fmsg/:id/add-to` | Core | Add recipients |
 | `POST` | `/fmsg/:id/react` | Core | Set or clear the caller's reaction |
+| `POST` | `/fmsg/:id/edit` | Core | Edit or revert the data of the caller's own message |
 | `POST` | `/fmsg/:id/indicate` | Indicator | Show or clear the caller's indicator |
 | `GET` | `/fmsg/:id/data` | Core | Download message data |
 | `GET` | `/fmsg/:id/thread` | Core | Render direct ancestor lineage |
@@ -340,7 +344,9 @@ A message metadata object has this shape:
   "reaction": null,
   "reactions": [
     { "emoji": "👍", "from": ["@bob@example.com"] }
-  ]
+  ],
+  "edit": false,
+  "edited": null
 }
 ```
 
@@ -372,6 +378,8 @@ The fields are:
 | `attachments` | object array | Attachment names and sizes; never their contents |
 | `reaction` | string or null | When this message is an FMSG-005 reaction, the emoji it carries, or `""` for a clearing reaction; `null` otherwise |
 | `reactions` | object array | Effective FMSG-005 reactions on this message; `[]` when none |
+| `edit` | Boolean | Whether this message is itself an FMSG-008 edit message |
+| `edited` | object or null | The effective FMSG-008 edit on this message; `null` when it has none |
 
 List and WebSocket message objects additionally contain an integer `id`. A
 single `GET /fmsg/:id` response does not contain `id`.
@@ -385,6 +393,25 @@ effective reaction it is in time order. A participant whose latest reaction is
 a clearing reaction has no entry. Servers SHOULD populate `reaction` and
 `reactions` on every message object so clients can hide reaction messages from
 message lists and render reactions on their subjects.
+
+A message is an edit when it is an edit message as defined by
+[FMSG-008](fmsg-008-edits.md): the server MUST recognise edits by that
+definition, including the author test and the well-formedness of the edit
+document, and MAY ignore the FMSG-008 requirement on `to`. `edited` is
+`{ "id": integer, "time": number, "size": integer }`: the ID and time of the
+edit message that determines the effective edit, and the byte length of the
+edited data. `edited` is `null` when the message has no edit message or its
+latest one reverts to the original. Servers MUST populate `edit` and `edited`
+on every message object so clients can hide edit messages from message lists
+and mark edited messages.
+
+The server applies the effective edit on the client's behalf. When `edited` is
+non-null, `short_text` MUST be derived from the edited data and
+`GET /fmsg/:id/data` returns the edited data unless the original is requested.
+`type`, `size`, `sha256`, and every other field continue to describe the
+original message, which the edit does not alter. When the effective edit
+cannot be applied, for example because its result exceeds a deployment limit,
+the server MUST present the original data and `edited` carries `"size": null`.
 
 `short_text` MAY be omitted. When enabled, it MUST appear only for a body whose
 media type is `text/*` and whose preview is valid UTF-8. It MUST be truncated
@@ -596,9 +623,9 @@ rejected with `400 Bad Request`.
 The server MUST create and send, in one step, a reaction message as defined by
 FMSG-005: a reply to `:id` with _no reply_ and _terminal_ set, type
 `text/plain;charset=UTF-8`, body `emoji`, addressed to every participant of
-the message other than the caller. If the message has no other participant the
-server MUST reject with `409 Conflict`. The reply-domain check of
-`POST /fmsg/:id/send` applies.
+the message other than the caller. If the message has no other participant,
+that is, the caller sent it only to themselves, the reaction is addressed to
+the caller. The reply-domain check of `POST /fmsg/:id/send` applies.
 
 Setting a reaction equal to the caller's current effective reaction MUST NOT
 send another message; the server responds `200 OK` with the existing reaction
@@ -609,6 +636,50 @@ Success when a reaction message was sent is `201 Created`:
 
 ```json
 { "id": 124, "time": 1786064500.000001 }
+```
+
+### `POST /fmsg/:id/edit`
+
+Edits, or reverts an edit of, the data of message `:id` per
+[FMSG-008](fmsg-008-edits.md). The authenticated identity MUST be the
+message's `from`; otherwise the server MUST reject with `403 Forbidden`. The
+message MUST be sent and MUST NOT be terminal; otherwise the server MUST
+reject with `409 Conflict`. A draft is changed with `PUT /fmsg/:id` instead.
+The message's `no_reply` flag does not prevent editing it.
+
+Request:
+
+```json
+{ "data": "I'll see you there at 5pm" }
+```
+
+`data` is the complete new message body as a UTF-8 string, in the message's
+existing media type. An absent or `null` `data` reverts the message to its
+original data. An empty string edits the body to empty; it does not revert.
+The new body MUST remain within the deployment's body size limit, otherwise
+the server MUST reject with `413 Content Too Large`.
+
+The client never constructs an edit document. The server MUST derive a
+well-formed FMSG-008 edit document that produces `data` from the message's
+original data, SHOULD choose a compact one, and MUST create and send, in one
+step, an edit message as defined by FMSG-008: a reply to `:id` with _no reply_
+and _terminal_ set, type `application/vnd.fmsg.edit`, and that edit document
+as its body, or an empty body to revert. It MUST send one such message for the
+original, addressed to every participant of the original other than the
+caller, or to the caller alone when there is none, and one for each add-to
+batch of the message, addressed to the recipients that batch added. The
+reply-domain check of `POST /fmsg/:id/send` applies.
+
+An edit that would leave the message's effective data unchanged MUST NOT send
+another message: the server responds `200 OK` with the existing effective edit
+message's `id`, `time`, and `sha256`, or `null` for each when the message has
+no edit in force.
+
+Success when an edit message was sent is `201 Created`, identifying the edit
+message sent for the original:
+
+```json
+{ "id": 125, "time": 1786064600.000001, "sha256": "89ab…" }
 ```
 
 ### `POST /fmsg/:id/indicate`
@@ -654,9 +725,14 @@ user opted in.
 
 ### `GET /fmsg/:id/data`
 
-Downloads the complete stored body. The authenticated identity MUST be a
+Downloads the complete body. The authenticated identity MUST be a
 participant. Success is the raw bytes with `Content-Disposition: attachment`
 and a suitable `Content-Type`. Missing stored data returns `404 Not Found`.
+
+When the message has an effective FMSG-008 edit, the response is the edited
+data. The query parameter `original=true` requests the original stored body
+instead, which remains available to every participant. For a message that is
+itself an edit, the response is its stored edit document.
 
 ### `GET /fmsg/:id/thread`
 
@@ -672,7 +748,8 @@ Each entry begins:
 
 The entry then contains:
 
-- its body for `text/*` and `application/json` content visible to the caller;
+- its body, as edited when it has an effective FMSG-008 edit, for `text/*`
+  and `application/json` content visible to the caller;
 - `[message not visible to you]` when the caller is not a participant of that
   ancestor; or
 - `[non-text message: <type>, <size> bytes]` for other media types.
@@ -926,9 +1003,12 @@ message list.
 | `recipients_added` | Message participant | An add-to batch was recorded; `data` is the refreshed message |
 | `reaction` | Subject participant | An FMSG-005 reaction arrived; `data` is the refreshed subject message with its `reactions` |
 | `indicator` | Message participant | An FMSG-006 indicator arrived from another participant; `data` is the indicator (below) |
+| `edit` | Subject participant | An FMSG-008 edit arrived; `data` is the refreshed subject message with its `edited` and `short_text` |
 
 A reaction message MUST NOT be delivered as `new_msg`: the server MUST route it
-as a `reaction` event on its subject instead.
+as a `reaction` event on its subject instead. Likewise an edit message MUST
+NOT be delivered as `new_msg`: the server MUST route it as an `edit` event on
+its subject.
 
 An `indicator` event's `data` is not a message:
 
@@ -989,8 +1069,8 @@ Deletion is idempotent and scoped to the authenticated identity. Success is
 ### Push Payload
 
 When `new_msg` occurs, the server MAY send an encrypted Web Push independently
-of whether a WebSocket client is connected. A reaction MUST NOT produce a Web
-Push:
+of whether a WebSocket client is connected. A reaction or an edit MUST NOT
+produce a Web Push:
 
 ```json
 {
@@ -1100,12 +1180,18 @@ An implementation pair SHOULD demonstrate:
 13. Reactions: set, change, clear, idempotent repeat, non-participant denial,
     `reaction`/`reactions` on message objects, the `reaction` event, and no
     `new_msg` event or Web Push for a reaction message.
+14. Edits: edit, edit again, revert, idempotent repeat, non-author denial,
+    rejection on a draft and on a terminal message, a message sent only to
+    oneself, a recipient added by a batch observing the edit, `edit`/`edited`
+    on message objects, edited and original data from the data route, the
+    `edit` event, and no `new_msg` event or Web Push for an edit message.
 
 ## Hash Fields in Mutation and Thread Responses
 
 A successful send response includes `sha256` alongside its existing numeric `id`
 and `time`. A newly created or idempotently returned reaction includes its hash;
-a no-op clear with no reaction message returns `sha256: null`.
+a no-op clear with no reaction message returns `sha256: null`. The edit route
+follows the same pattern.
 
 A successful add-to response includes `batch_id` and the batch's `sha256` alongside
 `id` and `added`. A batch created on a draft exposes `null` until the original is
