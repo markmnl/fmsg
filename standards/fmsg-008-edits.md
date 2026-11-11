@@ -152,6 +152,10 @@ Senders MUST encode _type_ exactly as `application/vnd.fmsg.edit`, in lower
 case and without parameters. When recognising edits, implementations MUST
 compare _type_ case-insensitively.
 
+`application/vnd.fmsg.edit` follows the naming of the other fmsg standards'
+Media Types. It is in the vendor tree of RFC 6838 and is not yet registered
+with IANA.
+
 ### Editor
 
 The editor MUST be the subject's _from_, compared case-insensitively. Only the
@@ -168,8 +172,10 @@ all participants observe the edit. The subject's participants are its _from_,
 every address in its _to_, and, when the subject is an add-to batch message,
 its _add to from_ and every address in its _add to_.
 
-Where the editor is the only participant of the subject this standard cannot
-apply, because a message requires at least one recipient.
+Where the editor is the only participant of the subject, that is, a message
+the editor sent only to themselves, _to_ MUST contain exactly the editor. A
+message requires at least one recipient, and this keeps notes to self
+editable.
 
 ### Edit Document
 
@@ -253,6 +259,10 @@ Likewise, when recipients are added to a message that has an effective edit,
 the editor's client or host SHOULD send an edit message for the new batch once
 it holds it, so that the added recipients see the edited data.
 
+A client that sends an edit SHOULD send these per-batch edit messages itself,
+without asking the author, so that editing a message is a single action
+whatever recipients have been added to it.
+
 ## Sending
 
 An edit message is created, sent, retried, and recorded exactly as any other
@@ -265,6 +275,11 @@ v0.6.0.
 
 A client or host MUST NOT create an edit on behalf of an address that is not
 the subject's _from_.
+
+The subject's _no reply_ flag does not prevent its author from editing it.
+_no reply_ is advisory and concerns replies the sender will discard; an edit
+is the sender's own. Clients SHOULD NOT block editing a message because it has
+_no reply_ set.
 
 ## Receiving
 
@@ -290,6 +305,10 @@ edit or is simply a reply.
 Implementations MAY ignore the [Recipients](#recipients) requirement when
 recognising a stored edit, since a host cannot always know a subject's full
 participant set.
+
+A message of type `application/vnd.fmsg.edit` that is not an edit is still
+not text. A client implementing this standard SHOULD NOT render its data in
+the thread; it SHOULD hide the message or present it as an invalid edit.
 
 ### Applying Edits
 
@@ -333,7 +352,9 @@ made to an earlier version of the data; clients may wish to show that.
 Clients that do not implement this standard see a small terminal message of a
 type they do not recognise, with _no reply_ set, and continue to show the
 original data. Nothing is lost or misrepresented; the reader simply does not
-see the correction.
+see the correction. Such a client is best served by treating any `application/*`
+type it does not recognise as a file rather than rendering its bytes as text,
+which is good practice regardless of this standard.
 
 ## Interoperability
 
@@ -362,6 +383,10 @@ see the correction.
   The _result size_ check in [Applying Edits](#applying-edits) MUST be made
   before any allocation, and each copy MUST be bounds-checked against the
   subject data.
+- **Future-dated edits:** _time_ is stamped by the editor's host, so an edit
+  dated ahead of the clock outranks edits sent after it until that time
+  passes. This affects only the editor's own message, and Receiving Hosts
+  bound it by rejecting messages further ahead than their `MAX_TIME_SKEW`.
 - **Volume:** each edit is a stored message and a connection per recipient
   domain. The Specification's per-connection and per-IP rate limits and
   per-user storage quotas apply. Hosts MAY apply stricter rate limits to
