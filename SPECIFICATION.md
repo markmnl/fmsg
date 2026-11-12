@@ -375,7 +375,11 @@ Attachment data
 
 ### Address
 
-![fmsg address](pics/address.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="pics/address-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="pics/address.svg">
+  <img alt="fmsg address" src="pics/address.svg">
+</picture>
 
 Domain part is the domain name RFC-1035 owning the address. Recipient part identifies the recipient known to hosts for the domain. A leading "@" character is prepended to distinguish from email addresses. The secondary "@" separates recipient and domain name as per norm.
 
